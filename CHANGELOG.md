@@ -5,6 +5,113 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.6.0-alpha] — Active Memory Runtime · Cycle 3: source disambiguation + restart persistence
+
+> Closes the memory-substrate loop. No new cognitive architecture; canonical components reused.
+> **Live verdict: 35/35 graded gates PASS, 0 fail, 0 skip** (`scripts/live_byon_eval.py`),
+> including the two-phase restart-recall gate and both paraphrase-bleed DISPUTED gates.
+
+### Added — source-class disambiguation (`gateway/source_policy.py`)
+- Every answer now carries an explicit **`query_class`** (system / user_vault / objective /
+  user_personal / secret / self_state / operational) and **`source_class`** (SYSTEM_CANONICAL,
+  VERIFIED_PROJECT_FACT, DOMAIN_VERIFIED, USER_MEMORY_GROUNDED, EXTRACTED_USER_CLAIM,
+  PROVISIONAL_WEB, DISPUTED_OR_UNSAFE, UNKNOWN).
+- `epistemic_search` enforces **`ALLOWED_PRIMARY`** on the answer pool, blocking source bleed
+  both ways: a personal vault note never grounds a system/objective question (framed
+  "În notele tale apare…", never "Este adevărat că…"), and a system/project fact never grounds a
+  personal "my X" / objective-world question (fixes a repo chunk loosely matching "what is my …"
+  returning a spurious KNOWN). A USER_VAULT query no longer short-circuits on a committed fact.
+- **Canonical-override guard:** a vault note that contradicts a fixed constraint (BYON is Level 3,
+  FCE-M can approve actions, the Auditor can be bypassed, BYON is conscious) is detected
+  (raw-hit scan + a **targeted vault probe**) and returned **DISPUTED** with the canonical
+  correction — never echoed as fact.
+
+### Added — two-phase restart-recall gate (`scripts/live_restart_recall_eval.py`, `restart_app.py`)
+- Phase A teaches a stable fact for `eval_restart_user`, confirms pre-restart recall, writes
+  `runtime/eval/restart_marker.json`; Phase B (after a real restart) verifies same-user recall is
+  KNOWN/grounded and a different user gets **no leak**. Integrated into the harness via
+  `BYON_EVAL_RESTART_PHASE=prepare|verify` (skips with an explicit reason when unset).
+- **Verified live:** Retezat taught pre-restart → KNOWN/USER_MEMORY_GROUNDED post-restart;
+  cross-user → PROVISIONAL_UNVERIFIED, no leak.
+
+### Changed — vault report coherence (`gateway/vault_training.py`)
+- Rich atomic resume report: `vault_path, vault_hash, files_scanned/indexed/skipped,
+  chunks_stored, facts_stored, trust_tier_distribution, errors, duration_seconds,
+  last_completed_file, vault_facts_in_memory`. **`stale=false` only when the report agrees with
+  the memory-service vault-fact count; `partial=false` only when complete.** Status handler
+  reports COMPLETE vs PARTIAL/STALE honestly.
+
+### Verified
+- **196 non-live tests** (21 new: `test_source_disambiguation.py` 7, `test_restart_recall_gate.py`
+  4, `test_vault_report_cycle3.py` 6, harness coverage +). Live harness **35/35**.
+- New harness report fields (`source_classes_used`, `vault_primary_gates`,
+  `canonical_required_gates`, `restart_recall`, `any_objective_grounded_in_user_memory`,
+  `any_cross_user_leak`) + failure categories SOURCE_BLEED / RESTART_PERSISTENCE /
+  VAULT_REPORT_STALE / CANONICAL_OVERRIDE_FAILURE / OBJECTIVE_FACT_FROM_USER_MEMORY /
+  CROSS_USER_LEAK / AUDIT_FAILURE.
+
+---
+
+## [10.5.0-alpha] — Active Memory Runtime · Cycles 1–2: expression learning, session events, harder evaluation
+
+> An autonomous self-improvement loop over the canonical runtime. Each target reuses
+> memory-service / FactExtractor / FCE-M / D_Cortex / Auditor — never a parallel store.
+
+### Added — expression / style learning (Gate 10, `gateway/expression_learning.py`)
+- Learns HOW the user wants answers phrased (language, directness, no-abstract-plans) as a
+  **`USER_PREFERENCE`** fact and re-phrases delivery only — never altering `epistemic_status`,
+  never removing uncertainty, never hiding sources, never honouring a fake/simulate request
+  (a request to "pretend / simulate / say it's done even if it isn't" is refused, not stored).
+
+### Added — literal per-session event stream (`gateway/session_events.py`)
+- `runtime/users/{user}/sessions/{id}/events.jsonl` logs every user/assistant turn with status,
+  intent, sources and audit trace id (additional to the audit log). The follow-up resolver and
+  chat-history summary prefer this stream and fall back to the audit log only when it is missing.
+
+### Added — live evaluation harness (`scripts/live_byon_eval.py`)
+- A behaves-like-a-user harness driving the running gateway, with adversarial/regression cases
+  (style learning, stale vault, follow-up chain, memory action, contradiction, vault-intent
+  separation, secret, web-off) + a structured report (pass/fail/skipped, failure_category,
+  root_cause_hint, vault-misuse / status-validity).
+- Harder pass surfaced and **fixed 3 real bugs**: English-only secret guard (now multilingual —
+  parola / cont bancar / IBAN / CNP / cod pin / cheie privată), "si apoi?" follow-up routing, and
+  vault `EXTRACTED_USER_CLAIM` notes grounding external/objective questions.
+
+### Verified
+- 178 non-live tests; live harness 25/25 graded (restart-recall documented skip, closed in 10.6).
+
+---
+
+## [10.4.0-alpha] — Active Memory Runtime · self-introspection, operational intents, LifeLoop v1
+
+> BYON answers questions about ITSELF from real runtime state — never from a vault note,
+> Claude prior, or a hardcoded slogan.
+
+### Added — self-introspection (`gateway/self_state_provider.py`)
+- `SELF_CAPABILITY_QUERY`, `SELF_MEMORY_STATE_QUERY`, `SELF_LIMITATION_QUERY`,
+  `SELF_RECENT_LEARNING_QUERY` answered from collected runtime signals (memory-service stats,
+  training reports, FCE-M/D_Cortex status, lifecycle candidate/committed/disputed counts,
+  consolidation log). Stale-source guard so an old limitation note is never reported as current.
+
+### Added — operational intent layer (`gateway/operational_intents.py`)
+- `SELF_DYNAMICS_REPORT_QUERY` (real internal-dynamics report), `SELF_PROOF_QUERY` (live probes,
+  not slogans), `CHAT_HISTORY_SUMMARY_QUERY`, `MEMORY_ACTION_QUERY` (runs the real FCE-M
+  consolidation or honestly says it must be run — never fakes it), `FOLLOWUP_QUERY`,
+  `VAULT_TRAINING_STATUS_QUERY`. Routed BEFORE any generic vault retrieval.
+
+### Added — self-training (`--train-self`) and Obsidian vault training (`--vault --train-vault`)
+- `gateway/self_training.py` ingests the repo corpus + canonical relation facts as
+  `VERIFIED_PROJECT_FACT` (system scope) → FCE-M consolidation. `gateway/vault_training.py`
+  ingests an Obsidian vault as the user's `EXTRACTED_USER_CLAIM` memory (thread-scoped).
+
+### Added — BYONLifeLoop v1 (`gateway/lifeloop.py`)
+- Minimal internal circulation: event stream, self_state snapshot, periodic FCE-M consolidation,
+  feedback pressure. **No new memory authority.** Endpoints `/v1/lifeloop`, `/v1/lifeloop/tick`.
+
+### Added — endpoints `/v1/research`, `/v1/consolidate`, `/v1/feedback` (feedback as a learning signal).
+
+---
+
 ## [10.3.1-alpha] — Retrieval priority + source routing fix
 
 > Fixes the v10.3 ranking defect (vault EXTRACTED_USER_CLAIM out-ranking committed

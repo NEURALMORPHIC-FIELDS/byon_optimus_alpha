@@ -11,16 +11,21 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.1-alpha (validated, real runs).** Progression:
+> **Status — v10.6-alpha (Active Memory Runtime, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
 > **v10.0** Longitudinal Generalization & Isolation (**`V10_LONGITUDINAL_VALIDATED` 8/8**,
 > `false_assertions=0`) →
 > **v10.1-alpha** BYON World Connector — Gateway + MCP + per-user namespace + connectors
-> (**`V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline**; BYON stays the only authority).
-> Confirmed full-organism GPU run: D_Cortex **87/87**, FSOAT **11/11**, live Claude E2E **3/3**,
-> vitest **697/697**; local pytest **38/38**. See `STATUS.md` and `CHANGELOG.md`.
+> (**`V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline**) →
+> **v10.2–10.3** Epistemic Search + Continuous Learning + Active Memory Core (canonical-only,
+> retrieval re-ranking) →
+> **v10.4** self-introspection + operational intents + BYONLifeLoop v1 →
+> **v10.5** expression/style learning + per-session event stream + live evaluation harness →
+> **v10.6-alpha** source-class disambiguation + two-phase restart-recall + vault-report coherence
+> (**live harness 35/35 graded PASS, 0 fail, 0 skip**; restart recall passes; **196 non-live tests**).
+> BYON stays the only epistemic authority throughout. See `STATUS.md` and `CHANGELOG.md`.
 >
 > Per development sheet §8: **advanced experimental prototype**, not a general LLM, not
 > consciousness, not a finished consumer product, **`FULL_LEVEL3_NOT_DECLARED`** preserved.
@@ -95,7 +100,8 @@ verdict, reusing the canonical BYON machinery (it does not rebuild it):
    continuing.
 
 Statuses: `KNOWN · PROVISIONAL · PROVISIONAL_UNVERIFIED · DISPUTED · NEEDS_MORE_TIME ·
-ASK_USER_FOR_SOURCE · UNKNOWN · REFUSED · ERROR`.
+ASK_USER_FOR_SOURCE · UNKNOWN · REFUSED · ERROR · SELF_STATE_GROUNDED · ACTION_DONE ·
+ACTION_REQUIRED`.
 
 **Continuous learning is a side-effect of interaction** (over the canonical memory-service,
 not a parallel store): web evidence is stored as candidates; repeated/accepted evidence raises
@@ -106,6 +112,62 @@ Claude or the web. Per-user isolation maps each user to a memory-service thread.
 Endpoint: `POST /v1/research` (`action: start|continue|conclude`). Knobs: `BYON_WEB_SEARCH_ENABLED`,
 `BYON_RESEARCH_BUDGET_SECONDS`, `BYON_RESEARCH_EXTENSION_SECONDS`, `BYON_RESEARCH_MAX_EXTENSIONS`,
 `BYON_AUTO_COMMIT_VERIFIED_WEB`, `BYON_CONSOLIDATION_EVIDENCE_THRESHOLD`.
+
+---
+
+# Active Memory Runtime (v10.4 → v10.6)
+
+On top of the research loop, BYON runs an **active-memory runtime** — all over the canonical
+memory-service / FactExtractor / FCE-M / D_Cortex / Auditor, never a parallel store.
+
+- **Self-introspection** (`self_state_provider.py`) — "ce capacități ai?", "ce ai în memorie?",
+  "ce limitări ai?" are answered from **real runtime state** (memory-service stats, training
+  reports, FCE-M/D_Cortex status, lifecycle counts), never from a vault note or a slogan.
+  `→ SELF_STATE_GROUNDED`.
+- **Operational intents** (`operational_intents.py`) — "rulează o analiză a dinamicii tale
+  interne", "dovedește că ești altfel" (live probes), "fă o listă cu ce am discutat",
+  "îmbunătățește-ți memoria" (runs the **real** FCE-M consolidation or says it must be run —
+  never fakes it), follow-ups, "cât din vault ai indexat?". `→ ACTION_DONE / ACTION_REQUIRED`.
+- **Expression / style learning** (`expression_learning.py`) — learns HOW you want answers
+  phrased ("răspunde direct în română, fără planuri abstracte") as a `USER_PREFERENCE` and
+  re-phrases **delivery only**: it never changes the epistemic status, removes uncertainty,
+  hides sources, or honours a request to fake/simulate.
+- **Per-session event stream** (`session_events.py`) — a literal
+  `runtime/users/{user}/sessions/{id}/events.jsonl`; follow-ups and chat summaries read it first.
+- **Self / vault training** — `--train-self` ingests the repo corpus + canonical relation facts
+  (`VERIFIED_PROJECT_FACT`, system-scope); `--vault <path> --train-vault` ingests an Obsidian
+  vault as the user's `EXTRACTED_USER_CLAIM` memory. The vault report is atomic, **resumable**
+  (`--max-files`, `--no-resume`) and **coherent** (`stale=false` only when the report agrees with
+  the memory-service vault-fact count; `partial=false` only when complete).
+
+## Source disambiguation — a fact's origin decides what it may ground
+
+Every answer carries a **`query_class`** and a **`source_class`**; `ALLOWED_PRIMARY`
+(`source_policy.py`) prevents **source bleed in both directions**:
+
+| Query | Allowed primary source | Wording / status |
+|---|---|---|
+| **System / architecture** ("FCE-M poate aproba acțiuni?") | SYSTEM_CANONICAL, VERIFIED_PROJECT_FACT | canonical answer; a vault note never overrides |
+| **User vault** ("ce am scris despre FCE-M?") | USER_MEMORY_GROUNDED, EXTRACTED_USER_CLAIM | "În notele tale apare…", never "Este adevărat că…" |
+| **Objective external** ("cine a câștigat World Cup 1998?") | DOMAIN_VERIFIED / verified web | a user note alone → PROVISIONAL / UNKNOWN, never KNOWN |
+| **Personal** ("care e culoarea mea preferată?") | USER_PREFERENCE / EXTRACTED_USER_CLAIM (same user) | cross-user forbidden |
+| **Secret / credential** | none | `UNKNOWN` / `REFUSED`, no Claude, no web |
+
+A vault note that contradicts a fixed canonical constraint ("BYON is Level 3", "FCE-M can
+approve actions", "the Auditor can be bypassed", "BYON is conscious") is surfaced but marked
+**`DISPUTED_OR_UNSAFE`** with the canonical correction — never echoed as truth.
+
+## Live evaluation & restart persistence
+
+```bash
+python scripts/live_byon_eval.py                      # behaves-like-a-user gates → JSON report
+# two-phase restart-recall (memory survives a restart, no cross-user leak):
+python scripts/live_restart_recall_eval.py --phase prepare    # teach + marker
+#   (restart the app)
+python scripts/live_restart_recall_eval.py --phase verify     # same-user KNOWN + other-user no-leak
+```
+Latest: **35/35 graded gates PASS, 0 fail, 0 skip** (incl. restart-recall + paraphrase-bleed),
+report at `runtime/eval/live_byon_eval_report.json`.
 
 ---
 
@@ -122,9 +184,20 @@ byon_optimus_alpha/
 │   ├── integrate.py           # local full-organism integration runner (Windows/Linux)
 │   ├── dcortex_v99_adapter.py # additive memory-organ adapter injected into memory-service
 │   └── byon-dcortex-v99-live-e2e.mjs  # live BYON+D_Cortex QA gating harness (Claude)
-├── gateway/                   # v10.1 BYON Gateway (FastAPI) — controlled /v1 world-facing API
+├── gateway/                   # BYON Gateway (FastAPI) — controlled /v1 API + Active Memory Runtime
+│   ├── memory_service_backend.py  # canonical REAL backend (FAISS + FCE-M + trust tiers)
+│   ├── epistemic_search.py    # research loop + source-class answer-pool gate
+│   ├── source_policy.py       # query/source-class matrix + canonical-constraint guard (v10.6)
+│   ├── query_router.py        # intent router + trust-tier re-ranking
+│   ├── self_state_provider.py # self-introspection from runtime state (v10.4)
+│   ├── operational_intents.py # dynamics/proof/history/memory-action/follow-up (v10.4)
+│   ├── expression_learning.py # style learning, delivery only — never truth (v10.5)
+│   ├── session_events.py      # literal per-session event stream (v10.5)
+│   ├── self_training.py · vault_training.py · lifeloop.py · fact_extractor_bridge.py
 ├── byon_mcp/                  # v10.1 BYON MCP server (5 tools, all routed through the Gateway)
 ├── integrations/              # v10.1 connectors: librechat/ · openclaw/ · n8n/
+├── scripts/                   # live_byon_eval.py · live_restart_recall_eval.py · byon_fact_extract.mjs
+├── run_byon.py                # one-command launcher (REAL: memory-service → gateway → UI)
 ├── colab/                     # single-cell GPU notebooks (full-organism + audit-only)
 ├── docs/                      # ARCHITECTURE.md, RESEARCH_REPORT.md
 ├── tests/                     # fast CPU tests + slow audit tests

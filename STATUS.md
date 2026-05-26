@@ -18,6 +18,10 @@ This file states only what was **run and verified**, organised by the version pr
 | **v9.9.3** | **Real FCE-M v15.7a runtime proof** (no shim, strict mode) | **PASS** — `fcem_runtime_proven=true` |
 | **v10.0** | **Longitudinal Generalization & Isolation** (8 standing gates, real FCE-M mandatory) | **PASS** — `V10_LONGITUDINAL_VALIDATED` 8/8, `false_assertions=0` |
 | **v10.1-alpha** | **BYON World Connector Alpha** (Gateway + MCP + per-user namespace + connectors) | **PASS** — `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline; live connector gates deferred |
+| **v10.2–10.3-alpha** | Epistemic Search + Continuous Learning + **Active Memory Core** (canonical-only; retrieval re-ranking by trust tier + intent) | **PASS** — 113/113 non-live; live re-verified on the restarted stack |
+| **v10.4-alpha** | Self-introspection (`SelfStateProvider`) + operational intents + self/vault training + **BYONLifeLoop v1** | **PASS** — answered from runtime state, never vault/slogan |
+| **v10.5-alpha** | Expression/style learning + per-session event stream + **live evaluation harness** | **PASS** — 178 non-live; live harness 25/25 graded (restart-recall documented skip) |
+| **v10.6-alpha** | **Source-class disambiguation + two-phase restart-recall + vault-report coherence** | **PASS** — **196 non-live; live harness 35/35 graded, 0 fail, 0 skip; restart recall passes** |
 
 ---
 
@@ -98,6 +102,33 @@ Deferred (need a live external service — reported, **never faked**): live Libr
 live OpenClaw channel, live n8n daily report, live BYON orchestrator routing (`HttpBYONBackend`),
 admin dashboard UI. BYON core untouched (`dcortex==10.0.0`, v10 gates unchanged);
 `FULL_LEVEL3_NOT_DECLARED` preserved.
+
+## v10.4–v10.6 — Active Memory Runtime · **VALIDATED (live harness 35/35)**
+The one-command app (`python run_byon.py`, UI http://localhost:7860) turned the connector into a
+working active-memory runtime, entirely over the canonical components (memory-service / FAISS /
+FCE-M / D_Cortex / FactExtractor / Auditor — never a parallel store, never `LocalBYONBackend` in
+REAL). Validation: **196 non-live pytest** + **live harness `scripts/live_byon_eval.py`**.
+
+| Area | Validated live |
+|---|---|
+| **Self-introspection** | capability / memory-state / limitation / recent-learning answered from runtime state → `SELF_STATE_GROUNDED`, never a vault note or slogan |
+| **Operational intents** | dynamics report, live proof probes, chat-history summary, memory-action (runs real FCE-M consolidation or says it must be run), follow-ups, vault-training status → `ACTION_DONE` / `ACTION_REQUIRED` |
+| **Expression learning** | style learned as `USER_PREFERENCE`; delivery re-phrased without changing status, uncertainty, or sources; fake/simulate refused |
+| **Session events** | `events.jsonl` per session; follow-up + chat-summary read it first, audit-log fallback |
+| **Source disambiguation** | every answer carries `query_class` + `source_class`; `ALLOWED_PRIMARY` blocks vault→system/objective AND system→personal bleed |
+| **Canonical-override guard** | a vault note claiming "BYON is Level 3" / "FCE-M can approve" / "Auditor can be bypassed" → **`DISPUTED`** with canonical correction, never echoed |
+| **Restart persistence** | two-phase gate: a fact taught pre-restart recalls **KNOWN** post-restart; a different user gets **no leak** |
+| **Secret guard** | multilingual (password / parolă / cont bancar / IBAN / CNP / cod pin / cheie privată) → `UNKNOWN` / `REFUSED`, no Claude/web |
+| **Vault report** | atomic + resumable; `stale=false` only when report agrees with memory-service vault-fact count; `partial=false` only when complete |
+
+Bugs the harder harness found and fixed (run, not claimed): English-only secret guard,
+"si apoi?" follow-up routing, vault notes grounding external/objective questions, a committed
+canonical fact answering a personal "my X" question, USER_VAULT short-circuiting on a canonical
+fact. `FULL_LEVEL3_NOT_DECLARED` preserved; BYON core (`dcortex==10.0.0`, v10 gates) untouched.
+
+> **Open:** the real Obsidian vault (`D:/cercetare`, 843 notes) is indexed incrementally
+> (resumable); the vault report states partial/complete honestly and is never claimed finished
+> while partial.
 
 ## Later track — v10.2 (External Longitudinal Challenge)
 Raises the v10 longitudinal bar with inputs the harness did not create (distinct from the v10.1
