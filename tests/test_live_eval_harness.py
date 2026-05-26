@@ -115,6 +115,19 @@ def test_harness_covers_cycle8_gates():
         assert gate in src, f"harness missing Cycle 8 gate {gate}"
 
 
+def test_harness_covers_cycle9_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle9_suite)
+    for gate in ["semantic_same_claim_merges", "semantic_contradiction_disputes",
+                 "unrelated_same_topic_not_merged", "canonical_conflict_beats_vault_claim",
+                 "two_same_source_not_enough_to_commit", "two_independent_sources_commit",
+                 "evidence_quality_visible", "disputed_answer_explains_why",
+                 "candidate_quality_blocks_weak_commit", "restart_recall_still_passes",
+                 "source_bleed_still_blocked", "tombstoned_facts_still_excluded",
+                 "LifeLoop_still_not_truth_authority", "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 9 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

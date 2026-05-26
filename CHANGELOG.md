@@ -5,6 +5,60 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.12.0-alpha] — Cycle 9: semantic contradiction + evidence quality
+
+> Candidates are merged/disputed by their SEMANTIC relation, not a claim-key string match, and a
+> candidate commits only when independent evidence is also of sufficient QUALITY.
+> **Live verdict: 106/106 graded gates PASS, 0 fail** (all Cycle 1–8 gates + 14 new), restart recall passed.
+
+### Added
+- `gateway/evidence_semantics.py` — `classify_evidence_relation()` returns one of
+  `same_claim | supports | contradicts | unrelated | narrows | broadens | canonical_conflict`.
+  Deterministic-first: canonical-constraint conflict and exact/lexical match and negation/antonym/
+  value polarity are primary and testable; a Claude/NLI pass is **advisory only** (opt-in
+  `BYON_EVIDENCE_NLI`) and can never override source policy or decide truth; a SYSTEM_CANONICAL
+  conflict always dominates semantic similarity; secret content is never classified.
+- **Semantic candidate lifecycle** (`candidate_lifecycle.py`): same/supports → merge & reinforce;
+  contradicts/canonical_conflict → DISPUTED challenger + incumbent contradiction; unrelated →
+  separate candidate; narrows/broadens → linked via `related_candidate_ids` (not merged). Stores
+  `semantic_relation`, `semantic_confidence`, `relation_method`.
+- **Evidence-quality commit gate**: `evidence_quality_score()` (0..1) rewards independent sources /
+  class diversity / verified sources / user confirmation; penalises same-source repetition,
+  unverified web, contradiction, staleness, low semantic confidence. Commit now requires
+  `evidence_count ≥ BYON_CANDIDATE_COMMIT_EVIDENCE` **AND** `quality ≥ BYON_CANDIDATE_COMMIT_QUALITY`
+  (default 0.70) **AND** no contradiction **AND** an allowed source class.
+- **Dispute explanation**: `candidate_disputes.jsonl` records `{candidate_id, challenger_id,
+  relation, evidence_a, evidence_b, source_class_a/b, reason, required_next_step}` where
+  `required_next_step ∈ {ask_user_for_source, search_verified_source, keep_disputed,
+  canonical_overrides, request_operator_resolution}`. New read-only endpoint
+  `GET /v1/lifeloop/disputes`.
+
+### Verified
+- 361 non-live tests (23 new); live harness **106/106 graded PASS, 0 fail** (14 new Cycle 9 gates +
+  all Cycle 1–8). Two-phase restart verify: same-user KNOWN recall survived restart, no cross-user
+  leak. Track A (true in-engine snapshot/atomic-swap) remains **deferred** per the sealed-engine rule.
+
+## [10.11.0-alpha] — Cycle 8: candidate-to-commit lifecycle
+
+> A LifeLoop task result becomes a CANDIDATE; only a consolidation decision (never LifeLoop / Claude /
+> FCE-M) moves it to committed / disputed / archived under the existing source/trust policy.
+> **Live verdict: 93/93 graded gates PASS, 0 fail**, restart recall passed.
+
+### Added
+- `gateway/candidate_lifecycle.py` — states candidate/reinforced/committed/disputed/archived/stale/
+  rejected; pure `evaluate_candidate()` decision (FCE-M sets priority only, never truth); evidence
+  merge counts INDEPENDENT sources only; contradiction → DISPUTED challenger; commit via canonical
+  memory-service with trust per source class (vault/user → USER_PREFERENCE, web → DOMAIN_VERIFIED
+  only after ≥2 independent, SYSTEM_CANONICAL never overridden); secret never becomes a candidate;
+  manual mark-false/important/request-evidence/approve-commit/archive. Endpoints
+  `/v1/lifeloop/candidates`, `/candidate/{id}`, `/consolidate-candidates`, `/candidate/{id}/{op}`.
+- `MEMORY_SERVICE_ENGINE_PATCH_PLAN.md` documents the deferred Track A in-engine snapshot.
+
+### Verified
+- 338 non-live tests (31 new); live harness 93/93 graded PASS. Candidate → reinforced(ev2) →
+  committed(USER_PREFERENCE) → retrievable; contradiction → disputed; stale → archived; web/secret
+  never committed.
+
 ## [10.10.0-alpha] — Cycle 7: in-engine consistency + permissioned autonomous tasks
 
 > LifeLoop drains SAFE internal tasks; consistency moves to a shared engine-coordination lock.

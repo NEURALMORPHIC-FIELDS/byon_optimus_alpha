@@ -456,6 +456,13 @@ def create_app(config: Optional[GatewayConfig] = None,
             raise HTTPException(status_code=404, detail="candidate not found")
         return {"candidate": c, "provenance": c.get("provenance")}
 
+    @app.get("/v1/lifeloop/disputes")
+    def lifeloop_disputes() -> Dict[str, Any]:
+        """Cycle 9: why a candidate is disputed — relation, both sides, source classes, next step.
+        Read-only explanation surface; LifeLoop still never answers the user or decides truth."""
+        d = _candidate_lc().list_disputes()
+        return {"count": len(d), "disputes": d}
+
     @app.post("/v1/lifeloop/consolidate-candidates")
     def lifeloop_consolidate_candidates() -> Dict[str, Any]:
         return {"ok": True, "decisions": _candidate_consolidator()}
