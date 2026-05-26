@@ -38,27 +38,44 @@ def test_harness_covers_all_pass_criteria():
 
 def test_harness_covers_adversarial_cases():
     import inspect
-    src = inspect.getsource(_load().Harness._adversarial)
+    m = _load()
+    src = inspect.getsource(m.Harness._adversarial) + inspect.getsource(m.Harness._restart_recall_gate)
     for gate in ["adv_style_learning", "adv_stale_vault", "adv_followup_chain",
                  "adv_memory_action", "adv_contradiction_teachB", "adv_vault_intent_separation",
                  "adv_secret", "adv_web_disabled", "adv_restart_recall"]:
         assert gate in src, f"harness missing adversarial case {gate}"
 
 
+def test_harness_covers_paraphrase_and_source_cases():
+    import inspect
+    src = inspect.getsource(_load().Harness._paraphrase_suite)
+    for gate in ["pp_system_fcem_approve", "pp_system_auditor_bypass", "pp_system_level",
+                 "pp_vault_auditor", "pp_vault_fcem", "pp_vault_dcortex",
+                 "pp_objective_worldcup", "pp_bleed_fcem_disputed", "pp_bleed_level3_disputed"]:
+        assert gate in src, f"harness missing paraphrase case {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)
     for field in ["pass_count", "fail_count", "skipped_count", "failure_categories",
-                  "any_vault_used_incorrectly", "all_statuses_epistemically_valid", "root_cause_hint"]:
+                  "any_vault_used_incorrectly", "all_statuses_epistemically_valid",
+                  "any_objective_grounded_in_user_memory", "any_cross_user_leak",
+                  "source_classes_used", "vault_primary_gates", "canonical_required_gates",
+                  "restart_recall", "root_cause_hint"]:
         assert field in src, f"report missing field {field}"
 
 
 def test_categorize_maps_reasons():
     m = _load()
-    assert m._categorize("a source contains forbidden 'vault:'")[0] == "grounding"
+    assert m._categorize("a source contains forbidden 'vault:'")[0] == m.CAT_SOURCE_BLEED
+    assert m._categorize("answer lacks ('x',)")[0] == "content"
     assert m._categorize("status=KNOWN not in (...)")[0] == "epistemic_status"
     assert m._categorize("intent=X != Y")[0] == "intent_routing"
-    assert m._categorize("LEAK")[0] == "isolation"
+    assert m._categorize("CROSS_USER_LEAK")[0] == m.CAT_CROSS_USER
+    assert m._categorize("canonical override")[0] == m.CAT_CANONICAL_OVERRIDE
+    assert m._categorize("objective fact from_user_memory")[0] == m.CAT_OBJECTIVE_FROM_USER
+    assert m._categorize("memory did not survive restart")[0] == m.CAT_RESTART
     assert m._categorize("request failed: boom")[0] == "transport"
 
 

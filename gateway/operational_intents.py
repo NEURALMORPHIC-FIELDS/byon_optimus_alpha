@@ -203,10 +203,20 @@ class OperationalIntents:
                     ["runtime:training_report"])
         notes = vr.get("files", 0)
         notes_total = vr.get("notes_total", notes)
-        stale = bool(vr.get("partial")) or (notes_total and notes < notes_total) or \
-            (notes <= 3 and total_facts and total_facts > 100)
-        msg = (f"Vault: {notes}/{notes_total or '?'} note indexate, {vr.get('chunks_stored')} chunks "
-               f"(total facts in memory-service: {total_facts}).")
-        if stale:
+        vault_in_mem = vr.get("vault_facts_in_memory")
+        # prefer the report's own agreement check (Cycle 3); fall back to heuristics for old reports
+        if "stale" in vr:
+            stale = bool(vr.get("stale"))
+        else:
+            stale = bool(vr.get("partial")) or (notes_total and notes < notes_total) or \
+                (notes <= 3 and total_facts and total_facts > 100)
+        complete = bool(vr.get("complete")) and not stale
+        mem_note = (f", {vault_in_mem} fapte vault in memory-service" if isinstance(vault_in_mem, int)
+                    and vault_in_mem >= 0 else "")
+        msg = (f"Vault: {notes}/{notes_total or '?'} note indexate, {vr.get('chunks_stored')} chunks"
+               f"{mem_note} (total facts in memory-service: {total_facts}).")
+        if complete:
+            msg += " Indexare COMPLETA (raportul si memory-service sunt de acord)."
+        elif stale:
             msg += " Raportul pare PARTIAL/STALE -> ruleaza din nou `--train-vault` pana la finalizare."
         return ("KNOWN", msg, ["runtime:training_report", "memory-service:stats"])

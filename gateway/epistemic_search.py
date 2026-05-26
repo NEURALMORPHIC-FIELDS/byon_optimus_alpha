@@ -23,6 +23,7 @@ from .internal_clock import (InternalResearchClock, PRESSURE_HIGH_CERTAINTY,
                              PRESSURE_SOURCES_CONFLICT, PRESSURE_UNSAFE_TOPIC, PRESSURE_WEB_FAIL)
 from .perspective_synthesis import synthesize
 from . import query_router as qr
+from . import source_policy as sp
 from . import web_search as ws
 
 _SECRET = re.compile(
@@ -182,10 +183,13 @@ class EpistemicSearch:
             return self._result(trace_id, clk, "UNKNOWN", "done",
                                 answer="", confidence=0.0, sources_searched=["memory"],
                                 memory_hits=[], web_results=[], claude_hypothesis=None,
-                                synthesis={"epistemic_verdict": "UNKNOWN",
+                                synthesis={"epistemic_verdict": "UNKNOWN", "intent": qr.SECRET_QUERY,
+                                           "query_class": sp.Q_SECRET, "source_class": sp.DISPUTED_OR_UNSAFE,
+                                           "vault_primary": False,
                                            "note": "secret/credential — not searched (no Claude/web)"})
 
         intent = qr.classify_intent(question)
+        qclass = sp.query_class(intent, question)
 
         # --- self-introspection: answer from RUNTIME STATE, never generic vault retrieval ----
         if intent in qr.SELF_STATE_INTENTS:
@@ -197,7 +201,8 @@ class EpistemicSearch:
             syn = {"epistemic_verdict": "KNOWN", "memory_view": "runtime self-state",
                    "claude_view": "not used (no prior accepted)", "web_view": "not used",
                    "conflict_view": "none", "confidence": 0.9, "sources": srcs, "intent": intent,
-                   "grounding": "SELF_STATE_GROUNDED"}
+                   "grounding": "SELF_STATE_GROUNDED", "query_class": qclass,
+                   "source_class": sp.SYSTEM_CANONICAL, "vault_primary": False}
             return self._result(trace_id, clk, "KNOWN", "done", answer=answer, confidence=0.9,
                                 sources_searched=["runtime:self_state", "memory-service:stats"],
                                 memory_hits=[], web_results=[], claude_hypothesis=None, synthesis=syn)
@@ -211,7 +216,8 @@ class EpistemicSearch:
             learning.record_event("chat", question=question, status=status, intent=intent)
             syn = {"epistemic_verdict": status, "memory_view": "runtime/operational",
                    "claude_view": "not used", "web_view": "not used", "conflict_view": "none",
-                   "confidence": 0.9, "sources": srcs, "intent": intent}
+                   "confidence": 0.9, "sources": srcs, "intent": intent, "query_class": qclass,
+                   "source_class": sp.SYSTEM_CANONICAL, "vault_primary": False}
             return self._result(trace_id, clk, status, "done", answer=answer, confidence=0.9,
                                 sources_searched=srcs, memory_hits=[], web_results=[],
                                 claude_hypothesis=None, synthesis=syn)
@@ -224,12 +230,21 @@ class EpistemicSearch:
         raw_hits = mem_client.search_facts(question, top_k=20, threshold=0.30,
                                            thread_id=user_id, scope="thread") if mem_client else []
         memory_hits = qr.rerank(raw_hits, intent)
-        # A personal Obsidian note (vault:* / EXTRACTED_USER_CLAIM) may answer "what did I write
-        # about X" (USER_VAULT) but must NOT silently ground an EXTERNAL/objective question — a
-        # note that merely shares vocabulary with the query is not evidence about the world.
-        if intent != qr.USER_VAULT_QUERY:
-            memory_hits = [h for h in memory_hits
-                           if not str((h.get("metadata") or {}).get("source", "")).startswith("vault:")]
+        # Source-class gate on the ANSWER POOL (Cycle 3), preventing source bleed both ways:
+        #  - a personal vault note (vault:* / EXTRACTED_USER_CLAIM) must NOT ground an external/
+        #    objective or self/system question (it only answers "what did I write…", USER_VAULT);
+        #  - a system/project fact (SYSTEM_CANONICAL / VERIFIED_PROJECT_FACT) must NOT ground a
+        #    personal "my X" or objective-world question (that is the canonical→personal bleed
+        #    seen when a repo chunk loosely matches "what is my …").
+        def _bleeds(h) -> bool:
+            src = str((h.get("metadata") or {}).get("source", ""))
+            if intent != qr.USER_VAULT_QUERY and src.startswith("vault:"):
+                return True
+            if qclass in (sp.Q_USER_PERSONAL, sp.Q_OBJECTIVE) and \
+                    sp.source_class_of(h) in (sp.SYSTEM_CANONICAL, sp.VERIFIED_PROJECT_FACT):
+                return True
+            return False
+        memory_hits = [h for h in memory_hits if not _bleeds(h)]
         sources_searched.append(f"memory[{intent}]")
         committed = qr.committed(memory_hits)
 
@@ -242,6 +257,40 @@ class EpistemicSearch:
             committed_pool = qr.committed(pool)
         else:
             committed_pool = committed
+        # A personal vault note must NEVER override a fixed canonical constraint under paraphrase
+        # ("BYON is Level 3", "FCE-M can approve actions", "the Auditor can be bypassed"). If such
+        # a note is retrieved for a system question, surface it but mark it DISPUTED_OR_UNSAFE and
+        # assert the canonical truth — never echo the note as fact.
+        unsafe = []
+        if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
+            unsafe = sp.detect_unsafe_vault_claims(question, raw_hits)
+            # targeted probe: a dangerous note ranked below the general top-K is still caught
+            seen_txt = {t for _, t in unsafe}
+            for c, t in sp.probe_unsafe_vault_claims(mem_client, user_id, question):
+                if t not in seen_txt:
+                    unsafe.append((c, t))
+                    seen_txt.add(t)
+        if unsafe:
+            memory_hits = pool
+            correction = sp.canonical_corrections(unsafe)
+            base, srcs = self._describe_from_facts(question, committed_pool) if committed_pool else ("", [])
+            answer = ("Pe scurt: " + correction + " O insemnare personala din vault sustine altceva, "
+                      "dar acea afirmatie este marcata DISPUTED_OR_UNSAFE si NU reflecta starea reala "
+                      "a sistemului (canonicul are prioritate fata de notele personale).")
+            if base:
+                answer += "\n\nContext canonic: " + base
+            clk.set_phase("done")
+            learning.record_event("chat", question=question, status="DISPUTED", grounded=True, intent=intent)
+            syn = {"epistemic_verdict": "DISPUTED", "memory_view": "canonical vs vault claim",
+                   "claude_view": "not authority", "web_view": "not needed",
+                   "conflict_view": "vault note contradicts canonical constraint",
+                   "confidence": 0.9, "sources": (srcs or []) + ["system:canonical"], "intent": intent,
+                   "query_class": qclass, "source_class": sp.DISPUTED_OR_UNSAFE,
+                   "vault_primary": False, "vault_claim_disputed": True}
+            return self._result(trace_id, clk, "DISPUTED", "done", answer=answer, confidence=0.9,
+                                sources_searched=sources_searched, memory_hits=memory_hits,
+                                web_results=[], claude_hypothesis=None, synthesis=syn)
+
         if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY) and committed_pool:
             memory_hits = pool
             answer, srcs = self._describe_from_facts(question, committed_pool)
@@ -249,16 +298,30 @@ class EpistemicSearch:
             learning.record_event("chat", question=question, status="KNOWN", grounded=True, intent=intent)
             syn = {"epistemic_verdict": "KNOWN", "memory_view": "canonical project/relation facts",
                    "claude_view": "phrased grounded facts (not authority)", "web_view": "not needed",
-                   "conflict_view": "none", "confidence": 0.9, "sources": srcs, "intent": intent}
+                   "conflict_view": "none", "confidence": 0.9, "sources": srcs, "intent": intent,
+                   "query_class": qclass, "source_class": sp.SYSTEM_CANONICAL, "vault_primary": False}
             return self._result(trace_id, clk, "KNOWN", "done", answer=answer, confidence=0.9,
                                 sources_searched=sources_searched, memory_hits=memory_hits,
                                 web_results=[], claude_hypothesis=None, synthesis=syn)
 
-        # fast path: committed grounded answer -> KNOWN, skip Claude/web (reranked order)
-        if committed:
+        # fast path: committed grounded answer -> KNOWN, skip Claude/web (reranked order).
+        # NOT for USER_VAULT: a vault question must be answered from the user's notes and framed
+        # as such, never short-circuited by a canonical/committed system fact.
+        # Source-class gate (Cycle 3): the committed fact must be an ALLOWED PRIMARY source for
+        # this query class — e.g. a system/project fact may not answer a personal "my X" question
+        # (that would be source bleed). Otherwise fall through to honest UNKNOWN/PROVISIONAL.
+        fast_ok = bool(committed) and intent != qr.USER_VAULT_QUERY
+        if fast_ok:
+            allowed = sp.ALLOWED_PRIMARY.get(qclass, set())
+            if allowed and sp.source_class_of(committed[0]) not in allowed:
+                fast_ok = False
+        if fast_ok:
             syn = synthesize(question=question, memory_hits=memory_hits, candidate_hits=[],
                              claude_hypothesis=None, web_results=[], web_enabled=allow_web)
             syn["intent"] = intent
+            syn["query_class"] = qclass
+            syn["source_class"] = sp.source_class_of(committed[0])
+            syn["vault_primary"] = sp.source_class_of(committed[0]) == sp.EXTRACTED_USER_CLAIM
             clk.set_phase("done")
             learning.record_event("chat", question=question, status=syn["epistemic_verdict"], grounded=True)
             return self._result(trace_id, clk, syn["epistemic_verdict"], "done",
@@ -316,10 +379,23 @@ class EpistemicSearch:
         if len(syn.get("distinct_claims", [])) >= 2:
             clk.add_pressure("sources_conflict", PRESSURE_SOURCES_CONFLICT)
         syn["intent"] = intent
+        syn["query_class"] = qclass
+        # source class of the answer: from the grounding hit (None for an empty UNKNOWN)
+        grounded = memory_hits[0] if memory_hits else None
+        if web_results and (syn.get("source_class") is None):
+            syn["source_class"] = sp.PROVISIONAL_WEB
+        elif grounded is not None and syn.get("answer"):
+            syn["source_class"] = sp.source_class_of(grounded)
+        else:
+            syn["source_class"] = sp.UNKNOWN
+        syn["vault_primary"] = (intent == qr.USER_VAULT_QUERY) or \
+            (syn.get("source_class") == sp.EXTRACTED_USER_CLAIM)
 
         # --- vault notes are framed as the USER'S notes, not current system state -----------
         if intent == qr.USER_VAULT_QUERY and syn.get("answer"):
             note = syn["answer"]
+            syn["source_class"] = sp.USER_MEMORY_GROUNDED if sp.source_class_of(grounded or {}) == \
+                sp.USER_MEMORY_GROUNDED else sp.EXTRACTED_USER_CLAIM
             if qr.is_stale_limitation(note):
                 syn["answer"] = ("In notele tale apare aceasta observatie ISTORICA (nu starea "
                                  "curenta a sistemului): " + note)
@@ -349,6 +425,7 @@ class EpistemicSearch:
     def _result(trace_id, clk, status, research_status, *, answer, confidence, sources_searched,
                 memory_hits, web_results, claude_hypothesis, synthesis, can_extend=None) -> Dict[str, Any]:
         snap = clk.snapshot()
+        syn = synthesis or {}
         return {
             "research_trace_id": trace_id,
             "epistemic_status": status,
@@ -356,6 +433,11 @@ class EpistemicSearch:
             "answer": answer,
             "confidence": confidence,
             "grounded": status == "KNOWN",
+            # source-disambiguation surface (Cycle 3) — easy to read from the API/harness
+            "query_class": syn.get("query_class"),
+            "source_class": syn.get("source_class"),
+            "vault_primary": syn.get("vault_primary"),
+            "vault_claim_disputed": syn.get("vault_claim_disputed", False),
             "clock": snap,
             "stress_percent": snap["stress_percent"],
             "phase": snap["phase"],

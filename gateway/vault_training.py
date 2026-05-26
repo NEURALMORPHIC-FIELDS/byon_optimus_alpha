@@ -111,22 +111,43 @@ def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
     vault_hash = hashlib.sha256("|".join(sorted(note_names.values())).encode()).hexdigest()[:12]
     report_path = Path(report_dir) / "vault_train_report.json"
 
-    def _report(partial: bool, completed: bool = False) -> Dict[str, Any]:
+    def _vault_facts_in_memory() -> int:
+        """Count of vault-sourced facts the memory-service actually holds for this owner.
+        Used to decide whether the report agrees with the substrate (stale detection)."""
         try:
-            vault_facts = client.search_facts("vault note", top_k=1, threshold=0.0,
-                                              thread_id=owner, scope="thread")
+            hits = client.search_facts("vault note", top_k=10000, threshold=0.0,
+                                       thread_id=owner, scope="thread")
         except Exception:
-            vault_facts = []
+            return -1   # unknown (memory-service unreachable) — do not claim agreement
+        return sum(1 for h in hits
+                   if str((h.get("metadata") or {}).get("source", "")).startswith("vault:"))
+
+    def _report(partial: bool, completed: bool = False) -> Dict[str, Any]:
+        in_memory = _vault_facts_in_memory()
+        indexed_total = len(manifest)   # cumulative notes indexed across runs (resume-aware)
+        # the report and memory-service AGREE iff the run is complete and the substrate holds at
+        # least one vault fact per indexed note; otherwise it is stale.
+        if in_memory < 0:
+            stale = True   # cannot confirm agreement
+        else:
+            stale = (not completed) or (indexed_total > 0 and in_memory < indexed_total)
+        duration = round(_time.time() - started, 2)
         rep = {
-            "vault": str(vault), "owner": owner, "notes_total": total_notes,
+            "vault_path": str(vault), "vault": str(vault), "owner": owner,
+            "notes_total": total_notes,
             "files_scanned": files_scanned, "files_indexed": files_indexed, "files": files_indexed,
-            "chunks_stored": chunks_stored, "facts_stored": chunks_stored, "skipped": skipped,
-            "errors": errors, "duration_s": round(_time.time() - started, 2),
+            "files_skipped": skipped, "skipped": skipped,
+            "indexed_total_cumulative": indexed_total,
+            "chunks_stored": chunks_stored, "facts_stored": chunks_stored,
+            "facts_extracted": chunks_stored,
+            "errors": errors, "duration_seconds": duration, "duration_s": duration,
             "last_completed_file": last_completed_file, "vault_hash": vault_hash,
             "backlinks": sum(len(v) for v in backlinks.values()),
-            "tags": sorted(tags_seen)[:40], "trust_tiers": trust_tiers,
+            "tags": sorted(tags_seen)[:40],
+            "trust_tier_distribution": dict(trust_tiers), "trust_tiers": trust_tiers,
+            "vault_facts_in_memory": in_memory,
             "partial": partial and not completed, "complete": completed,
-            "max_files": max_files,
+            "stale": bool(stale), "max_files": max_files,
         }
         try:
             _atomic_write_json(report_path, rep)
