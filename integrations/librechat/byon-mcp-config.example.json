@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "byon": {
+      "command": "python",
+      "args": ["-m", "byon_mcp.server"],
+      "env": {
+        "BYON_GATEWAY_URL": "http://127.0.0.1:8090"
+      }
+    }
+  },
+  "notes": "Only byon.chat returns a final user-facing answer. byon.memory_status, byon.feedback, byon.forget, byon.audit_trace are support tools. No tool queries D_Cortex/FCE-M directly or bypasses BYON's final audit."
+}

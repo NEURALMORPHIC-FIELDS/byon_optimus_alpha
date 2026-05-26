@@ -1,0 +1,17 @@
+{
+  "agent": {
+    "name": "byon-forwarder",
+    "policy": "forward-only",
+    "epistemic_authority": "BYON",
+    "answer_locally": false,
+    "use_local_memory_as_truth": false,
+    "preserve": ["user_id", "session_id", "epistemic_status"]
+  },
+  "byon": {
+    "gateway_url": "http://127.0.0.1:8090",
+    "transport": "mcp",
+    "tool": "byon.chat"
+  },
+  "channels": ["telegram", "whatsapp", "slack"],
+  "notes": "OpenClaw never answers from its own model/memory. Every inbound message is forwarded to BYON; BYON's verdict (KNOWN/UNKNOWN/DISPUTED/REFUSED) is relayed verbatim."
+}

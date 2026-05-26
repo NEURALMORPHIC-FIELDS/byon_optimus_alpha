@@ -1,0 +1,33 @@
+{
+  "name": "BYON Feedback Capture",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "byon-feedback",
+        "responseMode": "onReceived"
+      },
+      "name": "Feedback Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://127.0.0.1:8090/v1/feedback",
+        "sendBody": true,
+        "bodyParametersJson": "={{ JSON.stringify($json) }}"
+      },
+      "name": "Forward to BYON Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {
+    "Feedback Webhook": { "main": [[{ "node": "Forward to BYON Gateway", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "notes": "Feedback only. No sensitive side effects. The Gateway records the feedback in the user's audit namespace."
+}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "byon-dcortex"
-version = "10.0.0"
+version = "10.1.0"
 description = "BYON Optimus + D_Cortex — cognitive agent with morphogenetic, addressable, persistent and chronodynamic memory (off-Colab, enterprise harness)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,13 +42,31 @@ service = [
     "prometheus-client>=0.19.0",
     "anthropic>=0.32.0",
 ]
+gateway = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "httpx>=0.26.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "fastapi>=0.109.0",
+    "httpx>=0.26.0",
+    "pydantic>=2.5.0",
 ]
 
 [tool.setuptools]
-packages = ["dcortex"]
+packages = [
+    "dcortex",
+    "gateway",
+    "byon_mcp",
+    "integrations",
+    "integrations.openclaw",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

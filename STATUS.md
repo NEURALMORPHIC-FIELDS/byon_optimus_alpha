@@ -17,6 +17,7 @@ This file states only what was **run and verified**, organised by the version pr
 | **v9.9.2** | Epistemic Memory Contract (UNKNOWN-when-ungrounded) + coexistence reframe | PASS — GPU **87/87**; no_answer 0.567→1.0; v10 **8/8** |
 | **v9.9.3** | **Real FCE-M v15.7a runtime proof** (no shim, strict mode) | **PASS** — `fcem_runtime_proven=true` |
 | **v10.0** | **Longitudinal Generalization & Isolation** (8 standing gates, real FCE-M mandatory) | **PASS** — `V10_LONGITUDINAL_VALIDATED` 8/8, `false_assertions=0` |
+| **v10.1-alpha** | **BYON World Connector Alpha** (Gateway + MCP + per-user namespace + connectors) | **PASS** — `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline; live connector gates deferred |
 
 ---
 
@@ -80,10 +81,29 @@ missing real engine a **hard FAIL, never a skip**. Tag manifest: `MILESTONE_v10.
 (0 false assertions, cross-user contamination 0, real FCE-M mandatory, UNKNOWN on real OOV,
 delayed recall survives restart/interference), not the 8/8 tally itself.
 
-## Next step — v10.1 (External Longitudinal Challenge)
-Each gate raises v10's bar with inputs the harness did not create:
+## v10.1 — BYON World Connector Alpha · **VALIDATED (21/21 offline)**
+The external access layer that lets real people reach BYON, without any connector becoming
+the authority. BYON stays the only epistemic judge; connectors forward and relay the verdict.
+Run: `python -m gateway.alpha_validation` → `runtime/v10_1_out/v10_1_world_connector_alpha_report.json`,
+verdict `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED`. Code: `gateway/`, `byon_mcp/`, `integrations/`.
 
-| Gate (v10.1) | What it adds over v10 |
+| Area | Validated offline |
+|---|---|
+| **Gateway** | health, `user_id`/`session_id` required, no direct memory-service exposure, `epistemic_status` always present, UNKNOWN-when-ungrounded, **final-audit-required (un-audited KNOWN → REFUSED + blanked)**, audit trace per message, admin metrics, kill switch |
+| **Per-user memory** | per-user namespace created, user A cannot read user B, path-traversal refused, **cross-user contamination 0** |
+| **MCP** | 5 tools route through the Gateway, cannot bypass final audit, preserve UNKNOWN + audit trace, only `byon.chat` user-facing |
+| **Connectors** | OpenClaw forward-only adapter, n8n feedback intake + workflows, LibreChat config present |
+
+Deferred (need a live external service — reported, **never faked**): live LibreChat browser chat,
+live OpenClaw channel, live n8n daily report, live BYON orchestrator routing (`HttpBYONBackend`),
+admin dashboard UI. BYON core untouched (`dcortex==10.0.0`, v10 gates unchanged);
+`FULL_LEVEL3_NOT_DECLARED` preserved.
+
+## Later track — v10.2 (External Longitudinal Challenge)
+Raises the v10 longitudinal bar with inputs the harness did not create (distinct from the v10.1
+connector work):
+
+| Gate (v10.2) | What it adds over v10 |
 |---|---|
 | `EXTERNAL_DOCUMENT_STREAM` | documents not authored by the harness |
 | `TEMPORAL_GAP_REAL` | real delay or timestamped replay (not simulated episodes) |

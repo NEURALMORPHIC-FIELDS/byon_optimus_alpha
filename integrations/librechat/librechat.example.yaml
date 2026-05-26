@@ -1,0 +1,18 @@
+# LibreChat ⇆ BYON (example). Copy to your LibreChat deployment and adjust.
+# BYON is reached ONLY via the BYON MCP server; LibreChat is never the authority.
+version: 1.2.0
+
+mcpServers:
+  byon:
+    # Launch the BYON MCP server (which routes through the BYON Gateway).
+    command: python
+    args: ["-m", "byon_mcp.server"]
+    env:
+      BYON_GATEWAY_URL: "http://127.0.0.1:8090"
+
+interface:
+  # Surface only BYON's epistemic verdict to the user; hide internal memory plumbing.
+  customWelcome: "Conectat la BYON. Răspunsurile sunt auditate epistemic (KNOWN / UNKNOWN / DISPUTED / REFUSED)."
+
+# NOTE: BYON enforces UNKNOWN-when-ungrounded and final audit on the Gateway side.
+# Do not configure LibreChat-side memory or tools as a source of truth.

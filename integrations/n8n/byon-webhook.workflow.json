@@ -1,0 +1,34 @@
+{
+  "name": "BYON Daily Alpha Report",
+  "nodes": [
+    {
+      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1 }] } },
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": { "method": "GET", "url": "=http://127.0.0.1:8090/v1/admin/metrics" },
+      "name": "Pull BYON Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { report: 'BYON daily alpha report', metrics: $json } }];"
+      },
+      "name": "Format Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": { "main": [[{ "node": "Pull BYON Metrics", "type": "main", "index": 0 }]] },
+    "Pull BYON Metrics": { "main": [[{ "node": "Format Report", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "notes": "Read-only metrics pull + format. No emails/calendar/financial/file/account actions (forbidden in alpha)."
+}

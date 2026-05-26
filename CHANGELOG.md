@@ -5,6 +5,45 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.1.0-alpha] — BYON World Connector Alpha · **verdict: V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED (21/21 offline)**
+
+> Not a rewrite of BYON. A **connector layer** that lets non-technical users reach BYON
+> through a browser UI (and later messaging / automation), while preserving BYON as the
+> *only* epistemic authority. Nothing in this layer decides truth — it forwards to BYON
+> and relays BYON's verdict (KNOWN / UNKNOWN / DISPUTED / REFUSED / ERROR).
+
+### Added (Python / FastAPI, in this repo)
+- **`gateway/`** — BYON Gateway: a controlled `/v1` surface (`/chat`, `/feedback`,
+  `/forget`, `/memory/status`, `/audit/{trace_id}`, `/health`, `/admin/metrics`). It never
+  exposes raw memory-service / D_Cortex / FCE-M / FAISS. Mandatory `user_id`+`session_id`,
+  per-user memory namespace, audit trace per message, kill switch. The Gateway never
+  answers — it delegates to a `BYONBackend`; the production `HttpBYONBackend` **fails hard**
+  (ERROR, no answer) if BYON is unreachable, never fabricates (dev-sheet §7.3).
+- **`gateway/normalizer.py`** mechanically enforces: no answer leaves without BYON's final
+  audit; non-KNOWN verdicts never carry a confident answer; UNKNOWN-when-ungrounded preserved.
+- **`gateway/namespace.py`** — per-user isolated memory namespaces; path-traversal and
+  cross-user access refused by construction.
+- **`byon_mcp/`** — BYON MCP server (5 tools: `byon.chat/memory_status/feedback/forget/
+  audit_trace`). Every tool routes through the Gateway; none queries D_Cortex/FCE-M directly
+  or bypasses the final audit; only `byon.chat` is user-facing. (`mcp` SDK imported lazily.)
+- **`integrations/`** — LibreChat (web UI config + alpha user guide), OpenClaw (forward-only
+  adapter + agent policy), n8n (feedback + daily-report workflows; sensitive actions disabled).
+- **`gateway/alpha_validation.py`** + `tests/test_v10_1_world_connector_alpha.py` — 21 offline
+  gates; live connector gates (LibreChat/OpenClaw/n8n/live orchestrator) reported as
+  **deferred, never faked**.
+
+### Verified (offline, deterministic injected BYON backend)
+- `verdict = V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` (**21/21**): gateway health, user_id/
+  session_id required, no direct memory exposure, epistemic_status always present, UNKNOWN
+  when ungrounded, **final-audit-required (un-audited KNOWN → REFUSED + blanked)**, audit trace
+  per message, per-user namespace, **cross-user contamination 0**, MCP routes through gateway
+  + cannot bypass audit + preserves UNKNOWN/trace, OpenClaw forward-only, n8n feedback, admin
+  metrics, kill switch, LibreChat config present. Full suite pytest **38/38**.
+- BYON core untouched: D_Cortex (`dcortex==10.0.0`), FCE-M core, and the v10 validation gates
+  are unchanged. `FULL_LEVEL3_NOT_DECLARED` preserved.
+
+---
+
 ## [10.0] — Longitudinal Generalization & Isolation · **verdict: V10_LONGITUDINAL_VALIDATED (8/8)**
 
 > **Canonical formulation.** v10.0 — Longitudinal Generalization & Isolation validates the

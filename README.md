@@ -11,14 +11,16 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.0 (validated, real runs).** Progression:
+> **Status — v10.1-alpha (validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
 > **v10.0** Longitudinal Generalization & Isolation (**`V10_LONGITUDINAL_VALIDATED` 8/8**,
-> `false_assertions=0`, real FCE-M mandatory + fail-hard).
+> `false_assertions=0`) →
+> **v10.1-alpha** BYON World Connector — Gateway + MCP + per-user namespace + connectors
+> (**`V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline**; BYON stays the only authority).
 > Confirmed full-organism GPU run: D_Cortex **87/87**, FSOAT **11/11**, live Claude E2E **3/3**,
-> vitest **697/697**; local pytest **15/15**. See `STATUS.md` and `CHANGELOG.md`.
+> vitest **697/697**; local pytest **38/38**. See `STATUS.md` and `CHANGELOG.md`.
 >
 > Per development sheet §8: **advanced experimental prototype**, not a general LLM, not
 > consciousness, not a finished consumer product, **`FULL_LEVEL3_NOT_DECLARED`** preserved.
@@ -39,6 +41,9 @@ byon_optimus_alpha/
 │   ├── integrate.py           # local full-organism integration runner (Windows/Linux)
 │   ├── dcortex_v99_adapter.py # additive memory-organ adapter injected into memory-service
 │   └── byon-dcortex-v99-live-e2e.mjs  # live BYON+D_Cortex QA gating harness (Claude)
+├── gateway/                   # v10.1 BYON Gateway (FastAPI) — controlled /v1 world-facing API
+├── byon_mcp/                  # v10.1 BYON MCP server (5 tools, all routed through the Gateway)
+├── integrations/              # v10.1 connectors: librechat/ · openclaw/ · n8n/
 ├── colab/                     # single-cell GPU notebooks (full-organism + audit-only)
 ├── docs/                      # ARCHITECTURE.md, RESEARCH_REPORT.md
 ├── tests/                     # fast CPU tests + slow audit tests

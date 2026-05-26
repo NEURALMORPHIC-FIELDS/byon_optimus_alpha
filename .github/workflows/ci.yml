@@ -20,6 +20,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install numpy requests pytest pytest-cov
+          pip install fastapi httpx pydantic   # v10.1 World Connector (gateway) tests
 
       - name: Stage level3-research checkout (for the real-BYON import test)
         run: |
