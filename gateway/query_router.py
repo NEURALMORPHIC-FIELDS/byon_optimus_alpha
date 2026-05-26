@@ -42,6 +42,13 @@ LIMITATION_TRIGGERS = ["ce nu poti face", "ce nu poți face", "ce limitari ai", 
 RECENT_LEARNING_TRIGGERS = ["ce ai invatat recent", "ce ai învățat recent", "ce ai consolidat recent",
                             "ce s-a schimbat in memoria ta", "ce s-a schimbat în memoria ta",
                             "recent learning", "what did you learn recently", "ce ai invatat ultima"]
+# LifeLoop v2 internal state — pressures, contradictions noticed, pending internal tasks
+INTERNAL_STATE_TRIGGERS = ["ce te preocupa", "ce te preocupă", "ce presiuni ai", "ce presiuni active",
+                           "presiuni interne", "ce contradictii ai observat", "ce contradicții ai observat",
+                           "ce sarcini interne", "sarcini in asteptare", "sarcini în așteptare",
+                           "what concerns you internally", "internal pressure", "internal pressures",
+                           "pending internal tasks", "ce te framanta", "ce te frământă",
+                           "dinamica ta interna actuala", "starea ta interna"]
 MEMORY_STATE_TRIGGERS = ["ce ai asimilat", "ce ai in memorie", "ce ai în memorie", "ce ai invatat",
                          "ce ai învățat", "ce ai indexat", "ce ai memorat", "ce ai stocat",
                          "what have you learned", "what is in your memory", "what's in your memory",
@@ -88,6 +95,7 @@ SELF_CAPABILITY_QUERY = "SELF_CAPABILITY_QUERY"
 SELF_MEMORY_STATE_QUERY = "SELF_MEMORY_STATE_QUERY"
 SELF_LIMITATION_QUERY = "SELF_LIMITATION_QUERY"
 SELF_RECENT_LEARNING_QUERY = "SELF_RECENT_LEARNING_QUERY"
+SELF_INTERNAL_STATE_QUERY = "SELF_INTERNAL_STATE_QUERY"
 SELF_DYNAMICS_REPORT_QUERY = "SELF_DYNAMICS_REPORT_QUERY"
 SELF_PROOF_QUERY = "SELF_PROOF_QUERY"
 CHAT_HISTORY_SUMMARY_QUERY = "CHAT_HISTORY_SUMMARY_QUERY"
@@ -101,7 +109,7 @@ CONTRADICTION_QUERY = "CONTRADICTION_QUERY"
 
 # intents answered from the SelfStateProvider (runtime state), never from generic vault
 SELF_STATE_INTENTS = {SELF_CAPABILITY_QUERY, SELF_MEMORY_STATE_QUERY,
-                      SELF_LIMITATION_QUERY, SELF_RECENT_LEARNING_QUERY}
+                      SELF_LIMITATION_QUERY, SELF_RECENT_LEARNING_QUERY, SELF_INTERNAL_STATE_QUERY}
 # operational/self-referential intents handled by operational_intents (also never vault)
 OPERATIONAL_INTENTS = {SELF_DYNAMICS_REPORT_QUERY, SELF_PROOF_QUERY, CHAT_HISTORY_SUMMARY_QUERY,
                        MEMORY_ACTION_QUERY, FOLLOWUP_QUERY, VAULT_TRAINING_STATUS_QUERY}
@@ -133,6 +141,8 @@ def classify_intent(question: str) -> str:
         return SELF_LIMITATION_QUERY
     if any(t in q for t in RECENT_LEARNING_TRIGGERS):
         return SELF_RECENT_LEARNING_QUERY
+    if any(t in q for t in INTERNAL_STATE_TRIGGERS):
+        return SELF_INTERNAL_STATE_QUERY
     if any(t in q for t in MEMORY_STATE_TRIGGERS):
         return SELF_MEMORY_STATE_QUERY
     # short follow-ups (exact or specific phrases) — late so specific intents win

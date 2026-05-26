@@ -165,7 +165,10 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         metrics["messages"] += 1
         metrics[response.epistemic_status.lower()] = metrics.get(response.epistemic_status.lower(), 0) + 1
-        lifeloop.record_interaction(question=req.message, status=response.epistemic_status, user_id=req.user_id)
+        lifeloop.record_interaction(question=req.message, status=response.epistemic_status,
+                                    user_id=req.user_id, session_id=req.session_id,
+                                    sources=response.grounding_summary.sources,
+                                    audit_trace_id=trace_id, answer_head=response.answer)
 
         audit.write(trace_id, {
             "kind": "chat",
@@ -213,7 +216,13 @@ def create_app(config: Optional[GatewayConfig] = None,
         st = str(out.get("epistemic_status", "ERROR"))
         metrics["messages"] += 1
         metrics[st.lower()] = metrics.get(st.lower(), 0) + 1
-        lifeloop.record_interaction(question=req.question, status=st, user_id=req.user_id)
+        _syn = out.get("synthesis") or {}
+        lifeloop.record_interaction(question=req.question, status=st, user_id=req.user_id,
+                                    session_id=req.session_id, query_class=out.get("query_class"),
+                                    source_class=out.get("source_class"), intent=_syn.get("intent"),
+                                    sources=_syn.get("sources"), audit_trace_id=trace_id,
+                                    stress_percent=out.get("stress_percent"),
+                                    answer_head=out.get("answer"))
         audit.write(trace_id, {"kind": "research", "user_id": req.user_id, "user_slug": ns.slug,
                                "session_id": req.session_id, "question": req.question,
                                "epistemic_status": st, "research_status": out.get("research_status"),
@@ -238,6 +247,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not hasattr(backend, "consolidate"):
             return {"ok": False, "message": "active backend has no consolidation"}
         ns = _namespace(user_id)
+        lifeloop.record_event("memory_action", topic="consolidate", user_id=user_id)
         return {"ok": True, **backend.consolidate(user_id=user_id, namespace_dir=ns.root)}
 
     @app.post("/v1/feedback")
@@ -266,7 +276,8 @@ def create_app(config: Optional[GatewayConfig] = None,
         except OSError:
             pass
         metrics["feedback"] += 1
-        lifeloop.record_feedback(rating=req.rating, user_id=req.user_id)
+        lifeloop.record_feedback(rating=req.rating, user_id=req.user_id,
+                                 question=req.value or req.note, audit_trace_id=req.audit_trace_id)
         try:
             SessionEvents(ns.root, req.session_id).append("feedback", rating=req.rating,
                                                           value=req.value, applied=applied)
@@ -303,14 +314,63 @@ def create_app(config: Optional[GatewayConfig] = None,
         return JSONResponse(rec)
 
     @app.get("/v1/lifeloop")
-    def lifeloop_state() -> Dict[str, Any]:
+    def lifeloop_state(backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
         return {"self_state": lifeloop.snapshot(),
+                "lifeloop": lifeloop.status_v2(getattr(backend, "mem", None)),
                 "consolidate_every": lifeloop.consolidate_every,
                 "pressure_threshold": lifeloop.pressure_threshold}
 
     @app.post("/v1/lifeloop/tick")
     def lifeloop_tick(backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
         return lifeloop.tick(getattr(backend, "mem", None))
+
+    @app.post("/v1/lifeloop/run-task/{task_id}")
+    def lifeloop_run_task(task_id: str, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
+        from .research_tasks import BLOCKED_NEEDS_PERMISSION, DONE, FAILED, RUNNING
+        t = lifeloop.tasks.get(task_id)
+        if not t:
+            raise HTTPException(status_code=404, detail="task not found")
+        if t["status"] == BLOCKED_NEEDS_PERMISSION:
+            return {"ok": False, "status": t["status"],
+                    "message": "web research blocked — approve first via /v1/lifeloop/approve-web"}
+        # internal (memory/vault/self_state) research runs through the canonical backend research
+        # loop; it never bypasses memory-service/audit and never invents truth.
+        lifeloop.tasks.set_status(task_id, RUNNING)
+        try:
+            if hasattr(backend, "research"):
+                ns = _namespace(t.get("trigger_user", "lifeloop"))
+                out = backend.research(user_id="lifeloop", session_id="lifeloop_task",
+                                       question=t["question"], namespace_dir=ns.root,
+                                       allow_web=("web" in t.get("allowed_sources", []) and
+                                                  not t.get("requires_user_permission")),
+                                       allow_claude=True, action="start")
+                res = {"epistemic_status": out.get("epistemic_status"),
+                       "answer_head": (out.get("answer") or "")[:200],
+                       "source_class": out.get("source_class")}
+            else:
+                res = {"epistemic_status": "ERROR", "answer_head": "no research backend"}
+            lifeloop.tasks.set_status(task_id, DONE, result=res)
+            lifeloop.ingest_event("research_task_done", task_id=task_id,
+                                  epistemic_status=res.get("epistemic_status"))
+            return {"ok": True, "task": lifeloop.tasks.get(task_id)}
+        except Exception as exc:
+            lifeloop.tasks.set_status(task_id, FAILED, result={"error": str(exc)})
+            return {"ok": False, "error": str(exc)}
+
+    @app.post("/v1/lifeloop/approve-web/{task_id}")
+    def lifeloop_approve_web(task_id: str) -> Dict[str, Any]:
+        t = lifeloop.tasks.approve_web(task_id)
+        if not t:
+            raise HTTPException(status_code=404, detail="task not found")
+        lifeloop.ingest_event("research_task_web_approved", task_id=task_id)
+        return {"ok": True, "task": t}
+
+    @app.post("/v1/lifeloop/cancel-task/{task_id}")
+    def lifeloop_cancel_task(task_id: str) -> Dict[str, Any]:
+        t = lifeloop.tasks.cancel(task_id)
+        if not t:
+            raise HTTPException(status_code=404, detail="task not found")
+        return {"ok": True, "task": t}
 
     @app.get("/v1/admin/metrics")
     def admin_metrics() -> Dict[str, Any]:

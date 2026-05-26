@@ -61,6 +61,62 @@ class SelfStateProvider:
         except Exception:
             return 0
 
+    # -- LifeLoop v2 internal state (pressure / tasks / temporal snapshots) ---
+    def _lifeloop_dir(self) -> Path:
+        return self.lifeloop_events.parent
+
+    def _pressure_state(self) -> Dict[str, Any]:
+        return _read_json(self._lifeloop_dir() / "pressure_state.json") or {}
+
+    def _research_tasks(self) -> List[Dict[str, Any]]:
+        p = self._lifeloop_dir() / "research_tasks.jsonl"
+        if not p.exists():
+            return []
+        tasks: Dict[str, Dict[str, Any]] = {}
+        try:
+            for line in p.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    t = json.loads(line)
+                    tasks[t["task_id"]] = t            # last record wins
+        except (OSError, json.JSONDecodeError):
+            return []
+        return [t for t in tasks.values() if t.get("status") in
+                ("pending", "running", "blocked_needs_permission")]
+
+    def _latest_snapshot(self) -> Optional[Dict[str, Any]]:
+        p = self._lifeloop_dir() / "self_state_snapshots.jsonl"
+        if not p.exists():
+            return None
+        try:
+            lines = [x for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+            return json.loads(lines[-1]) if lines else None
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def internal_state_summary(self) -> List[str]:
+        ps = self._pressure_state()
+        topics = sorted((ps.get("topics") or {}).values(), key=lambda r: r.get("pressure", 0), reverse=True)
+        active = [t for t in topics if t.get("pressure", 0) > 0][:5]
+        tasks = self._research_tasks()
+        disputed = [t for t in topics if t.get("disputed_count", 0) > 0][:5]
+        out = [f"presiune interna totala: {ps.get('total', 0)}",
+               f"topicuri sub presiune: {len(active)}"]
+        for t in active:
+            out.append(f"  - \"{t['topic'][:60]}\" presiune={t['pressure']} "
+                       f"(unknown={t.get('unknown_count',0)}, disputed={t.get('disputed_count',0)}) "
+                       f"-> {t.get('recommended_action')}")
+        if disputed:
+            out.append(f"contradictii observate pe {len(disputed)} topic(uri): "
+                       + "; ".join(f"\"{t['topic'][:40]}\"" for t in disputed))
+        else:
+            out.append("contradictii observate: niciuna activa")
+        out.append(f"sarcini interne de cercetare in asteptare: {len(tasks)}")
+        for t in tasks[:6]:
+            out.append(f"  - [{t.get('status')}] \"{t.get('question','')[:60]}\" "
+                       f"(surse permise: {','.join(t.get('allowed_sources', []))})")
+        out.append("Nota: LifeLoop observa si propune; NU raspunde direct si NU este autoritate de adevar.")
+        return out
+
     def _lifeloop_tail(self, kinds, limit=5) -> List[Dict[str, Any]]:
         if not self.lifeloop_events.exists():
             return []
@@ -185,6 +241,14 @@ class SelfStateProvider:
             out.append(f"vault report present: {st['vault_training'].get('chunks_stored','?')} chunks")
         out.append(f"recent FCE-M consolidations logged: {len(st['last_consolidations'])}")
         out.append(f"recent feedback events: {len(st['recent_feedback'])}")
+        snap = self._latest_snapshot()
+        if snap:
+            out.append(f"ultima stare interna (snapshot tick {snap.get('tick')}): "
+                       f"known={snap.get('known_count')}, unknown={snap.get('unknown_count')}, "
+                       f"disputed={snap.get('disputed_count')}, unknown_rate={snap.get('unknown_rate')}, "
+                       f"presiune={snap.get('pressure_total')}, "
+                       f"sarcini active={snap.get('active_research_tasks')}, "
+                       f"vault active/tombstoned={snap.get('active_vault_facts')}/{snap.get('tombstoned_vault_facts')}")
         if not out:
             out = ["no recent learning recorded yet"]
         return out
@@ -205,7 +269,11 @@ class SelfStateProvider:
         elif intent == qr.SELF_LIMITATION_QUERY:
             text = "Limitari curente:\n- " + "\n- ".join(self.limitations(st))
         elif intent == qr.SELF_RECENT_LEARNING_QUERY:
-            text = "Invatare recenta (din loguri/rapoarte):\n- " + "\n- ".join(self.recent_learning(st))
+            text = "Invatare recenta (din loguri/rapoarte + snapshot-uri LifeLoop):\n- " + "\n- ".join(self.recent_learning(st))
+        elif intent == qr.SELF_INTERNAL_STATE_QUERY:
+            text = ("Stare interna LifeLoop v2 (presiuni, contradictii, sarcini — observatii, nu raspuns):\n- "
+                    + "\n- ".join(self.internal_state_summary()))
+            sources = ["runtime:lifeloop:pressure", "runtime:lifeloop:tasks", "runtime:lifeloop:snapshots"]
         else:  # SELF_MEMORY_STATE_QUERY
             text = ("Ce am asimilat in memorie (stare reala, nu nota de vault):\n- "
                     + "\n- ".join(self.memory_state_summary(st)))

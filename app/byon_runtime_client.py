@@ -159,6 +159,37 @@ class BYONRuntimeClient:
         except Exception:
             return {"backend": {}, "error": "memory status unavailable"}
 
+    # -- lifeloop v2 (always via the Gateway; never memory-service directly) -----
+    def lifeloop_state(self) -> Dict[str, Any]:
+        try:
+            return self._request("GET", "/v1/lifeloop").json()
+        except Exception:
+            return {"lifeloop": {"enabled": False}, "error": "lifeloop unavailable"}
+
+    def lifeloop_tick(self) -> Dict[str, Any]:
+        try:
+            return self._request("POST", "/v1/lifeloop/tick").json()
+        except Exception:
+            return {"ok": False, "message": "tick unavailable"}
+
+    def lifeloop_run_task(self, task_id: str) -> Dict[str, Any]:
+        try:
+            return self._request("POST", f"/v1/lifeloop/run-task/{task_id}").json()
+        except Exception:
+            return {"ok": False, "message": "run-task unavailable"}
+
+    def lifeloop_approve_web(self, task_id: str) -> Dict[str, Any]:
+        try:
+            return self._request("POST", f"/v1/lifeloop/approve-web/{task_id}").json()
+        except Exception:
+            return {"ok": False, "message": "approve-web unavailable"}
+
+    def lifeloop_cancel_task(self, task_id: str) -> Dict[str, Any]:
+        try:
+            return self._request("POST", f"/v1/lifeloop/cancel-task/{task_id}").json()
+        except Exception:
+            return {"ok": False, "message": "cancel-task unavailable"}
+
     # -- forget ------------------------------------------------------------
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         try:
@@ -233,3 +264,22 @@ class DemoBYONClient:
 
     def audit_trace(self, trace_id: str) -> Dict[str, Any]:
         return {"ok": True, "trace": {"trace_id": trace_id, "demo": True}}
+
+    def lifeloop_state(self) -> Dict[str, Any]:
+        return {"lifeloop": {"enabled": True, "version": "v2", "pressure_total": 0,
+                             "pending_research_tasks": [], "top_pressure_topics": [],
+                             "consolidation_count": 0, "unknown_rate": 0.0,
+                             "active_vault_facts": None, "tombstoned_vault_facts": None,
+                             "memory_service_read_consistency_mode": "demo"}}
+
+    def lifeloop_tick(self) -> Dict[str, Any]:
+        return {"consolidated": False, "self_state": {"ticks": 0}, "demo": True}
+
+    def lifeloop_run_task(self, task_id: str) -> Dict[str, Any]:
+        return {"ok": True, "demo": True}
+
+    def lifeloop_approve_web(self, task_id: str) -> Dict[str, Any]:
+        return {"ok": True, "demo": True}
+
+    def lifeloop_cancel_task(self, task_id: str) -> Dict[str, Any]:
+        return {"ok": True, "demo": True}

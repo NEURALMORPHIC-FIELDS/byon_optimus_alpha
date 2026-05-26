@@ -74,6 +74,19 @@ def test_harness_covers_cycle5_gates():
         assert gate in src, f"harness missing Cycle 5 gate {gate}"
 
 
+def test_harness_covers_cycle6_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle6_suite)
+    for gate in ["lifeloop_status_v2", "unknown_creates_pressure",
+                 "repeated_unknown_creates_research_task", "secret_does_not_create_research_task",
+                 "negative_feedback_increases_pressure", "consolidation_reduces_pressure",
+                 "disputed_answer_triggers_consolidation_queue", "self_state_snapshots_written",
+                 "pending_tasks_visible", "approve_web_required_for_web_task",
+                 "lifeloop_does_not_answer_directly", "source_bleed_still_blocked",
+                 "recent_write_buffer_still_works", "tombstoned_facts_still_excluded"]:
+        assert gate in src, f"harness missing Cycle 6 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)
