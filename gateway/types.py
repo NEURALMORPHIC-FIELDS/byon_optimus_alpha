@@ -78,7 +78,10 @@ class FeedbackRequest(BaseModel):
     user_id: str
     session_id: str
     audit_trace_id: Optional[str] = None
-    rating: Literal["wrong", "right", "unsafe"] = "wrong"
+    rating: Literal["correct", "right", "wrong", "false", "partially_correct",
+                    "verify_again", "remember_this", "do_not_remember", "important",
+                    "unsafe"] = "wrong"
+    value: Optional[str] = None   # the fact/answer the feedback is about (optional)
     note: Optional[str] = None
 
     @field_validator("user_id", "session_id")

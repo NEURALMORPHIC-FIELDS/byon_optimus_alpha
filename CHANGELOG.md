@@ -5,6 +5,59 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.3.0-alpha] — Active Memory Core (canonical only; no fake backend)
+
+> An architecture audit of `byon_optimus` + D_Cortex preceded this; the canonical
+> FactExtractor / memory-service / FAISS / trust tiers / FCE-M are REUSED, not duplicated.
+
+### Phase 1 — REAL-mode hardening
+- `run_byon.py` REAL mode now **requires** the canonical memory-service (FAISS + FCE-M +
+  trust tiers) and **forbids LocalBYONBackend** — if memory-service fails it exits, no fake
+  fallback. LocalBYONBackend is reachable only via `--demo` / `--local-dev`.
+
+### Phase 2 — canonical learning from interaction
+- `scripts/byon_fact_extract.mjs` — Node CLI that REUSES the canonical
+  `fact-extractor.mjs` (`extractAndStoreFacts`): a `fetch`-based Anthropic transport (no SDK
+  install) + a `mem` POST to memory-service. `gateway/fact_extractor_bridge.py` invokes it.
+- Every non-secret user message now learns through the **real FactExtractor** (extract →
+  `classifyTrust` → memory-service store). Python `_parse_teach` is demoted to a non-canonical
+  emergency fallback (tagged `non_canonical_fallback`).
+
+### Phase 3 — self-training (`--train-self`)
+- `gateway/self_training.py`: repo corpus (docs + module docstrings) → heading chunks →
+  memory-service (FAISS), trust `VERIFIED_PROJECT_FACT`, system scope → FCE-M consolidate.
+  Plus a canonical **relation seed** (Phase 8) stored as facts (no parallel graph).
+
+### Phase 4 — Obsidian vault training (`--vault <path> --train-vault`)
+- `gateway/vault_training.py`: markdown + frontmatter + tags + wikilinks/backlinks + headings,
+  heading-aware chunks → memory-service, trust `EXTRACTED_USER_CLAIM` (user memory, not
+  objective truth), per-user thread; ignores `.obsidian/.git/secrets/trash`.
+
+### Phases 7/9/10
+- Consolidation triggered after each training run (FCE-M `fce_consolidate`).
+- Feedback is a learning signal: `/v1/feedback` → `apply_feedback` (wrong→dispute, important/
+  right→reinforce, FCE-M receipt pressure). Extended rating taxonomy.
+- Memory dashboard fields via `/v1/memory/status` (candidates/committed/disputed + stats).
+
+### Verified
+- **Tests 107/107** (+9 new in `test_active_memory_core.py`: REAL forbids Local, backend is
+  memory_service not Local, bridge availability + non-canonical fallback, secret-not-learned,
+  self-train stores chunks+relations+consolidates, vault stores chunks+backlinks+ignores
+  `.obsidian`, feedback dispute/reinforce).
+- **Live** (`python run_byon.py --train-self --vault "D:/cercetare" --train-vault --then-run`):
+  self-train **179 chunks / 21 files / 12 relations**; vault partially ingested; memory-service
+  **reloaded 3627 facts after restart** (restart recall ✓). Acceptance via `/v1/research`:
+  self-description, "ce am scris despre FCE-M", and the relation question all return
+  memory-grounded answers **with vault/repo sources** (never blind UNKNOWN); secret query →
+  UNKNOWN with Claude/web NOT called. Canonical FactExtractor + memory-service path only;
+  LocalBYONBackend not used in REAL. `FULL_LEVEL3_NOT_DECLARED` preserved.
+- **Known limitation:** for cross-lingual (Romanian) self-description queries the large vault
+  out-ranks committed English repo/relation facts, so answers land PROVISIONAL (vault) rather
+  than KNOWN (repo) — a retrieval-ranking tunable (committed-tier boost / query language), not
+  a correctness defect; the answer is still memory-grounded with provenance.
+
+---
+
 ## [10.2.0-alpha] — Epistemic Search + Continuous Learning Runtime
 
 > BYON no longer says UNKNOWN too early or KNOWN from prior. A question runs an epistemic

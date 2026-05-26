@@ -203,15 +203,24 @@ def create_app(config: Optional[GatewayConfig] = None,
         return {"ok": True, **backend.consolidate(user_id=user_id, namespace_dir=ns.root)}
 
     @app.post("/v1/feedback")
-    def feedback(req: FeedbackRequest) -> Dict[str, Any]:
+    def feedback(req: FeedbackRequest, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
         auth = authenticate(req.user_id, None)
         if not auth.authenticated and req.user_id == "":
             raise HTTPException(status_code=401, detail="missing user_id")
         ns = _namespace(req.user_id)
         trace_id = new_trace_id()
+        # Feedback is a learning signal (Phase 9): reinforce / dispute / queue + FCE-M pressure.
+        applied = {}
+        if hasattr(backend, "apply_feedback"):
+            try:
+                applied = backend.apply_feedback(user_id=req.user_id, namespace_dir=ns.root,
+                                                 rating=req.rating, value=req.value, note=req.note,
+                                                 audit_trace_id=req.audit_trace_id)
+            except Exception as exc:
+                applied = {"ok": False, "error": str(exc)}
         rec = {"kind": "feedback", "user_id": req.user_id, "user_slug": ns.slug,
-               "session_id": req.session_id, "rating": req.rating, "note": req.note,
-               "about_trace": req.audit_trace_id}
+               "session_id": req.session_id, "rating": req.rating, "value": req.value,
+               "note": req.note, "about_trace": req.audit_trace_id, "applied": applied}
         audit.write(trace_id, rec, user_namespace_dir=ns.root)
         try:
             fb = ns.path("feedback", f"{trace_id}.json")
@@ -219,7 +228,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         except OSError:
             pass
         metrics["feedback"] += 1
-        return {"recorded": True, "audit_trace_id": trace_id}
+        return {"recorded": True, "audit_trace_id": trace_id, "applied": applied}
 
     @app.post("/v1/forget")
     def forget(req: ForgetRequest, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
