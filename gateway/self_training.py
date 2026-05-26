@@ -74,7 +74,7 @@ def _docstring(text: str) -> Optional[str]:
 
 
 def train_self(memory_url: str, *, repo_root, mem_client=None,
-               files: Optional[List[str]] = None) -> Dict[str, Any]:
+               files: Optional[List[str]] = None, report_dir: str = "runtime/training") -> Dict[str, Any]:
     client = mem_client or MemoryServiceClient(memory_url)
     root = Path(repo_root)
     doc_files = files if files is not None else _DOC_FILES
@@ -127,6 +127,14 @@ def train_self(memory_url: str, *, repo_root, mem_client=None,
     except Exception:
         consolidated = "unavailable"
 
-    return {"files": len(used_files), "files_list": used_files, "chunks_stored": chunks_stored,
-            "relations_stored": relations_stored, "trust_tiers": trust_tiers,
-            "consolidated": consolidated, "scope": "system (thread_id=None)"}
+    report = {"files": len(used_files), "files_list": used_files, "chunks_stored": chunks_stored,
+              "relations_stored": relations_stored, "trust_tiers": trust_tiers,
+              "consolidated": consolidated, "scope": "system (thread_id=None)"}
+    try:
+        import json as _json
+        d = Path(report_dir)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "self_train_report.json").write_text(_json.dumps(report, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+    return report

@@ -182,12 +182,28 @@ class EpistemicSearch:
                                 synthesis={"epistemic_verdict": "UNKNOWN",
                                            "note": "secret/credential — not searched (no Claude/web)"})
 
+        intent = qr.classify_intent(question)
+
+        # --- self-introspection: answer from RUNTIME STATE, never generic vault retrieval ----
+        if intent in qr.SELF_STATE_INTENTS:
+            from .self_state_provider import SelfStateProvider
+            ssp = SelfStateProvider(mem_client)
+            answer, srcs = ssp.answer_for(intent, question)
+            clk.set_phase("done")
+            learning.record_event("chat", question=question, status="KNOWN", grounded=True, intent=intent)
+            syn = {"epistemic_verdict": "KNOWN", "memory_view": "runtime self-state",
+                   "claude_view": "not used (no prior accepted)", "web_view": "not used",
+                   "conflict_view": "none", "confidence": 0.9, "sources": srcs, "intent": intent,
+                   "grounding": "SELF_STATE_GROUNDED"}
+            return self._result(trace_id, clk, "KNOWN", "done", answer=answer, confidence=0.9,
+                                sources_searched=["runtime:self_state", "memory-service:stats"],
+                                memory_hits=[], web_results=[], claude_hypothesis=None, synthesis=syn)
+
         # --- phase: internal committed + session/candidate memory ------------
         clk.set_phase("memory")
         # per-user isolation: BYON user_id maps to the memory-service thread; scope="thread"
         # also returns system-scope canonical facts (thread_id=None). Larger top_k so canonical
         # facts are in the candidate pool, then trust-tier + intent re-ranking decides priority.
-        intent = qr.classify_intent(question)
         raw_hits = mem_client.search_facts(question, top_k=20, threshold=0.30,
                                            thread_id=user_id, scope="thread") if mem_client else []
         memory_hits = qr.rerank(raw_hits, intent)
@@ -276,6 +292,17 @@ class EpistemicSearch:
                          min_web_sources=self.min_web_sources)
         if len(syn.get("distinct_claims", [])) >= 2:
             clk.add_pressure("sources_conflict", PRESSURE_SOURCES_CONFLICT)
+        syn["intent"] = intent
+
+        # --- vault notes are framed as the USER'S notes, not current system state -----------
+        if intent == qr.USER_VAULT_QUERY and syn.get("answer"):
+            note = syn["answer"]
+            if qr.is_stale_limitation(note):
+                syn["answer"] = ("In notele tale apare aceasta observatie ISTORICA (nu starea "
+                                 "curenta a sistemului): " + note)
+                syn["stale_note"] = True
+            else:
+                syn["answer"] = "In notele tale apare: " + note
 
         # --- learning side-effect -------------------------------------------
         if syn.get("candidate"):

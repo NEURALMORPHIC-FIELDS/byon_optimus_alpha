@@ -30,26 +30,70 @@ VAULT_TRIGGERS = ["ce am scris", "ce-am scris", "in notele mele", "în notele me
                   "din notele"]
 CONTRADICTION_TRIGGERS = ["contradic", "conflicting", "in conflict", "în conflict", "disput",
                           "gresit", "greșit", "wrong fact", "contradiction"]
+# self-introspection — answered from RUNTIME STATE, not vault retrieval
+CAPABILITY_TRIGGERS = ["ce capacitati ai", "ce capacități ai", "ce poti face", "ce poți face",
+                       "ce poti sa faci", "ce poți să faci", "what can you do",
+                       "what are your capabilities", "your capabilities", "ce module ai",
+                       "ce stii sa faci", "ce știi să faci", "ce functii ai", "ce funcții ai",
+                       "capabilities"]
+LIMITATION_TRIGGERS = ["ce nu poti face", "ce nu poți face", "ce limitari ai", "ce limitări ai",
+                       "what are your limitations", "your limitations", "ce nu stii", "ce nu știi",
+                       "limitarile tale", "limitările tale"]
+RECENT_LEARNING_TRIGGERS = ["ce ai invatat recent", "ce ai învățat recent", "ce ai consolidat recent",
+                            "ce s-a schimbat in memoria ta", "ce s-a schimbat în memoria ta",
+                            "recent learning", "what did you learn recently", "ce ai invatat ultima"]
+MEMORY_STATE_TRIGGERS = ["ce ai asimilat", "ce ai in memorie", "ce ai în memorie", "ce ai invatat",
+                         "ce ai învățat", "ce ai indexat", "ce ai memorat", "ce ai stocat",
+                         "what have you learned", "what is in your memory", "what's in your memory",
+                         "ce contine memoria ta", "ce conține memoria ta", "starea memoriei tale"]
+# old/historical limitation phrasings that must NOT be reported as current truth
+_STALE_LIMITATION = re.compile(
+    r"(?i)(never promoted|nu (sunt|au fost) promova|provisional.*never|pas\s*6|"
+    r"never consolidat|nu se consolid|last-write-wins|provizoriile nu)")
 _SECRET = re.compile(r"(?i)\b(password|secret|private key|api[ _-]?key|token|pin|ssn|credit\s*card)\b")
 
 SELF_ARCHITECTURE_QUERY = "SELF_ARCHITECTURE_QUERY"
+SELF_CAPABILITY_QUERY = "SELF_CAPABILITY_QUERY"
+SELF_MEMORY_STATE_QUERY = "SELF_MEMORY_STATE_QUERY"
+SELF_LIMITATION_QUERY = "SELF_LIMITATION_QUERY"
+SELF_RECENT_LEARNING_QUERY = "SELF_RECENT_LEARNING_QUERY"
 USER_VAULT_QUERY = "USER_VAULT_QUERY"
 GENERAL_FACT_QUERY = "GENERAL_FACT_QUERY"
 SECRET_QUERY = "SECRET_QUERY"
 CONTRADICTION_QUERY = "CONTRADICTION_QUERY"
+
+# intents answered from the SelfStateProvider (runtime state), never from generic vault
+SELF_STATE_INTENTS = {SELF_CAPABILITY_QUERY, SELF_MEMORY_STATE_QUERY,
+                      SELF_LIMITATION_QUERY, SELF_RECENT_LEARNING_QUERY}
 
 
 def classify_intent(question: str) -> str:
     q = (question or "").lower()
     if _SECRET.search(q):
         return SECRET_QUERY
+    # vault wins for "what did *I* write / in my notes" (am scris / notele mele)
     if any(t in q for t in VAULT_TRIGGERS):
         return USER_VAULT_QUERY
+    # self-introspection about *you* (BYON) — runtime state, ordered most-specific first
+    if any(t in q for t in CAPABILITY_TRIGGERS):
+        return SELF_CAPABILITY_QUERY
+    if any(t in q for t in LIMITATION_TRIGGERS):
+        return SELF_LIMITATION_QUERY
+    if any(t in q for t in RECENT_LEARNING_TRIGGERS):
+        return SELF_RECENT_LEARNING_QUERY
+    if any(t in q for t in MEMORY_STATE_TRIGGERS):
+        return SELF_MEMORY_STATE_QUERY
     if any(t in q for t in CONTRADICTION_TRIGGERS):
         return CONTRADICTION_QUERY
     if any(t in q for t in SELF_TERMS):
         return SELF_ARCHITECTURE_QUERY
     return GENERAL_FACT_QUERY
+
+
+def is_stale_limitation(text: str) -> bool:
+    """True if a retrieved note states an OLD limitation that the current version contradicts
+    (e.g. 'provisional entries never promoted' — superseded by v9.9.1 arbitration + v10.3)."""
+    return bool(_STALE_LIMITATION.search(text or ""))
 
 
 def _src(h: Dict[str, Any]) -> str:

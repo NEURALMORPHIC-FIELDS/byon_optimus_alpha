@@ -52,7 +52,8 @@ def _iter_notes(vault: Path):
 
 
 def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
-                owner: Optional[str] = None, verified_folders: Optional[List[str]] = None) -> Dict[str, Any]:
+                owner: Optional[str] = None, verified_folders: Optional[List[str]] = None,
+                report_dir: str = "runtime/training") -> Dict[str, Any]:
     client = mem_client or MemoryServiceClient(memory_url)
     vault = Path(vault_path)
     if not vault.exists():
@@ -83,6 +84,19 @@ def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
     files = 0
     tags_seen: set = set()
     trust_tiers: Dict[str, int] = {}
+    total_notes = len(notes)
+
+    def _write_report(partial: bool):
+        try:
+            import json as _json
+            d = Path(report_dir)
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "vault_train_report.json").write_text(_json.dumps({
+                "vault": str(vault), "owner": owner, "notes_total": total_notes, "files": files,
+                "chunks_stored": chunks_stored, "trust_tiers": trust_tiers, "partial": partial,
+            }, indent=2), encoding="utf-8")
+        except OSError:
+            pass
 
     for p in notes:
         rel = str(p.relative_to(vault)).replace("\\", "/")
@@ -107,6 +121,8 @@ def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
                               thread_id=owner, trust=trust)
             chunks_stored += 1
             trust_tiers[trust] = trust_tiers.get(trust, 0) + 1
+        if files % 10 == 0:           # incremental partial report (survives interruption)
+            _write_report(partial=True)
 
     consolidated = None
     try:
@@ -114,6 +130,8 @@ def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
     except Exception:
         consolidated = "unavailable"
 
-    return {"vault": str(vault), "owner": owner, "files": files, "chunks_stored": chunks_stored,
+    _write_report(partial=False)      # final, complete report
+    return {"vault": str(vault), "owner": owner, "notes_total": total_notes, "files": files,
+            "chunks_stored": chunks_stored, "partial": False,
             "backlinks": sum(len(v) for v in backlinks.values()), "tags": sorted(tags_seen)[:40],
             "trust_tiers": trust_tiers, "consolidated": consolidated}
