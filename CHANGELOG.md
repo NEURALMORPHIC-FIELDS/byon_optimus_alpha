@@ -5,6 +5,50 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.2.0-alpha] — Epistemic Search + Continuous Learning Runtime
+
+> BYON no longer says UNKNOWN too early or KNOWN from prior. A question runs an epistemic
+> search loop that honestly exhausts the available sources before any verdict — built by
+> **reusing the canonical machinery** (memory-service FAISS + FCE-M + trust tiers, D_Cortex
+> chronodynamic-style stress), adding only what was genuinely missing. An architecture audit
+> of `byon_optimus` + D_Cortex preceded this so no parallel learning system was built.
+
+### Added (only the genuinely-missing pieces; everything else reuses canon)
+- `gateway/epistemic_search.py` — the loop: internal/committed memory → session/candidates →
+  **Claude hypothesis pass** (reasoning faculty, never authority → `PROVISIONAL_UNVERIFIED`) →
+  **web** (opt-in) → multi-perspective synthesis → verdict → learning side-effect. Secrets are
+  never sent to Claude/web. Research budget + 5-minute permission gate (`NEEDS_MORE_TIME`).
+- `gateway/web_search.py` — the one missing source: pluggable provider (disabled default;
+  duckduckgo/tavily/brave/serpapi/custom). Web results are **evidence candidates, not truth**.
+- `gateway/internal_clock.py` — `InternalResearchClock`: stress = elapsed/budget + accelerators
+  (conflict +15, web-fail +10, high-certainty +10, low-reliability +10, unsafe-topic +20);
+  bands broaden→narrow→synthesize→permission; extensions.
+- `gateway/perspective_synthesis.py` — five views + epistemic verdict (9 statuses).
+- `gateway/memory_service_client.py` — thin client for the **canonical** memory-service
+  (`store`/`search`/`fce_consolidate`/`fce_assimilate_receipt`/trust tiers/health+warmup).
+- `gateway/continuous_learning.py` — learning **over** the memory-service (not a parallel store):
+  per-user evidence/lifecycle ledgers; candidates accumulate evidence and, past threshold, are
+  promoted into the memory-service with a committed trust tier + FCE-M consolidation.
+- `gateway/memory_service_backend.py` (`BYON_BACKEND_MODE=memory_service`) + `POST /v1/research`
+  + `POST /v1/consolidate`; new epistemic statuses in `types`/`normalizer`.
+- `run_byon.py` now auto-starts the **canonical memory-service** (with embedder-warmup gate)
+  before the gateway; UI gains research / synthesis / memory(candidates·committed·disputed) /
+  teach panels + Continue/Conclude/Stop; `byon_runtime_client.research()/consolidate()`.
+
+### Verified
+- **Tests 98/98** incl. 25 new (4 files / 15 required behaviours): memory-hit-skips-web,
+  no-memory+web-disabled≠KNOWN, claude-hypothesis-not-KNOWN, web-confirmed→candidate,
+  conflicting→DISPUTED, stress→NEEDS_MORE_TIME, continue-extends-budget, conclude-bounded,
+  candidate stored/reinforced/consolidated, no-secret-search, event-always-logged,
+  sources-listed, response-has-clock/stress/sources, web-provider config.
+- **Live** (`python run_byon.py` → memory-service + gateway + UI): canonical → KNOWN (Level 2);
+  "1998 World Cup" (web off) → PROVISIONAL/PROVISIONAL_UNVERIFIED (never blind UNKNOWN, never
+  KNOWN-from-prior); "bank password" → UNKNOWN with Claude/web **not** called (stress +20);
+  teach→recall KNOWN; cross-user isolation holds. Claude connected (`claude-sonnet-4-6`).
+  `FULL_LEVEL3_NOT_DECLARED` preserved; D_Cortex/FCE-M cores untouched.
+
+---
+
 ## [10.1.0-alpha] — BYON World Connector Alpha · **verdict: V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED (21/21 offline)**
 
 > Not a rewrite of BYON. A **connector layer** that lets non-technical users reach BYON

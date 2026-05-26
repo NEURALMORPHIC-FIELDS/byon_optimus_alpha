@@ -11,7 +11,10 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 Channel = Literal["web", "openclaw", "telegram", "whatsapp", "slack", "api"]
-EpistemicStatus = Literal["KNOWN", "UNKNOWN", "DISPUTED", "REFUSED", "ERROR"]
+EpistemicStatus = Literal[
+    "KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
+    "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "UNKNOWN", "REFUSED", "ERROR",
+]
 
 
 class ClientMetadata(BaseModel):
@@ -91,6 +94,23 @@ class ForgetRequest(BaseModel):
     confirm: bool = False
 
     @field_validator("user_id")
+    @classmethod
+    def _non_empty(cls, v: str) -> str:
+        if v is None or not str(v).strip():
+            raise ValueError("must be a non-empty string")
+        return str(v).strip()
+
+
+class ResearchRequest(BaseModel):
+    user_id: str
+    session_id: str
+    question: str
+    allow_web: Optional[bool] = None
+    allow_claude: bool = True
+    research_trace_id: Optional[str] = None
+    action: Literal["start", "continue", "conclude"] = "start"
+
+    @field_validator("user_id", "session_id", "question")
     @classmethod
     def _non_empty(cls, v: str) -> str:
         if v is None or not str(v).strip():

@@ -126,6 +126,39 @@ class BYONRuntimeClient:
             raw=data,
         )
 
+    # -- research (epistemic search loop) ----------------------------------
+    def research(self, user_id: str, session_id: str, question: str, *,
+                 allow_web: Optional[bool] = None, allow_claude: bool = True,
+                 action: str = "start", research_trace_id: Optional[str] = None) -> Dict[str, Any]:
+        if not user_id or not session_id:
+            raise ValueError("user_id and session_id are required")
+        try:
+            resp = self._request("POST", "/v1/research", json={
+                "user_id": user_id, "session_id": session_id, "question": question,
+                "allow_web": allow_web, "allow_claude": allow_claude,
+                "action": action, "research_trace_id": research_trace_id})
+            if getattr(resp, "status_code", 200) >= 400:
+                return {"epistemic_status": "ERROR", "research_status": "done",
+                        "answer": "BYON runtime is not available.", "sources_searched": []}
+            return resp.json()
+        except Exception as exc:
+            return {"epistemic_status": "ERROR", "research_status": "done",
+                    "answer": "BYON runtime is not available.", "sources_searched": [], "error": str(exc)}
+
+    def consolidate(self, user_id: str) -> Dict[str, Any]:
+        try:
+            resp = self._request("POST", "/v1/consolidate", params={"user_id": user_id})
+            return resp.json()
+        except Exception:
+            return {"ok": False, "message": "Consolidate not available."}
+
+    def memory_status(self, user_id: str) -> Dict[str, Any]:
+        try:
+            resp = self._request("GET", "/v1/memory/status", params={"user_id": user_id})
+            return resp.json()
+        except Exception:
+            return {"backend": {}, "error": "memory status unavailable"}
+
     # -- forget ------------------------------------------------------------
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         try:
@@ -179,6 +212,21 @@ class DemoBYONClient:
             memory_summary={"user_namespace": f"demo-{user_id}", "memory_written": False},
             fcem_summary={"runtime_proven": False, "advisory_nonempty": False},
             raw={"demo": True, "banner": self.BANNER})
+
+    def research(self, user_id: str, session_id: str, question: str, **kw) -> Dict[str, Any]:
+        r = self.chat(user_id, session_id, question)
+        return {"epistemic_status": r.epistemic_status, "research_status": "done",
+                "answer": r.answer, "grounded": r.grounded, "confidence": 0.5,
+                "sources_searched": ["memory(demo)"], "web_results": [],
+                "claude_hypothesis": None, "stress_percent": 0, "phase": "done",
+                "clock": {"demo": True}, "synthesis": {"epistemic_verdict": r.epistemic_status},
+                "audit_trace_id": "trace_demo"}
+
+    def consolidate(self, user_id: str) -> Dict[str, Any]:
+        return {"ok": True, "promoted": [], "message": "[DEMO] no consolidation."}
+
+    def memory_status(self, user_id: str) -> Dict[str, Any]:
+        return {"backend": {"backend": "demo"}, "candidates": [], "committed": [], "disputed": []}
 
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         return {"ok": True, "message": "[DEMO] forget is a no-op."}

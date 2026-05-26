@@ -21,7 +21,12 @@ from .types import (
     MemorySummary,
 )
 
-_VALID = {"KNOWN", "UNKNOWN", "DISPUTED", "REFUSED", "ERROR"}
+_VALID = {"KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
+          "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "UNKNOWN", "REFUSED", "ERROR"}
+# statuses that legitimately carry an answer body (with explicit uncertainty), never as a
+# confident asserted fact. KNOWN is the only grounded-confident status.
+_CARRY_ANSWER = {"KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
+                 "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE"}
 
 
 def normalize(result: BYONResult, *, audit_trace_id: str, user_namespace: str,
@@ -29,18 +34,18 @@ def normalize(result: BYONResult, *, audit_trace_id: str, user_namespace: str,
     status = result.epistemic_status if result.epistemic_status in _VALID else "ERROR"
     answer = result.answer or ""
 
-    # Gate 1 — no answer reaches the user unless BYON's final audit passed.
-    if require_final_audit and not result.final_audit_passed:
-        if status not in ("UNKNOWN", "DISPUTED", "ERROR"):
-            status = "REFUSED"
-        answer = ""
+    # Gate 1 — no KNOWN answer reaches the user unless BYON's final audit passed.
+    if require_final_audit and not result.final_audit_passed and status == "KNOWN":
+        status, answer = "REFUSED", ""
 
-    # Gate 2 — only KNOWN may carry a confident answer body; everything else is
-    # surfaced as a status, never as an asserted fact.
+    # Gate 2 — only KNOWN is grounded-confident. PROVISIONAL/DISPUTED/etc. may carry an
+    # answer but always WITH an uncertainty label and never marked grounded. UNKNOWN/
+    # REFUSED/ERROR carry no asserted content.
     grounded = bool(result.grounded) and status == "KNOWN"
     if status != "KNOWN":
-        answer = answer if status in ("DISPUTED", "REFUSED") else ""
         grounded = False
+        if status not in _CARRY_ANSWER:
+            answer = ""
 
     dcortex = (DCortexSummary(**{k: result.dcortex.get(k) for k in
                                  ("verdict", "unknown_gate", "contradiction_status")})

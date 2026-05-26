@@ -1,144 +1,220 @@
-"""Gradio UI for the BYON Alpha App.
+"""Gradio UI for BYON — epistemic research interface.
 
-Usable by non-technical people: type a message, see BYON's answer AND its epistemic
-status. The UI displays BYON output only — it never decides truth, never rewrites
-UNKNOWN/REFUSED into a guess, and never calls Claude directly.
+The user sees WHY BYON answered, not just the answer: epistemic status, confidence, the
+research clock (elapsed / stress% / phase / sources searched), the multi-perspective
+synthesis, web sources, and the per-user memory (candidates / committed / disputed). The UI
+only displays BYON output — it never decides truth, never rewrites UNKNOWN, never calls Claude
+or the web directly. The 5-minute permission gate surfaces as Continue / Conclude buttons.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import gradio as gr
 
-from .audit_view import compact, render_audit
+from .audit_view import render_audit
 from .local_config import AlphaConfig
 from .runtime_manager import RuntimeStatus
 from .user_store import UILogStore
 
-_STATUS_EMOJI = {"KNOWN": "✅ KNOWN", "UNKNOWN": "❓ UNKNOWN", "DISPUTED": "⚖️ DISPUTED",
-                 "REFUSED": "⛔ REFUSED", "ERROR": "⚠️ ERROR"}
+_BADGE = {
+    "KNOWN": "✅ KNOWN", "PROVISIONAL": "🟡 PROVISIONAL",
+    "PROVISIONAL_UNVERIFIED": "🟠 PROVISIONAL (unverified)", "DISPUTED": "⚖️ DISPUTED",
+    "NEEDS_MORE_TIME": "⏳ NEEDS MORE TIME", "ASK_USER_FOR_SOURCE": "❓ NEEDS A SOURCE",
+    "UNKNOWN": "❓ UNKNOWN", "REFUSED": "⛔ REFUSED", "ERROR": "⚠️ ERROR",
+}
 
 
-def _assistant_text(resp) -> str:
-    if resp.epistemic_status == "KNOWN" and resp.answer:
-        return resp.answer
-    if resp.epistemic_status == "UNKNOWN":
-        return "❓ UNKNOWN — BYON has no grounded answer for this (it will not guess)."
-    if resp.epistemic_status == "DISPUTED":
-        return f"⚖️ DISPUTED — {resp.answer or 'BYON found conflicting information.'}"
-    if resp.epistemic_status == "REFUSED":
-        return f"⛔ REFUSED — {resp.answer or 'BYON declined to answer.'}"
-    if resp.epistemic_status == "ERROR":
-        return f"⚠️ ERROR — {resp.answer or 'BYON runtime is not available.'}"
-    return resp.answer or "(no content)"
+def _assistant_text(out: Dict[str, Any]) -> str:
+    st = out.get("epistemic_status", "ERROR")
+    ans = out.get("answer", "") or ""
+    if st == "KNOWN":
+        return ans or "(grounded, no text)"
+    if st == "UNKNOWN":
+        return "❓ UNKNOWN — BYON searched the available sources and has no grounded answer (it will not guess)."
+    prefix = _BADGE.get(st, st)
+    return f"{prefix} — {ans}" if ans else prefix
 
 
 def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
     client = status.client
     logs = UILogStore(config.logs_dir)
+    demo_mode = status.mode == "DEMO"
 
-    banner = ("### 🟣 BYON Alpha"
-              + ("\n\n> **DEMO MODE — NOT REAL BYON RUNTIME** (canned responses, UI testing only)"
-                 if status.mode == "DEMO" else ""))
-    health_line = (f"Mode: **{status.mode}** · Gateway: `{config.gateway_url}` · "
-                   f"reachable: **{status.gateway_reachable}**")
+    banner = ("### 🟣 BYON — Epistemic Research"
+              + ("\n\n> **DEMO MODE — NOT REAL BYON** (canned, UI testing only)" if demo_mode else ""))
 
-    with gr.Blocks(title="BYON Alpha") as demo:
+    with gr.Blocks(title="BYON Epistemic Research") as demo:
         gr.Markdown(banner)
-        gr.Markdown(health_line)
-        last_trace = gr.State("")
-
-        with gr.Accordion("Runtime health", open=False):
-            health_json = gr.JSON(label="Gateway · Memory/D_Cortex · FCE-M · Claude")
-            refresh_btn = gr.Button("Refresh health")
-
-            def _health():
-                if status.mode == "DEMO":
-                    return {"Gateway": "DEMO", "Memory/D_Cortex": "DEMO",
-                            "FCE-M": "DEMO", "Claude key": "n/a"}
-                from .health_checks import summarize
-                return summarize(config.gateway_url)
-            refresh_btn.click(_health, None, health_json)
+        gr.Markdown(f"Mode: **{status.mode}** · Gateway: `{config.gateway_url}` · reachable: **{status.gateway_reachable}**")
+        last_trace = gr.State("")     # research_trace_id (for continue/conclude)
+        last_question = gr.State("")
+        last_audit = gr.State("")
 
         with gr.Row():
-            user_id = gr.Textbox(label="User ID", value=config.default_user_id, scale=1)
-            session_id = gr.Textbox(label="Session ID", value=config.default_session_id, scale=1)
+            user_id = gr.Textbox(label="User ID", value=config.default_user_id, scale=2)
+            session_id = gr.Textbox(label="Session ID", value=config.default_session_id, scale=2)
+            allow_claude = gr.Checkbox(label="Allow Claude (hypothesis)", value=True, scale=1)
+            allow_web = gr.Checkbox(label="Allow Web", value=False, scale=1)
 
-        chatbot = gr.Chatbot(label="BYON", height=420)  # gradio 6 uses messages format (role/content dicts)
+        chatbot = gr.Chatbot(label="BYON", height=380)
         with gr.Row():
-            msg = gr.Textbox(label="Your message", placeholder="Ask BYON…", scale=4, autofocus=True)
+            msg = gr.Textbox(label="Ask BYON", placeholder="Ask a question, or 'remember that …' to teach.",
+                             scale=4, autofocus=True)
             send = gr.Button("Send", variant="primary", scale=1)
 
         with gr.Row():
             status_box = gr.Textbox(label="Epistemic status", interactive=False)
             grounded_box = gr.Textbox(label="Grounded", interactive=False)
-            trace_box = gr.Textbox(label="Audit trace ID", interactive=False)
+            confidence_box = gr.Textbox(label="Confidence", interactive=False)
+            trace_box = gr.Textbox(label="Audit trace", interactive=False)
 
-        with gr.Row():
-            grounding_json = gr.JSON(label="Grounding summary")
-            memory_json = gr.JSON(label="Memory write summary")
-            fcem_json = gr.JSON(label="FCE-M summary")
+        with gr.Accordion("🔎 Research clock & sources", open=True):
+            with gr.Row():
+                stress_box = gr.Textbox(label="Stress %", interactive=False)
+                elapsed_box = gr.Textbox(label="Elapsed (s)", interactive=False)
+                phase_box = gr.Textbox(label="Phase", interactive=False)
+            sources_box = gr.Textbox(label="Sources searched", interactive=False)
+            with gr.Row():
+                continue_btn = gr.Button("Continue research 5 min")
+                conclude_btn = gr.Button("Conclude now")
+                stop_btn = gr.Button("Stop research")
+
+        with gr.Accordion("🧭 Why this answer (synthesis & sources)", open=False):
+            synthesis_json = gr.JSON(label="Multi-perspective synthesis")
+            web_json = gr.JSON(label="Web sources (evidence candidates, not committed truth)")
+            claude_json = gr.JSON(label="Claude hypothesis (not authority)")
+
+        with gr.Accordion("🧠 Memory (per-user) — candidates / committed / disputed", open=False):
+            with gr.Row():
+                cand_json = gr.JSON(label="Candidates (provisional + evidence)")
+                committed_json = gr.JSON(label="Committed")
+                disputed_json = gr.JSON(label="Disputed")
+            with gr.Row():
+                consolidate_btn = gr.Button("Consolidate memory")
+                refresh_mem_btn = gr.Button("Refresh memory")
+
+        with gr.Accordion("📥 Teach / ingest", open=False):
+            teach_box = gr.Textbox(label="Teach a fact (stored as your grounded memory)",
+                                   placeholder="e.g. my project codename is Orion")
+            teach_btn = gr.Button("Teach this")
 
         with gr.Row():
             clear_btn = gr.Button("Clear chat")
-            forget_btn = gr.Button("Forget this user memory")
+            forget_btn = gr.Button("Forget my memory")
             audit_btn = gr.Button("Show last audit trace")
             export_btn = gr.Button("Export logs")
-
         info_box = gr.Textbox(label="Info / audit", interactive=False, lines=8)
 
-        def on_send(message: str, history: List[Dict[str, str]], uid: str, sid: str):
-            history = history or []
-            if not message or not message.strip():
-                return history, "", "", "", "", {}, {}, {}, last_trace.value, "Type a message first."
-            if not uid or not uid.strip():
-                return history, message, "ERROR", "false", "", {}, {}, {}, "", "User ID is required."
-            if not sid or not sid.strip():
-                return history, message, "ERROR", "false", "", {}, {}, {}, "", "Session ID is required."
-            try:
-                resp = client.chat(uid.strip(), sid.strip(), message.strip())
-            except ValueError as exc:
-                return history, message, "ERROR", "false", "", {}, {}, {}, "", str(exc)
+        with gr.Accordion("Runtime health", open=False):
+            health_json = gr.JSON()
+            refresh_health = gr.Button("Refresh health")
 
-            history = history + [
-                {"role": "user", "content": message.strip()},
-                {"role": "assistant", "content": _assistant_text(resp)},
+        # ---- helpers --------------------------------------------------------
+        def _apply(out: Dict[str, Any], history: List[Dict[str, str]], uid, sid, question):
+            history = (history or []) + [
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": _assistant_text(out)},
             ]
-            logs.append(user_id=uid.strip(), session_id=sid.strip(), message=message.strip(),
-                        response=resp.answer, epistemic_status=resp.epistemic_status,
-                        grounded=resp.grounded, audit_trace_id=resp.audit_trace_id)
-            return (history, "", _STATUS_EMOJI.get(resp.epistemic_status, resp.epistemic_status),
-                    "true" if resp.grounded else "false", resp.audit_trace_id or "—",
-                    resp.grounding_summary or {}, resp.memory_summary or {},
-                    resp.fcem_summary or {}, resp.audit_trace_id or "", "")
+            clock = out.get("clock") or {}
+            logs.append(user_id=uid, session_id=sid, message=question,
+                        response=out.get("answer", ""), epistemic_status=out.get("epistemic_status", ""),
+                        grounded=bool(out.get("grounded")), audit_trace_id=out.get("audit_trace_id", ""))
+            return (history,
+                    _BADGE.get(out.get("epistemic_status"), out.get("epistemic_status", "")),
+                    "true" if out.get("grounded") else "false",
+                    str(out.get("confidence", "")),
+                    out.get("audit_trace_id", "") or "—",
+                    str(out.get("stress_percent", clock.get("stress_percent", ""))),
+                    str(clock.get("elapsed_seconds", "")),
+                    out.get("phase", clock.get("phase", "")),
+                    ", ".join(out.get("sources_searched", []) or []),
+                    out.get("synthesis") or {}, out.get("web_results") or [],
+                    out.get("claude_hypothesis"),
+                    out.get("research_trace_id", ""), question, out.get("audit_trace_id", ""))
 
-        outputs = [chatbot, msg, status_box, grounded_box, trace_box,
-                   grounding_json, memory_json, fcem_json, last_trace, info_box]
-        send.click(on_send, [msg, chatbot, user_id, session_id], outputs)
-        msg.submit(on_send, [msg, chatbot, user_id, session_id], outputs)
+        _send_outputs = [chatbot, status_box, grounded_box, confidence_box, trace_box,
+                         stress_box, elapsed_box, phase_box, sources_box,
+                         synthesis_json, web_json, claude_json, last_trace, last_question, last_audit]
+
+        def on_send(message, history, uid, sid, a_claude, a_web):
+            if not (message or "").strip():
+                return (history or [], "", "", "", "", "", "", "", "", {}, [], None, "", "", "")
+            if not uid.strip() or not sid.strip():
+                return (history or [], "ERROR", "false", "", "", "", "", "", "", {}, [], None, "", "", "")
+            out = client.research(uid.strip(), sid.strip(), message.strip(),
+                                  allow_web=bool(a_web), allow_claude=bool(a_claude), action="start")
+            res = _apply(out, history, uid.strip(), sid.strip(), message.strip())
+            return (res[0], res[1], res[2], res[3], res[4], res[5], res[6], res[7], res[8],
+                    res[9], res[10], res[11], res[12], res[13], res[14])
+
+        send.click(on_send, [msg, chatbot, user_id, session_id, allow_claude, allow_web], _send_outputs)
+        msg.submit(on_send, [msg, chatbot, user_id, session_id, allow_claude, allow_web], _send_outputs)
+        send.click(lambda: "", None, msg)
+
+        def on_action(action, history, uid, sid, a_claude, a_web, trace, question):
+            if not trace or not question:
+                return on_send("(no active research)", history, uid, sid, a_claude, a_web)
+            out = client.research(uid.strip(), sid.strip(), question,
+                                  allow_web=bool(a_web), allow_claude=bool(a_claude),
+                                  action=action, research_trace_id=trace)
+            res = _apply(out, history, uid.strip(), sid.strip(), f"[{action}] {question}")
+            return (res[0], res[1], res[2], res[3], res[4], res[5], res[6], res[7], res[8],
+                    res[9], res[10], res[11], res[12], res[13], res[14])
+
+        continue_btn.click(lambda h, u, s, c, w, t, q: on_action("continue", h, u, s, c, w, t, q),
+                           [chatbot, user_id, session_id, allow_claude, allow_web, last_trace, last_question],
+                           _send_outputs)
+        conclude_btn.click(lambda h, u, s, c, w, t, q: on_action("conclude", h, u, s, c, w, t, q),
+                           [chatbot, user_id, session_id, allow_claude, allow_web, last_trace, last_question],
+                           _send_outputs)
+        stop_btn.click(lambda: ("⏹ research stopped", ""), None, [info_box, last_trace])
+
+        def on_teach(text, history, uid, sid):
+            if not text.strip():
+                return history or [], "Type a fact to teach."
+            out = client.research(uid.strip(), sid.strip(), f"remember that {text.strip()}", action="start")
+            history = (history or []) + [
+                {"role": "user", "content": f"(teach) {text.strip()}"},
+                {"role": "assistant", "content": _assistant_text(out)}]
+            return history, f"Stored: {out.get('answer','')}"
+        teach_btn.click(on_teach, [teach_box, chatbot, user_id, session_id], [chatbot, info_box])
+
+        def on_memory(uid):
+            st = client.memory_status(uid.strip()) if hasattr(client, "memory_status") else {}
+            return st.get("candidates", []), st.get("committed", []), st.get("disputed", [])
+        refresh_mem_btn.click(on_memory, user_id, [cand_json, committed_json, disputed_json])
+
+        def on_consolidate(uid):
+            out = client.consolidate(uid.strip()) if hasattr(client, "consolidate") else {}
+            st = client.memory_status(uid.strip()) if hasattr(client, "memory_status") else {}
+            return (f"Consolidation: promoted {out.get('promoted', [])}",
+                    st.get("candidates", []), st.get("committed", []), st.get("disputed", []))
+        consolidate_btn.click(on_consolidate, user_id, [info_box, cand_json, committed_json, disputed_json])
 
         def on_clear():
-            return [], "", "", "", {}, {}, {}, "Chat cleared."
+            return [], "", "", "", "", "", "", "", "", {}, [], None, "chat cleared"
         clear_btn.click(on_clear, None,
-                        [chatbot, status_box, grounded_box, trace_box,
-                         grounding_json, memory_json, fcem_json, info_box])
+                        [chatbot, status_box, grounded_box, confidence_box, trace_box,
+                         stress_box, elapsed_box, phase_box, sources_box,
+                         synthesis_json, web_json, claude_json, info_box])
 
-        def on_forget(uid: str, sid: str):
-            if not uid or not uid.strip():
-                return "User ID is required."
-            out = client.forget(uid.strip(), (sid or "").strip())
-            return out.get("message", "Forget requested.")
+        def on_forget(uid, sid):
+            return client.forget(uid.strip(), sid.strip()).get("message", "forget requested")
         forget_btn.click(on_forget, [user_id, session_id], info_box)
 
-        def on_audit(trace_id: str):
-            return render_audit(client, trace_id)
-        audit_btn.click(on_audit, last_trace, info_box)
+        audit_btn.click(lambda t: render_audit(client, t), last_audit, info_box)
 
-        def on_export(uid: str, sid: str):
-            if not uid or not uid.strip() or not sid or not sid.strip():
-                return "User ID and Session ID are required to export logs."
+        def on_export(uid, sid):
             p = logs.path_for(uid.strip(), sid.strip())
-            return f"Logs file: {p.resolve()}" if p.exists() else f"No logs yet at: {p.resolve()}"
+            return f"Logs: {p.resolve()}" if p.exists() else f"No logs yet: {p.resolve()}"
         export_btn.click(on_export, [user_id, session_id], info_box)
+
+        def on_health():
+            if demo_mode:
+                return {"Gateway": "DEMO"}
+            from .health_checks import summarize
+            return summarize(config.gateway_url)
+        refresh_health.click(on_health, None, health_json)
 
     return demo

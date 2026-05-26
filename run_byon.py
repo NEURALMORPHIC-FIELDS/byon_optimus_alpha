@@ -20,6 +20,7 @@ import argparse
 import os
 import sys
 import time
+import time
 
 
 def _load_dotenv() -> None:
@@ -110,11 +111,45 @@ def main() -> int:
 
     sup = ServiceSupervisor()
     child_env = dict(os.environ)
-    child_env["BYON_BACKEND_MODE"] = "local"          # real in-repo D_Cortex + real FCE-M
     child_env["BYON_GATEWAY_PORT"] = str(gw_port)
     gateway_url = f"http://{host}:{gw_port}"
 
-    _print("Starting BYON Gateway (real D_Cortex epistemic backend + real FCE-M)...")
+    # --- start the canonical memory-service (FAISS + FCE-M + trust tiers) ----
+    backend_mode = "local"
+    memory_url = "http://127.0.0.1:8000"
+    if disc.memory_service_server is not None:
+        _print("Starting memory-service (FAISS + FCE-M + trust tiers)...")
+        ms_env = dict(os.environ)
+        ms_env["MEMORY_SERVICE_HOST"] = "127.0.0.1"
+        ms_env["MEMORY_SERVICE_PORT"] = "8000"
+        ms_env["FCEM_MEMORY_ENGINE_ROOT"] = disc.fcem_root
+        sup.start("memory-service", [sys.executable, "server.py"],
+                  cwd=str(disc.memory_service_server.parent), env=ms_env)
+        if sup.wait_http("memory-service", f"{memory_url}/health", timeout=90):
+            # the production embedder loads lazily; wait until it is warm so the first
+            # facts are embedded in the real space (not a hash fallback).
+            from gateway.memory_service_client import MemoryServiceClient
+            mc = MemoryServiceClient(memory_url)
+            warm = False
+            for _ in range(60):
+                if mc.embedder_warm():
+                    warm = True
+                    break
+                time.sleep(1)
+            _print(f"  memory-service: OK (embedder {'warm' if warm else 'warming'})")
+            backend_mode = "memory_service"
+            child_env["BYON_MEMORY_SERVICE_URL"] = memory_url
+        else:
+            _print("  memory-service did not become healthy; falling back to in-repo D_Cortex backend.")
+            _print(sup.tail_log("memory-service"))
+            sup.stop("memory-service")
+    else:
+        _print("  memory-service not found in checkout; using in-repo D_Cortex backend.")
+
+    child_env["BYON_BACKEND_MODE"] = backend_mode
+    _print(f"  backend mode: {backend_mode}")
+
+    _print("Starting BYON Gateway (epistemic search + real FCE-M)...")
     sup.start("gateway", [sys.executable, "-m", "gateway.server"],
               cwd=str(disc.repo_root), env=child_env)
     ok = sup.wait_http("gateway", f"{gateway_url}/v1/health", timeout=60)

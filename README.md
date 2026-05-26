@@ -72,6 +72,43 @@ UI testing. No manual `python -m gateway.server` / memory-service / curl needed 
 
 ---
 
+# Epistemic Research Mode
+
+BYON does not answer from prior as KNOWN, and it does not say UNKNOWN instantly. A question
+runs an **epistemic search loop** that honestly exhausts the available sources before any
+verdict, reusing the canonical BYON machinery (it does not rebuild it):
+
+1. **Internal / committed memory** — memory-service FAISS facts with committed trust tiers
+   (`VERIFIED_PROJECT_FACT` / `DOMAIN_VERIFIED` / `USER_PREFERENCE`). A committed hit → `KNOWN`.
+2. **Session / candidate memory** — thread-scoped recall + provisional candidates.
+3. **Claude hypothesis pass** — Claude proposes a hypothesis + search queries. Claude is the
+   reasoning faculty, **not the authority**: a Claude-only answer is `PROVISIONAL_UNVERIFIED`,
+   never `KNOWN`.
+4. **Web search** (opt-in, pluggable) — `BYON_WEB_SEARCH_ENABLED=true` +
+   `BYON_WEB_SEARCH_PROVIDER=duckduckgo|tavily|brave|serpapi`. Web results are **evidence
+   candidates, never auto-committed truth**. Converged → `PROVISIONAL`; conflicting → `DISPUTED`.
+5. **Multi-perspective synthesis** — memory / Claude / web / conflict / epistemic views → verdict.
+6. **Research clock + stress** — a real-time budget (`BYON_RESEARCH_BUDGET_SECONDS`, default 300).
+   Stress rises with elapsed time + accelerators (conflict, web failure, high-certainty demand,
+   unsafe topic). At the deadline BYON returns `NEEDS_MORE_TIME` and **asks permission** for
+   another window (`Continue research 5 min` / `Conclude now` in the UI) instead of silently
+   continuing.
+
+Statuses: `KNOWN · PROVISIONAL · PROVISIONAL_UNVERIFIED · DISPUTED · NEEDS_MORE_TIME ·
+ASK_USER_FOR_SOURCE · UNKNOWN · REFUSED · ERROR`.
+
+**Continuous learning is a side-effect of interaction** (over the canonical memory-service,
+not a parallel store): web evidence is stored as candidates; repeated/accepted evidence raises
+an evidence count; consolidation promotes well-evidenced candidates into the memory-service
+with a committed trust tier + an FCE-M consolidation. Secrets/credentials are **never** sent to
+Claude or the web. Per-user isolation maps each user to a memory-service thread.
+
+Endpoint: `POST /v1/research` (`action: start|continue|conclude`). Knobs: `BYON_WEB_SEARCH_ENABLED`,
+`BYON_RESEARCH_BUDGET_SECONDS`, `BYON_RESEARCH_EXTENSION_SECONDS`, `BYON_RESEARCH_MAX_EXTENSIONS`,
+`BYON_AUTO_COMMIT_VERIFIED_WEB`, `BYON_CONSOLIDATION_EVIDENCE_THRESHOLD`.
+
+---
+
 ## Layout
 
 ```

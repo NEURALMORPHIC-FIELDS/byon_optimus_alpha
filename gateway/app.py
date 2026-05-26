@@ -37,6 +37,7 @@ from .types import (
     BYONChatResponse,
     FeedbackRequest,
     ForgetRequest,
+    ResearchRequest,
 )
 
 
@@ -54,6 +55,9 @@ def _resolve_backend(cfg: GatewayConfig) -> BYONBackend:
     """
     mode = os.environ.get("BYON_BACKEND_MODE", "").strip().lower()
     backend_url = os.environ.get("BYON_BACKEND_URL", "").strip()
+    if mode == "memory_service":
+        from .memory_service_backend import MemoryServiceBackend
+        return MemoryServiceBackend(cfg.memory_service_url)
     if mode == "http" or backend_url:
         return HttpBYONBackend(backend_url or cfg.orchestrator_url, cfg.backend_timeout_s)
     from .local_backend import LocalBYONBackend
@@ -154,6 +158,49 @@ def create_app(config: Optional[GatewayConfig] = None,
             "memory_summary": response.memory_summary.model_dump(),
         }, user_namespace_dir=ns.root)
         return response
+
+    @app.post("/v1/research")
+    def research(req: ResearchRequest, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
+        if cfg.kill_switch:
+            metrics["killed"] += 1
+            raise HTTPException(status_code=503, detail="BYON_KILL_SWITCH active")
+        auth = authenticate(req.user_id, None)
+        if not auth.authenticated:
+            raise HTTPException(status_code=401, detail=f"unauthorized: {auth.reason}")
+        if not hasattr(backend, "research"):
+            raise HTTPException(status_code=501, detail="active backend has no research loop (use memory_service backend)")
+        ns = _namespace(req.user_id)
+        trace_id = new_trace_id()
+        try:
+            out = backend.research(user_id=req.user_id, session_id=req.session_id,
+                                   question=req.question, namespace_dir=ns.root,
+                                   allow_web=req.allow_web, allow_claude=req.allow_claude,
+                                   action=req.action, research_trace_id=req.research_trace_id)
+        except Exception as exc:
+            out = {"epistemic_status": "ERROR", "research_status": "done", "answer": "",
+                   "error": str(exc), "sources_searched": [], "clock": {}, "stress_percent": 0}
+        out["audit_trace_id"] = trace_id
+        out["user_namespace"] = ns.slug
+        st = str(out.get("epistemic_status", "ERROR"))
+        metrics["messages"] += 1
+        metrics[st.lower()] = metrics.get(st.lower(), 0) + 1
+        audit.write(trace_id, {"kind": "research", "user_id": req.user_id, "user_slug": ns.slug,
+                               "session_id": req.session_id, "question": req.question,
+                               "epistemic_status": st, "research_status": out.get("research_status"),
+                               "sources_searched": out.get("sources_searched"),
+                               "stress_percent": out.get("stress_percent"),
+                               "research_trace_id": out.get("research_trace_id")},
+                    user_namespace_dir=ns.root)
+        return out
+
+    @app.post("/v1/consolidate")
+    def consolidate(user_id: str, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
+        if not user_id or not user_id.strip():
+            raise HTTPException(status_code=422, detail="user_id is required")
+        if not hasattr(backend, "consolidate"):
+            return {"ok": False, "message": "active backend has no consolidation"}
+        ns = _namespace(user_id)
+        return {"ok": True, **backend.consolidate(user_id=user_id, namespace_dir=ns.root)}
 
     @app.post("/v1/feedback")
     def feedback(req: FeedbackRequest) -> Dict[str, Any]:

@@ -19,12 +19,33 @@ def mask(key: str) -> str:
     return key[:10] + "…" if len(key) > 10 else "sk-ant-…"
 
 
+def load_key_from_secrets_file(path: str = "secrets/anthropic.key") -> Optional[str]:
+    """Read the API key from the documented secret location (gitignored). Accepts either a
+    bare key or an `ANTHROPIC_API_KEY=...` line. Never returns/prints the key elsewhere."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    raw = p.read_text(encoding="utf-8").strip()
+    for line in raw.splitlines():
+        line = line.strip()
+        if line.startswith("ANTHROPIC_API_KEY="):
+            line = line.split("=", 1)[1].strip()
+        if line.startswith("sk-ant-"):
+            return line
+    return None
+
+
 def ensure_api_key(*, interactive: bool = True, save: bool = False) -> Optional[str]:
-    """Return the ANTHROPIC_API_KEY, prompting if missing (Claude is optional; an empty
-    answer means 'continue without Claude language enrichment')."""
+    """Return the ANTHROPIC_API_KEY: env first, then secrets/anthropic.key, then (optionally)
+    a secure prompt. Claude is optional; None means 'run without Claude language enrichment'."""
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if key:
         return key
+    file_key = load_key_from_secrets_file()
+    if file_key:
+        os.environ["ANTHROPIC_API_KEY"] = file_key
+        print(f"  key loaded from secrets/anthropic.key ({mask(file_key)}); kept in process env only.")
+        return file_key
     if not interactive:
         return None
     try:
