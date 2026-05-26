@@ -202,6 +202,25 @@ class BYONRuntimeClient:
         except Exception:
             return {"ok": False, "message": "task evidence unavailable"}
 
+    def lifeloop_candidates(self, status: str = None) -> Dict[str, Any]:
+        try:
+            params = {"status": status} if status else None
+            return self._request("GET", "/v1/lifeloop/candidates", params=params).json()
+        except Exception:
+            return {"counts": {}, "candidates": []}
+
+    def lifeloop_candidate(self, candidate_id: str) -> Dict[str, Any]:
+        try:
+            return self._request("GET", f"/v1/lifeloop/candidate/{candidate_id}").json()
+        except Exception:
+            return {"ok": False, "message": "candidate unavailable"}
+
+    def lifeloop_candidate_op(self, candidate_id: str, op: str) -> Dict[str, Any]:
+        try:
+            return self._request("POST", f"/v1/lifeloop/candidate/{candidate_id}/{op}").json()
+        except Exception:
+            return {"ok": False, "message": "candidate op unavailable"}
+
     # -- forget ------------------------------------------------------------
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         try:
@@ -301,3 +320,13 @@ class DemoBYONClient:
 
     def lifeloop_task_evidence(self, task_id: str) -> Dict[str, Any]:
         return {"task": {"task_id": task_id, "demo": True}, "result": {}}
+
+    def lifeloop_candidates(self, status: str = None) -> Dict[str, Any]:
+        return {"counts": {"candidate": 0, "committed": 0, "disputed": 0, "archived": 0},
+                "candidates": []}
+
+    def lifeloop_candidate(self, candidate_id: str) -> Dict[str, Any]:
+        return {"candidate": {"candidate_id": candidate_id, "demo": True}}
+
+    def lifeloop_candidate_op(self, candidate_id: str, op: str) -> Dict[str, Any]:
+        return {"ok": True, "op": op, "demo": True}

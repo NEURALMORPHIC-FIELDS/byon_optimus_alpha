@@ -97,3 +97,27 @@ def test_ui_client_mark_resolved_and_evidence_call_gateway():
     assert "/v1/lifeloop/task/rt_1" in paths
     for _, p in http.calls:
         assert p.startswith("/v1/")          # gateway only, never memory-service
+
+
+def test_ui_client_candidate_ops_call_gateway():
+    c, http = _client()
+    c.lifeloop_candidates()
+    c.lifeloop_candidate("cand_1")
+    c.lifeloop_candidate_op("cand_1", "mark-false")
+    c.lifeloop_candidate_op("cand_1", "approve-commit")
+    paths = [p for _, p in http.calls]
+    assert "/v1/lifeloop/candidates" in paths
+    assert "/v1/lifeloop/candidate/cand_1" in paths
+    assert "/v1/lifeloop/candidate/cand_1/mark-false" in paths
+    assert "/v1/lifeloop/candidate/cand_1/approve-commit" in paths
+    for _, p in http.calls:
+        assert p.startswith("/v1/") and "memory-service" not in p
+
+
+def test_ui_builds_with_candidate_panel():
+    import inspect
+    import app.alpha_ui as ui
+    src = inspect.getsource(ui.build_ui)
+    for token in ["Candidate lifecycle", "refresh_cand_btn", "mark_false_btn",
+                  "approve_commit_btn", "archive_cand_btn", "lifeloop_candidates"]:
+        assert token in src, f"UI missing candidate token {token}"

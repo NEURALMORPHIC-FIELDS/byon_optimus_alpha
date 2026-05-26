@@ -125,6 +125,23 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                 mark_resolved_btn = gr.Button("Mark resolved")
             life_action_info = gr.Textbox(label="LifeLoop action result", interactive=False, lines=4)
 
+        with gr.Accordion("🧬 Candidate lifecycle (evidence → commit/dispute/archive; never presets)", open=False):
+            cand_counts = gr.JSON(label="Candidate counts (by state)")
+            cand_list = gr.JSON(label="Candidates (evidence / contradictions / source class)")
+            with gr.Row():
+                refresh_cand_btn = gr.Button("Refresh candidates")
+                cand_consolidate_btn = gr.Button("Consolidate candidates")
+            with gr.Row():
+                cand_id_box = gr.Textbox(label="Candidate id", scale=2)
+                view_cand_btn = gr.Button("View candidate")
+                mark_false_btn = gr.Button("Mark false")
+                mark_important_btn = gr.Button("Mark important")
+            with gr.Row():
+                request_evidence_btn = gr.Button("Request more evidence")
+                approve_commit_btn = gr.Button("Approve commit (user memory only)")
+                archive_cand_btn = gr.Button("Archive candidate")
+            cand_action_info = gr.Textbox(label="Candidate action result", interactive=False, lines=4)
+
         with gr.Accordion("Runtime health", open=False):
             health_json = gr.JSON()
             refresh_health = gr.Button("Refresh health")
@@ -292,5 +309,33 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         cancel_task_btn.click(on_cancel_task, task_id_box, life_action_info)
         evidence_btn.click(on_view_evidence, task_id_box, life_action_info)
         mark_resolved_btn.click(on_mark_resolved, topic_box, life_action_info)
+
+        # ---- Candidate lifecycle panel (Gateway-only; consolidation moves state, not the UI) ----
+        def on_cand_refresh():
+            d = client.lifeloop_candidates()
+            return d.get("counts", {}), d.get("candidates", [])
+
+        def on_cand_consolidate():
+            try:
+                client._request("POST", "/v1/lifeloop/consolidate-candidates")
+            except Exception:
+                pass
+            c, l = on_cand_refresh()
+            return c, l, "consolidation run (only consolidation moves candidate state)"
+
+        def on_cand_view(cid):
+            return f"candidate: {client.lifeloop_candidate((cid or '').strip())}"
+
+        def _cand_op(cid, op):
+            return f"{op}: {client.lifeloop_candidate_op((cid or '').strip(), op)}"
+
+        refresh_cand_btn.click(on_cand_refresh, None, [cand_counts, cand_list])
+        cand_consolidate_btn.click(on_cand_consolidate, None, [cand_counts, cand_list, cand_action_info])
+        view_cand_btn.click(on_cand_view, cand_id_box, cand_action_info)
+        mark_false_btn.click(lambda c: _cand_op(c, "mark-false"), cand_id_box, cand_action_info)
+        mark_important_btn.click(lambda c: _cand_op(c, "mark-important"), cand_id_box, cand_action_info)
+        request_evidence_btn.click(lambda c: _cand_op(c, "request-evidence"), cand_id_box, cand_action_info)
+        approve_commit_btn.click(lambda c: _cand_op(c, "approve-commit"), cand_id_box, cand_action_info)
+        archive_cand_btn.click(lambda c: _cand_op(c, "archive"), cand_id_box, cand_action_info)
 
     return demo

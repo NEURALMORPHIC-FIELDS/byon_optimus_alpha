@@ -71,8 +71,11 @@ class BYONLifeLoop:
         self.task_results_path = rt / "task_results.jsonl"
         self.task_exec_log = rt / "task_execution_log.jsonl"
         self._task_runner = None          # set by the app; runs a memory-only task -> result dict
+        self._candidate_consolidator = None   # set by the app; moves candidate states (commit/dispute/...)
+        self._candidate_status_provider = None
         self.last_auto_run_task = None
         self.last_task_result = None
+        self.last_candidate_decisions = []
         self._lock = threading.RLock()
         self._recent: Deque[str] = deque(maxlen=50)
         self._pending_consolidation_reasons: List[str] = []
@@ -234,6 +237,11 @@ class BYONLifeLoop:
             consolidated = True
         self.pressure.decay()                       # time-based decay of unattended pressure
         ran = self.drain_tasks()                     # auto-run a few safe memory-only tasks
+        if self._candidate_consolidator is not None:  # move candidate states (commit/dispute/...)
+            try:
+                self.last_candidate_decisions = self._candidate_consolidator() or []
+            except Exception:
+                pass
         self.write_self_state_snapshot(mem_client)
         return {"consolidated": consolidated, "trigger": trigger, "result": result,
                 "tasks_run": ran, "self_state": self.snapshot()}
@@ -267,6 +275,14 @@ class BYONLifeLoop:
         """runner(task) -> result dict; runs a MEMORY-ONLY task through the canonical research
         loop and stores its result as a candidate (never truth). Set by the app."""
         self._task_runner = runner
+
+    def set_candidate_hooks(self, *, consolidator=None, status_provider=None) -> None:
+        """consolidator() -> list of decisions (the ONLY path that moves candidate state);
+        status_provider() -> dict of candidate counts/last-decision for status. Set by the app."""
+        if consolidator is not None:
+            self._candidate_consolidator = consolidator
+        if status_provider is not None:
+            self._candidate_status_provider = status_provider
 
     @staticmethod
     def _is_memory_only(task: Dict[str, Any]) -> bool:
@@ -414,6 +430,8 @@ class BYONLifeLoop:
             "blocked_web_tasks": [t for t in self.tasks.list() if t.get("status") == "blocked_needs_permission"],
             "last_auto_run_task": self.last_auto_run_task,
             "last_task_result": self.last_task_result,
+            "last_candidate_decisions": self.last_candidate_decisions[-10:],
+            "candidates": (self._candidate_status_provider() if self._candidate_status_provider else {}),
             "last_consolidation": s["last_consolidate_ts"],
             "consolidation_count": s["consolidations"],
             "unknown_rate": s["unknown_rate"], "disputed_rate": s["disputed_rate"],

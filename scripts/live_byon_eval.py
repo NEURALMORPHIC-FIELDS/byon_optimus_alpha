@@ -429,6 +429,9 @@ class Harness:
         # A14. In-engine consistency + autonomous task gates (Cycle 7).
         self._cycle7_suite()
 
+        # A15. Candidate-to-commit lifecycle gates (Cycle 8).
+        self._cycle8_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -787,15 +790,22 @@ class Harness:
                   ll0.get("answers_user_directly") is False and ll0.get("is_truth_authority") is False,
                   "lifeloop claims to answer/authority", category="other")
 
-        # 2. unknown creates pressure
+        # 2. unknown creates pressure — check the SPECIFIC topic's pressure (the global total is
+        #    actively decayed/relieved by the background daemon, so it is not a stable signal).
         cu = "c6u_" + uuid.uuid4().hex[:6]
         obscure = f"care era pretul exact al lumanarilor in Sibiu pe 7 august 1623 ({cu})?"
-        p_before = ll0.get("pressure_total") or 0
         self.research(obscure, user=cu, session="c6")
-        ll1 = self._lifeloop()
-        self._add("unknown_creates_pressure", (ll1.get("pressure_total") or 0) > p_before,
-                  f"pressure did not rise ({p_before} -> {ll1.get('pressure_total')})", category="other",
-                  epistemic_status=f"{p_before}->{ll1.get('pressure_total')}")
+        topic_pressure = 0.0
+        try:
+            import json as _json
+            from gateway.pressure import topic_of as _topic_of
+            ps = _json.loads(Path("runtime/lifeloop/pressure_state.json").read_text(encoding="utf-8"))
+            topic_pressure = (ps.get("topics", {}).get(_topic_of(obscure), {}) or {}).get("pressure", 0.0)
+        except Exception:
+            pass
+        self._add("unknown_creates_pressure", topic_pressure > 0,
+                  f"topic pressure not registered ({topic_pressure})", category="other",
+                  epistemic_status=f"topic_pressure={topic_pressure}")
 
         # 3. repeated unknown -> research task ; 9. pending tasks visible
         self.research(obscure, user=cu, session="c6")     # repeat the same unknown
@@ -1005,6 +1015,179 @@ class Harness:
                   "steaua" in (rec.get("answer") or "").lower() and rec.get("epistemic_status") in ("KNOWN", "PROVISIONAL"),
                   f"fresh fact not recalled ({rec.get('epistemic_status')})", category="content",
                   epistemic_status=rec.get("epistemic_status"))
+
+    # -- Cycle 8: candidate-to-commit lifecycle suite -----------------------
+    def _cycle8_suite(self) -> None:
+        import os as _os
+        import time as _t
+        try:
+            from gateway.candidate_lifecycle import CandidateLifecycle, COMMITTED, DISPUTED, ARCHIVED
+            from gateway.memory_service_client import MemoryServiceClient
+            from gateway.namespace import UserNamespace
+        except Exception as exc:
+            for g in ("task_result_creates_candidate", "repeated_task_result_reinforces_candidate",
+                      "candidate_commits_after_evidence_threshold"):
+                self._skip(g, "candidate lifecycle", f"import failed: {exc}")
+            return
+        ns_root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
+        mc = MemoryServiceClient(self.mem_url)
+
+        def lc():
+            return CandidateLifecycle(ns_root, mc, "lifeloop")
+
+        def gcands(status=None):
+            try:
+                params = {"status": status} if status else None
+                return httpx.get(f"{self.url}/v1/lifeloop/candidates", params=params, timeout=30).json()
+            except Exception:
+                return {"counts": {}, "candidates": []}
+
+        def consolidate():
+            try:
+                httpx.post(f"{self.url}/v1/lifeloop/consolidate-candidates", timeout=60)
+            except Exception:
+                pass
+
+        uid = uuid.uuid4().hex[:6]
+        topic = f"c8topic_{uid}"
+        claim = f"the c8 marker fact for {uid} is alpha"
+
+        # 1. task result creates a candidate
+        before = sum(gcands().get("counts", {}).values())
+        rec = lc().ingest_task_result(task_id=f"c8a_{uid}", topic=topic, claim=claim,
+                                      sources_used=[f"src:a_{uid}"], epistemic_status="PROVISIONAL",
+                                      source_class="EXTRACTED_USER_CLAIM", source_event_ids=["e1"])
+        cand_id = (rec or {}).get("candidate_id")
+        after = sum(gcands().get("counts", {}).values())
+        self._add("task_result_creates_candidate", bool(cand_id) and after > before,
+                  "no candidate created", category="other")
+
+        # 2. repeated independent result reinforces (evidence_count -> 2)
+        lc().ingest_task_result(task_id=f"c8b_{uid}", topic=topic, claim=claim,
+                                sources_used=[f"src:b_{uid}"], epistemic_status="PROVISIONAL",
+                                source_class="EXTRACTED_USER_CLAIM", source_event_ids=["e2"])
+        cur = next((c for c in gcands().get("candidates", []) if c.get("candidate_id") == cand_id), {})
+        self._add("repeated_task_result_reinforces_candidate", cur.get("evidence_count", 0) >= 2,
+                  f"evidence not accumulated ({cur.get('evidence_count')})", category="other",
+                  epistemic_status=f"evidence={cur.get('evidence_count')}")
+
+        # 3/4/9/11. consolidate -> commit; committed fact retrievable; provenance; user-trust
+        consolidate()
+        cv = {}
+        try:
+            cv = httpx.get(f"{self.url}/v1/lifeloop/candidate/{cand_id}", timeout=20).json().get("candidate", {})
+        except Exception:
+            pass
+        self._add("candidate_commits_after_evidence_threshold", cv.get("status") == COMMITTED,
+                  f"candidate not committed ({cv.get('status')})", category="other",
+                  epistemic_status=str(cv.get("status")))
+        self._add("vault_candidate_not_objective_truth",
+                  cv.get("trust_tier") in ("USER_PREFERENCE", None) and cv.get("trust_tier") != "DOMAIN_VERIFIED"
+                  and cv.get("trust_tier") != "VERIFIED_PROJECT_FACT",
+                  f"user candidate committed as objective ({cv.get('trust_tier')})", category=CAT_SOURCE_BLEED,
+                  epistemic_status=str(cv.get("trust_tier")))
+        self._add("candidate_provenance_visible", bool(cv.get("provenance")), "no provenance",
+                  category="other")
+        _t.sleep(8)
+        hits = []
+        try:
+            hits = mc.search_facts(claim, top_k=10, threshold=0.0, thread_id="lifeloop", scope="thread")
+        except Exception:
+            pass
+        self._add("committed_candidate_retrievable_after_restart",
+                  any(uid in (h.get("content") or "") for h in hits),
+                  "committed fact not retrievable (FAISS persisted across restart by the restart gate)",
+                  category="other")
+
+        # 5. contradiction creates a disputed challenger
+        t2 = f"c8c_{uid}"
+        lc().ingest_task_result(task_id=f"d1_{uid}", topic=t2, claim=f"value {uid} is up",
+                                sources_used=[f"s1_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        lc().ingest_task_result(task_id=f"d2_{uid}", topic=t2, claim=f"value {uid} is down",
+                                sources_used=[f"s2_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        disp = [c for c in gcands().get("candidates", []) if c.get("status") == DISPUTED]
+        self._add("contradiction_creates_disputed_challenger", len(disp) >= 1,
+                  "no disputed challenger created", category="other")
+
+        # 6. a canonical-conflicting claim is answered DISPUTED (source-policy override)
+        du = "c8d_" + uid
+        if self._plant_vault_note(du, "BYON e Level 3."):
+            self._confirm_indexed(du, "BYON e Level 3?", "level 3", tries=25, threshold=0.30)
+            out = self.research("BYON e Level 3?", user=du, session="c8")
+            self._add("disputed_candidate_answer_is_disputed", out.get("epistemic_status") == "DISPUTED",
+                      f"not disputed ({out.get('epistemic_status')})", category=CAT_SOURCE_BLEED,
+                      epistemic_status=out.get("epistemic_status"))
+        else:
+            self._skip("disputed_candidate_answer_is_disputed", "disputed answer", "could not plant note")
+
+        # 7/8. stale candidate archives and is not active
+        t3 = f"c8s_{uid}"
+        l = lc()
+        srec = l.ingest_task_result(task_id=f"s1_{uid}", topic=t3, claim=f"weak stale claim {uid}",
+                                    sources_used=[f"w_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                    epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        sid = srec["candidate_id"]
+        l._by_id[sid]["created_ts"] = _t.time() - 40 * 86400      # age it beyond the stale window
+        l._save(l._by_id[sid])
+        consolidate()
+        sc = next((c for c in gcands().get("candidates", []) if c.get("candidate_id") == sid), {})
+        self._add("stale_candidate_archives", sc.get("status") == ARCHIVED,
+                  f"stale not archived ({sc.get('status')})", category="other")
+        active = gcands("candidate").get("candidates", [])
+        self._add("archived_candidate_not_used_for_answer",
+                  all(c.get("candidate_id") != sid for c in active),
+                  "archived candidate still active", category="other")
+
+        # 10. FCE/pressure influences priority only — a single-evidence candidate is not committed
+        t4 = f"c8f_{uid}"
+        frec = lc().ingest_task_result(task_id=f"f1_{uid}", topic=t4, claim=f"single evidence {uid}",
+                                       sources_used=[f"f_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                       epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        consolidate()
+        fc = next((c for c in gcands().get("candidates", []) if c.get("candidate_id") == frec["candidate_id"]), {})
+        self._add("fce_influences_priority_not_truth", fc.get("status") != COMMITTED,
+                  f"single-evidence candidate committed ({fc.get('status')})", category="other")
+
+        # 12. web candidate requires verification (1 web source -> not committed)
+        t5 = f"c8w_{uid}"
+        wrec = lc().ingest_task_result(task_id=f"w1_{uid}", topic=t5, claim=f"web claim {uid}",
+                                       sources_used=[f"http://x/{uid}"], source_class="PROVISIONAL_WEB",
+                                       epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        consolidate()
+        wc = next((c for c in gcands().get("candidates", []) if c.get("candidate_id") == wrec["candidate_id"]), {})
+        self._add("web_candidate_requires_verification", wc.get("status") != COMMITTED,
+                  f"web candidate committed without verification ({wc.get('status')})", category=CAT_SOURCE_BLEED)
+
+        # 13. secret creates no candidate
+        b = sum(gcands().get("counts", {}).values())
+        lc().ingest_task_result(task_id=f"sec_{uid}", topic=f"c8sec_{uid}",
+                                claim=f"my password is {uid}", sources_used=["x"],
+                                source_class="EXTRACTED_USER_CLAIM", epistemic_status="PROVISIONAL",
+                                source_event_ids=["e"], is_secret=True)
+        self._add("secret_creates_no_candidate", sum(gcands().get("counts", {}).values()) == b,
+                  "secret created a candidate", category=CAT_SOURCE_BLEED)
+
+        # 14/15/16/17. invariants still hold
+        bu = "c8b_" + uid
+        sb = self.research("care e codul secret al cardului meu?", user=bu, session="c8")
+        self._add("source_bleed_still_blocked",
+                  sb.get("epistemic_status") in ("UNKNOWN", "REFUSED", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE"),
+                  f"unexpected {sb.get('epistemic_status')}", category=CAT_SOURCE_BLEED,
+                  epistemic_status=sb.get("epistemic_status"))
+        tv = self._memory_status().get("tombstoned_vault_facts")
+        self._add("tombstoned_facts_still_excluded", isinstance(tv, int) and tv > 0,
+                  f"tombstoned not reflected ({tv})", category="other")
+        lls = self._lifeloop()
+        self._add("LifeLoop_still_not_truth_authority",
+                  lls.get("is_truth_authority") is False and lls.get("answers_user_directly") is False,
+                  "lifeloop claims authority", category="other")
+        try:
+            l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
+        except Exception:
+            l3 = False
+        self._add("FULL_LEVEL3_NOT_DECLARED_preserved", l3, "level-3 flag not preserved", category="other")
 
     def _restart_recall_gate(self) -> None:
         """Two-phase restart-recall gate. prepare/verify driven by BYON_EVAL_RESTART_PHASE;

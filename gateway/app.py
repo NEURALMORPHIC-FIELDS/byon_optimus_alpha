@@ -97,17 +97,16 @@ def create_app(config: Optional[GatewayConfig] = None,
         sources = syn.get("sources") or out.get("sources_searched") or []
         status = out.get("epistemic_status")
         candidate_id = None
-        try:
-            learning = b._learning(ns.root, "lifeloop") if hasattr(b, "_learning") else None
-            if learning is not None and (out.get("answer") or "").strip():
-                if status == "DISPUTED":
-                    learning.dispute(task["question"], reason="lifeloop disputed evidence")
-                    candidate_id = "disputed:" + task["question"][:40]
-                else:
-                    cand = learning.upsert_candidate(out.get("answer", "")[:200],
-                                                     source_type="lifeloop_internal_research",
-                                                     sources=sources, question=task["question"])
-                    candidate_id = (cand or {}).get("key")
+        try:   # Cycle 8: ingest the result as a CANDIDATE (never committed here; only consolidation commits)
+            from .candidate_lifecycle import CandidateLifecycle
+            lcyc = CandidateLifecycle(ns.root, b.mem if hasattr(b, "mem") else None, "lifeloop")
+            cand = lcyc.ingest_task_result(
+                task_id=task["task_id"], topic=task.get("topic", ""),
+                claim=(out.get("answer") or "")[:300], sources_used=sources,
+                epistemic_status=status, source_class=out.get("source_class"),
+                source_event_ids=task.get("trigger_event_ids") or [],
+                is_secret=(out.get("query_class") == "secret"))
+            candidate_id = (cand or {}).get("candidate_id")
         except Exception:
             pass
         return {"epistemic_status": status, "answer_summary": (out.get("answer") or "")[:200],
@@ -115,6 +114,28 @@ def create_app(config: Optional[GatewayConfig] = None,
                 "audit_trace_id": out.get("audit_trace_id"), "candidate_id": candidate_id,
                 "stored_as": "disputed" if status == "DISPUTED" else "candidate"}
     lifeloop.set_task_runner(_lifeloop_task_runner)
+
+    # Cycle 8: candidate consolidation (the only path that moves candidate state) + status, both
+    # over the canonical memory-service. FCE-M state only sets attention/priority, never truth.
+    def _candidate_consolidator():
+        from .candidate_lifecycle import CandidateLifecycle
+        ns = _namespace("lifeloop")
+        lcyc = CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
+        fce = {"contested": (lifeloop.pressure.total() >= lifeloop.pressure_threshold)}
+        return lcyc.consolidate(fce_state=fce)
+
+    def _candidate_status_provider():
+        from .candidate_lifecycle import CandidateLifecycle
+        ns = _namespace("lifeloop")
+        lcyc = CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
+        return {"counts": lcyc.counts(),
+                "active": [{"candidate_id": c["candidate_id"], "claim": c["claim"][:80],
+                            "status": c["status"], "evidence_count": c["evidence_count"],
+                            "contradiction_count": c.get("contradiction_count", 0),
+                            "source_class": c.get("source_class")} for c in lcyc.list()[:25]],
+                "commit_evidence_threshold": lcyc.commit_evidence}
+    lifeloop.set_candidate_hooks(consolidator=_candidate_consolidator,
+                                 status_provider=_candidate_status_provider)
 
     app = FastAPI(title="BYON World Connector — Gateway", version=__version__)
     app.state.config = cfg
@@ -416,6 +437,48 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not t:
             raise HTTPException(status_code=404, detail="task not found")
         return {"task": t, "result": (t.get("result") or {})}
+
+    # -- Cycle 8: candidate lifecycle endpoints (over the canonical memory-service) ----
+    def _candidate_lc():
+        from .candidate_lifecycle import CandidateLifecycle
+        ns = _namespace("lifeloop")
+        return CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
+
+    @app.get("/v1/lifeloop/candidates")
+    def lifeloop_candidates(status: Optional[str] = None) -> Dict[str, Any]:
+        lc = _candidate_lc()
+        return {"counts": lc.counts(), "candidates": lc.list(status)}
+
+    @app.get("/v1/lifeloop/candidate/{candidate_id}")
+    def lifeloop_candidate(candidate_id: str) -> Dict[str, Any]:
+        c = _candidate_lc().get(candidate_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="candidate not found")
+        return {"candidate": c, "provenance": c.get("provenance")}
+
+    @app.post("/v1/lifeloop/consolidate-candidates")
+    def lifeloop_consolidate_candidates() -> Dict[str, Any]:
+        return {"ok": True, "decisions": _candidate_consolidator()}
+
+    @app.post("/v1/lifeloop/candidate/{candidate_id}/{op}")
+    def lifeloop_candidate_op(candidate_id: str, op: str) -> Dict[str, Any]:
+        lc = _candidate_lc()
+        if op == "mark-false":
+            r = lc.mark_false(candidate_id)
+        elif op == "mark-important":
+            r = lc.mark_important(candidate_id)
+        elif op == "request-evidence":
+            r = lc.request_more_evidence(candidate_id)
+        elif op == "approve-commit":
+            r = lc.approve_commit(candidate_id)
+            return {"ok": bool(r.get("ok")), **r}
+        elif op == "archive":
+            r = lc.archive(candidate_id)
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown op {op}")
+        if not r:
+            raise HTTPException(status_code=404, detail="candidate not found")
+        return {"ok": True, "candidate": r}
 
     @app.get("/v1/admin/metrics")
     def admin_metrics() -> Dict[str, Any]:

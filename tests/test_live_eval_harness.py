@@ -100,6 +100,21 @@ def test_harness_covers_cycle7_gates():
         assert gate in src, f"harness missing Cycle 7 gate {gate}"
 
 
+def test_harness_covers_cycle8_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle8_suite)
+    for gate in ["task_result_creates_candidate", "repeated_task_result_reinforces_candidate",
+                 "candidate_commits_after_evidence_threshold", "committed_candidate_retrievable_after_restart",
+                 "contradiction_creates_disputed_challenger", "disputed_candidate_answer_is_disputed",
+                 "stale_candidate_archives", "archived_candidate_not_used_for_answer",
+                 "candidate_provenance_visible", "fce_influences_priority_not_truth",
+                 "vault_candidate_not_objective_truth", "web_candidate_requires_verification",
+                 "secret_creates_no_candidate", "source_bleed_still_blocked",
+                 "tombstoned_facts_still_excluded", "LifeLoop_still_not_truth_authority",
+                 "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 8 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)
