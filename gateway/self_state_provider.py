@@ -23,10 +23,35 @@ def _read_json(p: Path) -> Optional[Dict[str, Any]]:
 
 class SelfStateProvider:
     def __init__(self, mem_client: Optional[Any] = None, *, report_dir: str = "runtime/training",
-                 lifeloop_events: str = "runtime/lifeloop/events.jsonl") -> None:
+                 lifeloop_events: str = "runtime/lifeloop/events.jsonl",
+                 namespace_dir: Optional[str] = None) -> None:
         self.mem = mem_client
         self.report_dir = Path(report_dir)
         self.lifeloop_events = Path(lifeloop_events)
+        self.namespace_dir = namespace_dir   # per-user dir for candidate/committed/disputed counts
+
+    def _memory_lifecycle_counts(self) -> Dict[str, int]:
+        """candidates / committed / disputed counts from the per-user lifecycle ledgers
+        (the same ones /v1/memory/status exposes)."""
+        if not self.namespace_dir:
+            return {"candidates": 0, "committed": 0, "disputed": 0}
+        try:
+            from .continuous_learning import ContinuousLearning
+            cl = ContinuousLearning(self.namespace_dir, self.mem)
+            return {"candidates": len(cl.list_candidates()), "committed": len(cl.list_committed()),
+                    "disputed": len(cl.list_disputed())}
+        except Exception:
+            return {"candidates": 0, "committed": 0, "disputed": 0}
+
+    def _fcem_advisory(self) -> Dict[str, Any]:
+        if self.mem is None or not hasattr(self.mem, "fce_advisory"):
+            return {"available": False}
+        try:
+            adv = self.mem.fce_advisory() or {}
+            items = adv.get("advisory", adv) if isinstance(adv, dict) else adv
+            return {"available": True, "signals": len(items) if isinstance(items, (list, dict)) else 0}
+        except Exception:
+            return {"available": False}
 
     # -- collection ---------------------------------------------------------
     def _relation_count(self) -> int:
@@ -70,7 +95,9 @@ class SelfStateProvider:
             "self_training": _read_json(self.report_dir / "self_train_report.json"),
             "vault_training": _read_json(self.report_dir / "vault_train_report.json"),
             "relation_facts_seeded": self._relation_count(),
-            "fcem": {"runtime_proven": reachable, "version": "v15.7a (sealed)"},
+            "lifecycle": self._memory_lifecycle_counts(),
+            "fcem": {"runtime_proven": reachable, "version": "v15.7a (sealed)",
+                     "advisory": self._fcem_advisory()},
             "dcortex": {"present": True, "role": "additive morphogenetic addressable memory"},
             "web_enabled": os.environ.get("BYON_WEB_SEARCH_ENABLED", "false").strip().lower()
                            in ("1", "true", "yes", "on"),
@@ -119,9 +146,14 @@ class SelfStateProvider:
 
     def memory_state_summary(self, st: Dict[str, Any]) -> List[str]:
         ms = st["memory_service"]
+        lc = st.get("lifecycle", {})
+        adv = (st.get("fcem", {}) or {}).get("advisory", {})
         out = [f"memory-service backend: {st['backend_mode']} (reachable={ms['reachable']})",
                f"total facts indexed (FAISS): {ms.get('facts')}",
-               f"canonical relation facts: {st['relation_facts_seeded']}"]
+               f"canonical relation facts: {st['relation_facts_seeded']}",
+               f"candidates / committed / disputed: {lc.get('candidates',0)} / "
+               f"{lc.get('committed',0)} / {lc.get('disputed',0)}",
+               f"FCE-M advisory: {'active, ' + str(adv.get('signals',0)) + ' signal(s)' if adv.get('available') else 'n/a'}"]
         if st.get("self_training"):
             s = st["self_training"]
             out.append(f"self-training: {s.get('chunks_stored','?')} chunks from {s.get('files','?')} "

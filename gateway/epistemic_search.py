@@ -187,7 +187,7 @@ class EpistemicSearch:
         # --- self-introspection: answer from RUNTIME STATE, never generic vault retrieval ----
         if intent in qr.SELF_STATE_INTENTS:
             from .self_state_provider import SelfStateProvider
-            ssp = SelfStateProvider(mem_client)
+            ssp = SelfStateProvider(mem_client, namespace_dir=str(namespace_dir) if namespace_dir else None)
             answer, srcs = ssp.answer_for(intent, question)
             clk.set_phase("done")
             learning.record_event("chat", question=question, status="KNOWN", grounded=True, intent=intent)
