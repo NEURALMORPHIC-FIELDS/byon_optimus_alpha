@@ -16,6 +16,7 @@ Build the app with `create_app(...)`. Tests inject a deterministic BYON backend 
 """
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -43,6 +44,22 @@ def get_backend() -> BYONBackend:  # overridden in tests / wired in create_app
     raise RuntimeError("backend not configured")
 
 
+def _resolve_backend(cfg: GatewayConfig) -> BYONBackend:
+    """Select the backend from env when none is injected.
+
+    BYON_BACKEND_MODE=local (default) → self-contained real LocalBYONBackend (in-repo
+    D_Cortex epistemic contract + real FCE-M advisory + optional Claude). This makes the
+    Gateway runnable end-to-end with no external orchestrator.
+    BYON_BACKEND_MODE=http (or BYON_BACKEND_URL set) → route to an external BYON orchestrator.
+    """
+    mode = os.environ.get("BYON_BACKEND_MODE", "").strip().lower()
+    backend_url = os.environ.get("BYON_BACKEND_URL", "").strip()
+    if mode == "http" or backend_url:
+        return HttpBYONBackend(backend_url or cfg.orchestrator_url, cfg.backend_timeout_s)
+    from .local_backend import LocalBYONBackend
+    return LocalBYONBackend(fcem_root=os.environ.get("FCEM_MEMORY_ENGINE_ROOT") or None)
+
+
 def create_app(config: Optional[GatewayConfig] = None,
                backend: Optional[BYONBackend] = None) -> FastAPI:
     cfg = config or GatewayConfig.from_env()
@@ -53,7 +70,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         "refused": 0, "error": 0, "feedback": 0, "forget": 0,
         "rate_limited": 0, "killed": 0,
     }
-    resolved_backend = backend or HttpBYONBackend(cfg.orchestrator_url, cfg.backend_timeout_s)
+    resolved_backend = backend or _resolve_backend(cfg)
 
     app = FastAPI(title="BYON World Connector — Gateway", version=__version__)
     app.state.config = cfg
@@ -86,6 +103,8 @@ def create_app(config: Optional[GatewayConfig] = None,
                 "mcp": cfg.enable_mcp, "librechat": cfg.enable_librechat,
                 "openclaw": cfg.enable_openclaw, "n8n": cfg.enable_n8n,
             },
+            "backend": (resolved_backend.status()
+                        if hasattr(resolved_backend, "status") else {"backend": "external"}),
             "full_level3_not_declared": True,
         }
 

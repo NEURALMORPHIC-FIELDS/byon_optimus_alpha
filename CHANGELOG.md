@@ -32,6 +32,23 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
   gates; live connector gates (LibreChat/OpenClaw/n8n/live orchestrator) reported as
   **deferred, never faked**.
 
+### Added (runtime launcher — one command, no manual backend startup)
+- **`run_byon.py`** — `python run_byon.py` starts the BYON Gateway (real in-repo D_Cortex
+  epistemic backend + real FCE-M v15.7a advisory) as a managed child and opens the web UI at
+  http://localhost:7860. Modes: REAL full (default), `--connect` (UI only, existing Gateway),
+  `--demo` (canned, banner). Clean shutdown of children on exit.
+- **`gateway/local_backend.py`** — `LocalBYONBackend`: self-contained real backend composing
+  grounded per-user memory + Epistemic Memory Contract (UNKNOWN when ungrounded, never
+  fabricates) + real FCE-M advisory + optional Claude (via httpx, language only, grounded
+  facts only) + final audit. Gateway selects it by `BYON_BACKEND_MODE=local` (default).
+- **`app/`** launcher modules: `service_supervisor.py` (start/health-wait/stop children, port
+  conflict handling), `runtime_discovery.py`, `health_checks.py`, `secret_prompt.py` (getpass,
+  `--save-key`→`.env.local`), plus the Gradio UI (`alpha_ui.py`) with a runtime-health panel.
+- Tests: `tests/test_run_byon_launcher.py`, `test_service_supervisor.py`,
+  `test_runtime_discovery.py` (mocked HTTP, no live Claude/BYON). Full suite **73/73**.
+- Live launch verified: one command brought up UI + Gateway; REAL chat path returned KNOWN
+  (Level 2) and UNKNOWN (password) with audit traces; `fcem.runtime_proven=true`.
+
 ### Verified (offline, deterministic injected BYON backend)
 - `verdict = V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` (**21/21**): gateway health, user_id/
   session_id required, no direct memory exposure, epistemic_status always present, UNKNOWN

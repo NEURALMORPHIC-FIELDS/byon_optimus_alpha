@@ -28,6 +28,50 @@ maintainable, testable, locally-runnable product:
 
 ---
 
+# Run BYON locally
+
+## One-command local app
+
+```bash
+pip install -e .[app]
+python run_byon.py
+```
+
+Open: **http://localhost:7860**
+
+REAL full mode starts everything for you (BYON Gateway with the real in-repo D_Cortex
+epistemic backend + real FCE-M v15.7a advisory) as a managed child process, then opens the
+web UI. **No separate terminals.** You type a message and get a BYON-audited answer with its
+epistemic status (`KNOWN` / `UNKNOWN` / `DISPUTED` / `REFUSED` / `ERROR`), grounded flag,
+audit trace id, and memory / FCE-M / D_Cortex status. If the backend fails you get `ERROR` —
+never a fabricated answer. The UI never calls Claude or memory-service directly; everything
+goes through BYON's final audit.
+
+## Connect to an existing backend (UI only)
+
+```bash
+python run_byon.py --connect      # verifies BYON_GATEWAY_URL health, then opens the UI
+```
+
+## Demo UI only (NOT real BYON)
+
+```bash
+python run_byon.py --demo          # canned responses, big "DEMO MODE" banner; never for alpha
+```
+
+## Required for REAL full mode
+
+- `FCEM_MEMORY_ENGINE_ROOT` — path to the real v15.7a `d_cortex` engine (auto-discovered if
+  present locally; REAL mode refuses to start with a shim).
+- `ANTHROPIC_API_KEY` — **optional**: enables Claude to phrase grounded answers. Without it,
+  grounding still works and answers are returned verbatim from memory. Prompted securely at
+  startup if missing; persist with `python run_byon.py --save-key` (writes gitignored `.env.local`).
+
+REAL mode starts services automatically · CONNECT mode only opens the UI · DEMO mode is fake
+UI testing. No manual `python -m gateway.server` / memory-service / curl needed in REAL mode.
+
+---
+
 ## Layout
 
 ```
@@ -102,41 +146,12 @@ $env:BYON_VALIDATE_REAL_FCEM="true"; python -m pytest tests/test_v10_milestone.p
 > profile (the fast suite stays green offline). In **release validation**
 > (`BYON_VALIDATE_REAL_FCEM=true`), a missing real v15.7a engine is a hard FAIL, never a skip.
 
-## Run BYON Alpha App
+## UI-only launcher (`run_alpha_app.py`)
 
-A runnable local web UI to chat with BYON — one command, usable by non-technical people.
-
-```bash
-pip install -e .[app]      # gradio + fastapi + httpx + python-dotenv
-python run_alpha_app.py    # → http://localhost:7860
-```
-
-### Real mode (default)
-
-1. Start the BYON runtime: memory-service (:8000), orchestrator, and the Gateway
-   (`python -m gateway.server` → :8090). Set `FCEM_MEMORY_ENGINE_ROOT` and
-   `ANTHROPIC_API_KEY` for the real organism.
-2. Configure:
-   ```
-   BYON_GATEWAY_URL=http://127.0.0.1:8090
-   BYON_ALPHA_DEMO_MODE=false
-   ```
-3. Run `python run_alpha_app.py` and open `http://localhost:7860`.
-
-Every message is routed Gateway → BYON Optimus → memory-service (D_Cortex + real FCE-M)
-→ Claude → **BYON final audit**. The UI shows the answer **and** its epistemic status
-(`KNOWN` / `UNKNOWN` / `DISPUTED` / `REFUSED` / `ERROR`), grounded flag, audit trace id,
-grounding/memory/FCE-M summaries, and buttons for clear / forget memory / show audit /
-export logs. **If BYON is down you get `ERROR`, never a fabricated answer.**
-
-### Demo UI mode (UI testing only — not real BYON)
-
-```bash
-BYON_ALPHA_DEMO_MODE=true python run_alpha_app.py
-```
-
-Shows a visible **"DEMO MODE — NOT REAL BYON RUNTIME"** banner and returns canned
-responses. Not real validation; never use for family alpha.
+`run_byon.py` (above) is the canonical one-command launcher — it starts the backend **and**
+the UI. `run_alpha_app.py` is the UI-only variant: it opens the Gradio UI and connects to a
+Gateway you already have running (or `BYON_ALPHA_DEMO_MODE=true` for demo). Use `run_byon.py`
+unless you specifically want UI-only.
 
 ## Audit verdicts
 

@@ -48,6 +48,18 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         gr.Markdown(health_line)
         last_trace = gr.State("")
 
+        with gr.Accordion("Runtime health", open=False):
+            health_json = gr.JSON(label="Gateway · Memory/D_Cortex · FCE-M · Claude")
+            refresh_btn = gr.Button("Refresh health")
+
+            def _health():
+                if status.mode == "DEMO":
+                    return {"Gateway": "DEMO", "Memory/D_Cortex": "DEMO",
+                            "FCE-M": "DEMO", "Claude key": "n/a"}
+                from .health_checks import summarize
+                return summarize(config.gateway_url)
+            refresh_btn.click(_health, None, health_json)
+
         with gr.Row():
             user_id = gr.Textbox(label="User ID", value=config.default_user_id, scale=1)
             session_id = gr.Textbox(label="Session ID", value=config.default_session_id, scale=1)
