@@ -11,21 +11,27 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.6-alpha (Active Memory Runtime, validated, real runs).** Progression:
+> **Status — v10.10-alpha (Active Memory Runtime + LifeLoop v2, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
-> **v10.0** Longitudinal Generalization & Isolation (**`V10_LONGITUDINAL_VALIDATED` 8/8**,
-> `false_assertions=0`) →
-> **v10.1-alpha** BYON World Connector — Gateway + MCP + per-user namespace + connectors
-> (**`V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline**) →
-> **v10.2–10.3** Epistemic Search + Continuous Learning + Active Memory Core (canonical-only,
-> retrieval re-ranking) →
-> **v10.4** self-introspection + operational intents + BYONLifeLoop v1 →
-> **v10.5** expression/style learning + per-session event stream + live evaluation harness →
-> **v10.6-alpha** source-class disambiguation + two-phase restart-recall + vault-report coherence
-> (**live harness 35/35 graded PASS, 0 fail, 0 skip**; restart recall passes; **196 non-live tests**).
-> BYON stays the only epistemic authority throughout. See `STATUS.md` and `CHANGELOG.md`.
+> **v10.0** Longitudinal Generalization & Isolation (**`V10_LONGITUDINAL_VALIDATED` 8/8**) →
+> **v10.1** BYON World Connector (Gateway + MCP + per-user namespace) →
+> **v10.2–10.3** Epistemic Search + Continuous Learning + Active Memory Core →
+> **v10.4** self-introspection + operational intents + LifeLoop v1 →
+> **v10.5** expression learning + session event stream + live harness →
+> **v10.6** source-class disambiguation + two-phase restart-recall + vault-report coherence →
+> **v10.7** substrate hardening (chunk dedup, write-lock, error classes, recent-write buffer,
+> process guard; **full 843-note vault index complete, errors 0**) →
+> **v10.8** read-consistent access + tombstone/compaction (**4,419 duplicate vault facts retired
+> → 5,977 active**) →
+> **v10.9** **LifeLoop v2** — pressure model, internal research tasks, pressure-triggered
+> consolidation, temporal self-state snapshots →
+> **v10.10-alpha** in-engine read/write consistency signal + **permissioned autonomous memory-only
+> task execution** (results stored as candidates, never truth)
+> (**live harness 76/76 graded PASS, 0 fail**; restart recall passes; **307 non-live tests**).
+> BYON stays the only epistemic authority throughout; LifeLoop observes and proposes but never
+> answers the user or decides truth. See `STATUS.md` and `CHANGELOG.md`.
 >
 > Per development sheet §8: **advanced experimental prototype**, not a general LLM, not
 > consciousness, not a finished consumer product, **`FULL_LEVEL3_NOT_DECLARED`** preserved.
@@ -115,7 +121,7 @@ Endpoint: `POST /v1/research` (`action: start|continue|conclude`). Knobs: `BYON_
 
 ---
 
-# Active Memory Runtime (v10.4 → v10.6)
+# Active Memory Runtime (v10.4 → v10.10)
 
 On top of the research loop, BYON runs an **active-memory runtime** — all over the canonical
 memory-service / FactExtractor / FCE-M / D_Cortex / Auditor, never a parallel store.
@@ -166,8 +172,43 @@ python scripts/live_restart_recall_eval.py --phase prepare    # teach + marker
 #   (restart the app)
 python scripts/live_restart_recall_eval.py --phase verify     # same-user KNOWN + other-user no-leak
 ```
-Latest: **35/35 graded gates PASS, 0 fail, 0 skip** (incl. restart-recall + paraphrase-bleed),
-report at `runtime/eval/live_byon_eval_report.json`.
+Latest: **76/76 graded gates PASS, 0 fail** (Cycle 1–7 gates: identity / capabilities / source
+disambiguation / secret guard / dedup-lock / read-consistency / tombstone-excluded / LifeLoop /
+restart-recall), report at `runtime/eval/live_byon_eval_report.json`.
+
+## Hardened substrate (v10.7 → v10.8)
+
+- **Content-addressed dedup** (`vault_manifest.py`) — a re-index re-stores nothing; **single-writer
+  lock** (`write_lock.py`) refuses a 2nd live writer and reclaims dead/stale; **process guard**
+  (`scripts/byon_process_guard.py`) detects/stops only BYON vault-training writers (python.exe /
+  python3.13.exe / py.exe), never unrelated Python.
+- **Error classes** (`vault_errors.py`) — encoding ladder (utf-8 → utf-8-sig → cp1252),
+  binary/oversized skip, per-file `errors.jsonl`; one bad note never aborts a run.
+- **Recent-write buffer** (`recent_write_buffer.py`) — a just-taught PERSONAL fact is recalled
+  immediately, honestly marked `source_class=RECENT_WRITE_BUFFER` (pending FAISS indexing).
+- **Read consistency + tombstones** (`consistent_client.py`, `tombstones.py`,
+  `engine_consistency.py`) — an engine read/write coordination lock (`read_consistency_mode=
+  in_engine_rw_lock`) so a reader never sees a partial write; tombstoned facts are excluded from
+  search (`include_tombstoned` for audit), retired by `scripts/compact_vault_memory.py` (dry-run
+  default, `--apply`, never canonical). Compaction retired **4,419** duplicate vault facts.
+
+## LifeLoop v2 — internal circulation (v10.9 → v10.10)
+
+A real internal loop over the hardened substrate — it **observes and proposes, never answers the
+user and never decides truth**:
+
+- ingests interaction / feedback / memory events → `runtime/lifeloop/events.jsonl` (secrets redacted);
+- keeps a per-topic **pressure** signal (`pressure.py` → `pressure_state.json`) with time decay;
+- files internal **research tasks** (`research_tasks.py`) for repeated unresolved topics —
+  memory/vault/self-state run automatically on tick; **web needs user permission**; secrets never;
+- triggers the canonical **FCE-M consolidation** by pressure/disputed/correction;
+- runs safe **memory-only tasks autonomously**, storing each result as a **candidate** (never truth)
+  in `task_results.jsonl`;
+- records temporal **self-state snapshots** and answers "ce te preocupă intern? / ce presiuni? /
+  ce contradicții? / ce sarcini interne?".
+
+`GET /v1/lifeloop` (v2 status) · `POST /v1/lifeloop/{tick,run-task/{id},approve-web/{id},
+cancel-task/{id},mark-resolved}` · `GET /v1/lifeloop/task/{id}` — plus a Gradio **Life State** panel.
 
 ---
 
@@ -193,10 +234,15 @@ byon_optimus_alpha/
 │   ├── operational_intents.py # dynamics/proof/history/memory-action/follow-up (v10.4)
 │   ├── expression_learning.py # style learning, delivery only — never truth (v10.5)
 │   ├── session_events.py      # literal per-session event stream (v10.5)
-│   ├── self_training.py · vault_training.py · lifeloop.py · fact_extractor_bridge.py
+│   ├── vault_manifest.py · write_lock.py · vault_errors.py # substrate hardening (v10.7)
+│   ├── recent_write_buffer.py # immediate recall before FAISS indexes (v10.7)
+│   ├── consistent_client.py · tombstones.py · engine_consistency.py # read-consistency + tombstones (v10.8/v10.10)
+│   ├── lifeloop.py · pressure.py · research_tasks.py # LifeLoop v2: pressure, tasks, autonomy (v10.9/v10.10)
+│   ├── self_training.py · vault_training.py · fact_extractor_bridge.py
 ├── byon_mcp/                  # v10.1 BYON MCP server (5 tools, all routed through the Gateway)
 ├── integrations/              # v10.1 connectors: librechat/ · openclaw/ · n8n/
-├── scripts/                   # live_byon_eval.py · live_restart_recall_eval.py · byon_fact_extract.mjs
+├── scripts/                   # live_byon_eval.py · live_restart_recall_eval.py · compact_vault_memory.py
+│                              # byon_process_guard.py · byon_fact_extract.mjs
 ├── run_byon.py                # one-command launcher (REAL: memory-service → gateway → UI)
 ├── colab/                     # single-cell GPU notebooks (full-organism + audit-only)
 ├── docs/                      # ARCHITECTURE.md, RESEARCH_REPORT.md

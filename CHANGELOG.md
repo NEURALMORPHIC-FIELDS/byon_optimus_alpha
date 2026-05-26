@@ -5,6 +5,95 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.10.0-alpha] — Cycle 7: in-engine consistency + permissioned autonomous tasks
+
+> LifeLoop drains SAFE internal tasks; consistency moves to a shared engine-coordination lock.
+> **Live verdict: 76/76 graded gates PASS, 0 fail** (all Cycle 1–6 gates + 14 new), restart recall passed.
+
+### Added
+- `gateway/engine_consistency.py` — a real cross-process **read/write coordination** every memory
+  access shares: a writer marks a write batch (begin/commit), a reader WAITS (explicit bounded
+  timeout) for commit before reading, so no reader observes partial FAISS/metadata. Signal:
+  `read_consistency_mode=in_engine_rw_lock`, `snapshot_version`, `last_write_batch_id`,
+  `last_consistent_read_ts`. The Cycle-5 snapshot+retry remains as a fallback.
+- **Autonomous memory-only task execution**: `LifeLoop.tick()` drains a few PENDING memory-only
+  tasks through the canonical research loop (web OFF, audit ON). Web tasks stay
+  `blocked_needs_permission`; secret tasks are never created/run; cancelled never loop.
+- **Task result ingestion** → `runtime/lifeloop/task_results.jsonl` + `task_execution_log.jsonl`;
+  each result `stored_as=candidate` (DISPUTED→disputed) via ContinuousLearning — never committed.
+- **Pressure decay / priority**: time decay; success −1, fail +1, disputed keeps, repeated failure
+  → blocked (asks user); `priority = pressure + unresolved + 2·disputed − success`.
+- Endpoints `POST /v1/lifeloop/mark-resolved`, `GET /v1/lifeloop/task/{id}`; UI Life-State panel
+  gains Mark-resolved + View-evidence (Gateway-only).
+
+### Verified
+- 307 non-live tests (17 new); live harness 76/76 graded PASS. Live: in_engine_rw_lock present,
+  memory-only tasks auto-ran as candidates, pressure fell 25.03→22.46 after a tick.
+
+---
+
+## [10.9.0-alpha] — Cycle 6: LifeLoop v2 (real internal circulation)
+
+> Internal circulation over the hardened substrate — never answers the user, never a truth authority.
+
+### Added
+- `gateway/lifeloop.py` v2: rich event ingestion (events.jsonl; secret content redacted),
+  per-topic pressure (`gateway/pressure.py` → pressure_state.json), internal research task queue
+  (`gateway/research_tasks.py`; repeated UNRESOLVED → task; web needs permission; never on secrets;
+  idempotent by topic), pressure-triggered FCE-M consolidation (consolidation_log.jsonl),
+  temporal self-state snapshots (self_state_snapshots.jsonl).
+- New `SELF_INTERNAL_STATE` intent answers "ce te preocupă intern / ce presiuni / ce contradicții
+  / ce sarcini interne" from pressure + tasks + snapshots — observations, never a direct answer.
+- `/v1/lifeloop` v2 status + `POST run-task / approve-web / cancel-task`; Gradio "Life State" panel.
+
+### Verified
+- 282 non-live tests (32 new); live harness 63/63 graded PASS (49 prior + 14 LifeLoop).
+
+---
+
+## [10.8.0-alpha] — Cycle 5: read-consistent access + tombstone/compaction
+
+> Sealed memory-service not rewritten — consistency + tombstones at the canonical client boundary.
+
+### Added
+- `gateway/consistent_client.py` — read-consistency (retry empty during write, stable-snapshot
+  fallback, explicit timeout, `read_consistency_mode`), tombstone-filtered search, batch writes.
+- `gateway/tombstones.py` — mark a fact inactive by ctx_id/source_id/content_sha (reason required,
+  audited, idempotent, reversible, canonical needs operator flag); search excludes by default,
+  `include_tombstoned` for audit.
+- `MemoryServiceClient.tombstone_fact` + `store_facts_batch`; `scripts/compact_vault_memory.py`
+  (dry-run default, `--apply`, keep newest, never canonical).
+
+### Verified
+- 250 non-live tests (22 new); live harness 49/49 graded PASS. **Compaction applied live: 4,419
+  duplicate vault facts tombstoned → 5,977 active, 0 errors, idempotent.**
+
+---
+
+## [10.7.0-alpha] — Cycle 4: substrate hardening
+
+> Stabilises the memory substrate so autonomy is not built over a flaky index.
+
+### Added
+- `gateway/vault_manifest.py` — content-addressed CHUNK dedup (`source_id`, lifecycle, bootstrap
+  from existing memory so a re-index does not re-store).
+- `gateway/write_lock.py` — single-writer lock (pid+heartbeat; refuses a 2nd live writer, reclaims
+  dead/stale); `indexing_in_progress` surfaced.
+- `gateway/vault_errors.py` — encoding ladder (utf-8 → utf-8-sig → cp1252), binary/oversized skip,
+  per-file `errors.jsonl`; one bad note never aborts a run.
+- `gateway/recent_write_buffer.py` — immediate recall of a just-taught PERSONAL fact before FAISS
+  indexes it, marked `source_class=RECENT_WRITE_BUFFER` (never a question, never objective/vault).
+- `scripts/byon_process_guard.py` — detects/stops BYON vault-training writers across
+  python.exe / python3.13.exe / py.exe by command line; never touches unrelated Python.
+- `/v1/memory/status` substrate block (vault report, indexing_in_progress, active_writer_pid,
+  lock, orphan warning, recent-write-buffer count).
+
+### Verified
+- 228 non-live tests (37 new); live harness 40/40 graded PASS. **Full Obsidian vault index
+  completed: 843/843 notes, errors 0, complete=true, stale=false.**
+
+---
+
 ## [10.6.0-alpha] — Active Memory Runtime · Cycle 3: source disambiguation + restart persistence
 
 > Closes the memory-substrate loop. No new cognitive architecture; canonical components reused.

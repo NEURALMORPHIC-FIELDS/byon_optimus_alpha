@@ -123,9 +123,51 @@ Per-user isolation maps `user_id → memory-service thread_id` (system facts are
 visible to all). Recall **survives restart** (FAISS persisted) — proven by the two-phase
 `live_restart_recall_eval.py` gate (same-user KNOWN post-restart, other-user no leak). The whole
 runtime is exercised by `scripts/live_byon_eval.py` (behaves-like-a-user gates → JSON report with
-source-class / vault-misuse / cross-user-leak / restart roll-ups). BYONLifeLoop v1 adds minimal
-internal circulation (event stream, self_state, periodic FCE-M consolidation) with **no new
-memory authority**.
+source-class / vault-misuse / cross-user-leak / restart roll-ups).
+
+## Hardened substrate (v10.7–v10.8)
+
+The memory substrate underneath the runtime is hardened so autonomy is not built over a flaky
+index — all at the canonical access boundary (the sealed memory-service is never rewritten):
+
+- **Content-addressed dedup** (`vault_manifest.py`): each chunk has a stable `source_id` +
+  `chunk_sha256`; a re-index skips unchanged chunks (and bootstraps the dedup set from facts
+  already in memory). **Single-writer lock** (`write_lock.py`) + **process guard**
+  (`byon_process_guard.py`) prevent concurrent/orphan writers from churning the index.
+- **Read/write consistency** (`engine_consistency.py`, `consistent_client.py`): every access
+  shares an engine read/write coordination lock — a writer marks a write batch (begin/commit), a
+  reader **waits (bounded)** for commit before reading, so no reader observes a partial
+  FAISS/metadata state. Signal: `read_consistency_mode=in_engine_rw_lock`, `snapshot_version`,
+  `last_write_batch_id`, `last_consistent_read_ts`; the Cycle-5 snapshot+retry is the fallback.
+- **Tombstone overlay** (`tombstones.py`): a fact is retired by tombstone (never physical delete) —
+  excluded from normal search, returned only with `include_tombstoned`, audited and reversible;
+  `compact_vault_memory.py` retires duplicate vault facts (dry-run default; never canonical).
+- **Recent-write buffer** (`recent_write_buffer.py`): a just-taught personal fact is recallable
+  before FAISS indexes it, marked `source_class=RECENT_WRITE_BUFFER`.
+
+## LifeLoop v2 — internal circulation (v10.9–v10.10)
+
+`lifeloop.py` + `pressure.py` + `research_tasks.py`. It **observes and proposes, never answers the
+user and never decides truth** (`is_truth_authority=false`, `answers_user_directly=false`):
+
+```
+events.jsonl ─► pressure model (per topic, time-decayed) ─► recommended_action
+     │                                          │
+     │                                          ├─ repeated UNRESOLVED ─► internal ResearchTask
+     │                                          │     (memory/vault/self-state auto on tick;
+     │                                          │      WEB needs user permission; secrets never)
+     ▼                                          ▼
+ tick(): pressure/disputed/correction ─► canonical FCE-M consolidation (no manual promotion)
+         drain memory-only tasks ─► canonical research loop (web off, audit on)
+                                    ─► result stored as CANDIDATE (never truth) + task_results.jsonl
+         write self_state_snapshots.jsonl (known/unknown/disputed, pressure, tasks, vault facts)
+```
+
+Pressure: UNKNOWN +1 / repeated +2 / PROVISIONAL +0.5 / DISPUTED +2 / neg-feedback +3 /
+correction +2 / accepted −1 / consolidation −2; time decay; success −1 / fail +1 / repeated fail →
+blocked (asks the user). `priority = pressure + unresolved + 2·disputed − success`. Secrets are
+redacted in events and never create or run a task. BYON answers "ce te preocupă intern? / ce
+presiuni? / ce contradicții? / ce sarcini interne?" from these snapshots + the task queue.
 
 ## Failure discipline (dev-sheet §7.3)
 

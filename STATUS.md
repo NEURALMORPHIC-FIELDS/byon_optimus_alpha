@@ -22,6 +22,10 @@ This file states only what was **run and verified**, organised by the version pr
 | **v10.4-alpha** | Self-introspection (`SelfStateProvider`) + operational intents + self/vault training + **BYONLifeLoop v1** | **PASS** — answered from runtime state, never vault/slogan |
 | **v10.5-alpha** | Expression/style learning + per-session event stream + **live evaluation harness** | **PASS** — 178 non-live; live harness 25/25 graded (restart-recall documented skip) |
 | **v10.6-alpha** | **Source-class disambiguation + two-phase restart-recall + vault-report coherence** | **PASS** — **196 non-live; live harness 35/35 graded, 0 fail, 0 skip; restart recall passes** |
+| **v10.7-alpha** | **Substrate hardening** (chunk dedup, single-writer lock, error classes, recent-write buffer, process guard) | **PASS** — 228 non-live; live 40/40; **full 843-note vault index complete, errors 0** |
+| **v10.8-alpha** | **Read-consistent access + tombstone/compaction** | **PASS** — 250 non-live; live 49/49; **4,419 duplicate vault facts retired → 5,977 active** |
+| **v10.9-alpha** | **LifeLoop v2** (pressure model, internal research tasks, pressure-triggered consolidation, self-state snapshots) | **PASS** — 282 non-live; live 63/63; LifeLoop never answers / never truth authority |
+| **v10.10-alpha** | **In-engine read/write consistency signal + permissioned autonomous memory-only tasks** (results = candidates) | **PASS** — **307 non-live; live harness 76/76 graded, 0 fail; restart recall passes** |
 
 ---
 
@@ -126,9 +130,25 @@ Bugs the harder harness found and fixed (run, not claimed): English-only secret 
 canonical fact answering a personal "my X" question, USER_VAULT short-circuiting on a canonical
 fact. `FULL_LEVEL3_NOT_DECLARED` preserved; BYON core (`dcortex==10.0.0`, v10 gates) untouched.
 
-> **Open:** the real Obsidian vault (`D:/cercetare`, 843 notes) is indexed incrementally
-> (resumable); the vault report states partial/complete honestly and is never claimed finished
-> while partial.
+## v10.7–v10.10 — Hardened substrate + LifeLoop v2 · **VALIDATED (live harness 76/76)**
+Built the internal organism on a hardened, consistent, deduplicated memory. Validation:
+**307 non-live pytest** + **live harness 76/76 graded PASS, 0 fail** (all Cycle 1–7 gates).
+
+| Area | Validated |
+|---|---|
+| **Full vault index** | 843/843 notes, errors 0, `complete=true`, `stale=false` (content-addressed dedup; a re-run stores 0) |
+| **Single-writer lock + process guard** | second writer refused; dead/stale lock reclaimed; only BYON vault-trainers stopped (never unrelated Python) |
+| **Error handling** | encoding ladder + binary/oversized skip; one bad note never aborts; per-file `errors.jsonl` |
+| **Read consistency** | engine read/write coordination (`in_engine_rw_lock`) — reader waits for a write batch to commit; no false-zero; snapshot+retry fallback |
+| **Tombstone / compaction** | **4,419 duplicate vault facts retired → 5,977 active** (tombstone, not delete; audited, reversible; excluded from search, `include_tombstoned` for audit) |
+| **Recent-write buffer** | a just-taught personal fact is recalled immediately, marked `RECENT_WRITE_BUFFER` |
+| **LifeLoop v2** | per-topic pressure (with decay), internal research tasks, pressure-triggered FCE-M consolidation, temporal self-state snapshots |
+| **Autonomous tasks** | memory-only tasks auto-run on tick → results stored as **candidates** (never truth); **web needs permission**; secrets never run; pressure 25.03→22.46 after a tick |
+| **Invariants held** | source bleed blocked · restart recall passes · tombstoned excluded · LifeLoop never answers / not truth authority · `FULL_LEVEL3_NOT_DECLARED` |
+
+> **Open:** consistency is an engine-coordination lock at the shared access boundary (writers +
+> readers), not inside the sealed FAISS engine; a true in-engine snapshot/atomic-swap is the next
+> substrate step. `dcortex==10.0.0` and the v10 milestone gates remain untouched.
 
 ## Later track — v10.2 (External Longitudinal Challenge)
 Raises the v10 longitudinal bar with inputs the harness did not create (distinct from the v10.1

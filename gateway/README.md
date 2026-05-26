@@ -1,4 +1,4 @@
-# BYON Gateway (v10.6 alpha — Active Memory Runtime)
+# BYON Gateway (v10.10 alpha — Active Memory Runtime + LifeLoop v2)
 
 A stable, controlled API port between the world and BYON, **and** the active-memory runtime.
 The Gateway **never decides truth** — it routes every request through BYON (the sole epistemic
@@ -16,12 +16,15 @@ authority) and returns BYON's verdict (`KNOWN` / `PROVISIONAL` / `DISPUTED` / `U
 | POST | `/v1/consolidate` | run the canonical FCE-M consolidation |
 | POST | `/v1/feedback` | record user feedback (also a learning signal) |
 | POST | `/v1/forget` | delete the calling user's memory (`confirm=true`) |
-| GET  | `/v1/memory/status` | per-user namespace status |
+| GET  | `/v1/memory/status` | per-user namespace status + substrate (consistency, vault, tombstones, locks) |
 | GET  | `/v1/audit/{trace_id}` | fetch an audit trace |
-| GET  | `/v1/lifeloop` · POST `/v1/lifeloop/tick` | BYONLifeLoop v1 snapshot / tick |
+| GET  | `/v1/lifeloop` · POST `/v1/lifeloop/tick` | **LifeLoop v2** status (pressure, tasks, consistency) / tick |
+| POST | `/v1/lifeloop/run-task/{id}` · `approve-web/{id}` · `cancel-task/{id}` · `mark-resolved` | task control |
+| GET  | `/v1/lifeloop/task/{id}` | task evidence (result, sources) |
 | GET  | `/v1/admin/metrics` | aggregate alpha counters |
 
-Raw memory-service / D_Cortex / FCE-M / FAISS endpoints are **never** exposed.
+Raw memory-service / D_Cortex / FCE-M / FAISS endpoints are **never** exposed. LifeLoop observes
+and proposes — it **never answers the user and is never a truth authority**.
 
 ## Active Memory Runtime modules
 
@@ -35,7 +38,11 @@ Raw memory-service / D_Cortex / FCE-M / FAISS endpoints are **never** exposed.
 | `operational_intents.py` | dynamics / proof / history / memory-action / follow-up / vault-status (v10.4) |
 | `expression_learning.py` | style learned as `USER_PREFERENCE`; delivery only, never truth (v10.5) |
 | `session_events.py` | literal per-session `events.jsonl` (v10.5) |
-| `self_training.py` · `vault_training.py` · `lifeloop.py` · `fact_extractor_bridge.py` | self/vault training, LifeLoop v1, canonical FactExtractor bridge |
+| `vault_manifest.py` · `write_lock.py` · `vault_errors.py` | chunk dedup, single-writer lock, error classes (v10.7) |
+| `recent_write_buffer.py` | immediate recall before FAISS indexes; `RECENT_WRITE_BUFFER` (v10.7) |
+| `consistent_client.py` · `tombstones.py` · `engine_consistency.py` | read/write consistency + tombstone overlay (v10.8/v10.10) |
+| `lifeloop.py` · `pressure.py` · `research_tasks.py` | **LifeLoop v2**: pressure, internal tasks, autonomous draining (v10.9/v10.10) |
+| `self_training.py` · `vault_training.py` · `fact_extractor_bridge.py` | self/vault training + canonical FactExtractor bridge |
 
 ## Run
 
@@ -59,11 +66,12 @@ chat comes back as `ERROR` with **no answer** — the Gateway fabricates nothing
 
 ```bash
 python -m gateway.alpha_validation                       # 21/21 offline connector gates + report
-python -m pytest -m "not live"                            # 196 non-live tests (whole runtime)
-python scripts/live_byon_eval.py                          # behaves-like-a-user gates (35/35) → JSON
+python -m pytest -m "not live"                            # 307 non-live tests (whole runtime)
+python scripts/live_byon_eval.py                          # behaves-like-a-user gates (76/76) → JSON
 ```
 World-connector report → `runtime/v10_1_out/v10_1_world_connector_alpha_report.json`,
 verdict `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED`. Active-memory live report →
-`runtime/eval/live_byon_eval_report.json` (35/35 graded, restart-recall + paraphrase-bleed
-included). Live connector gates (LibreChat / OpenClaw / n8n / live orchestrator) are deferred,
-never faked.
+`runtime/eval/live_byon_eval_report.json` (**76/76 graded, 0 fail** — Cycle 1–7 gates: source
+disambiguation, secret guard, dedup/lock, read-consistency, tombstone-excluded, LifeLoop,
+restart-recall). Live connector gates (LibreChat / OpenClaw / n8n / live orchestrator) are
+deferred, never faked.

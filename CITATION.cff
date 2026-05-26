@@ -10,7 +10,7 @@ abstract: >-
   zero false assertions on ungrounded queries). Advanced experimental prototype;
   FULL_LEVEL3_NOT_DECLARED preserved.
 type: software
-version: "10.6.0"
+version: "10.10.0"
 license: Apache-2.0
 repository-code: "https://github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha"
 authors:
