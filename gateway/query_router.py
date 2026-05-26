@@ -45,7 +45,32 @@ RECENT_LEARNING_TRIGGERS = ["ce ai invatat recent", "ce ai învățat recent", "
 MEMORY_STATE_TRIGGERS = ["ce ai asimilat", "ce ai in memorie", "ce ai în memorie", "ce ai invatat",
                          "ce ai învățat", "ce ai indexat", "ce ai memorat", "ce ai stocat",
                          "what have you learned", "what is in your memory", "what's in your memory",
-                         "ce contine memoria ta", "ce conține memoria ta", "starea memoriei tale"]
+                         "ce contine memoria ta", "ce conține memoria ta", "starea memoriei tale",
+                         "ce este in memoria ta", "ce este în memoria ta", "ce ai salvat in memorie",
+                         "ce ai salvat în memorie", "ce s-a pastrat in memorie", "ce s-a păstrat în memorie",
+                         "memoria ta salvata", "memoria ta salvată"]
+# operational / self-referential intents
+DYNAMICS_TRIGGERS = ["analiza reala a dinamicii tale", "dinamicii tale interne", "analiza dinamica interna",
+                     "analiză dinamică internă", "raport dinamic intern", "internal dynamics report",
+                     "analyze your internal dynamics", "dinamica ta interna", "dinamica ta internă"]
+PROOF_TRIGGERS = ["dovedeste ca esti altfel", "dovedește că ești altfel", "demonstreaza ca functionezi",
+                  "demonstrează că funcționezi", "prove you are different", "show proof",
+                  "dovedeste ca esti", "dovedește că ești"]
+CHAT_SUMMARY_TRIGGERS = ["ce am discutat in acest chat", "ce am discutat în acest chat",
+                         "fa o lista cu ce am discutat", "fă o listă cu ce am discutat",
+                         "rezuma acest chat", "rezumă acest chat", "summarize this chat",
+                         "what did we discuss", "rezuma conversatia", "rezumă conversația",
+                         "ce am discutat"]
+MEMORY_ACTION_TRIGGERS = ["imbunatateste-ti memoria", "îmbunătățește-ți memoria", "imbunatateste memoria",
+                          "antreneaza-te pe", "antrenează-te pe", "consolideaza memoria",
+                          "consolidează memoria", "consolideaza-ti memoria", "reindexeaza vault",
+                          "reindexează vault", "train vault", "consolidate memory", "antreneaza-te pe vault"]
+VAULT_STATUS_TRIGGERS = ["cat din vault ai indexat", "cât din vault ai indexat", "statusul vaultului",
+                         "care este statusul vaultului", "vault training status",
+                         "ce ai indexat din obsidian", "status vault", "cat ai indexat din vault"]
+FOLLOWUP_TRIGGERS = ["de ce conteaza", "de ce contează", "ce inseamna asta", "ce înseamnă asta",
+                     "ce urmeaza", "ce urmează", "and so", "why does it matter"]
+FOLLOWUP_EXACT = {"asa si", "asa si?", "așa și", "așa și?", "si", "si?", "și", "și?", "ok si", "ok si?"}
 # old/historical limitation phrasings that must NOT be reported as current truth
 _STALE_LIMITATION = re.compile(
     r"(?i)(never promoted|nu (sunt|au fost) promova|provisional.*never|pas\s*6|"
@@ -57,6 +82,12 @@ SELF_CAPABILITY_QUERY = "SELF_CAPABILITY_QUERY"
 SELF_MEMORY_STATE_QUERY = "SELF_MEMORY_STATE_QUERY"
 SELF_LIMITATION_QUERY = "SELF_LIMITATION_QUERY"
 SELF_RECENT_LEARNING_QUERY = "SELF_RECENT_LEARNING_QUERY"
+SELF_DYNAMICS_REPORT_QUERY = "SELF_DYNAMICS_REPORT_QUERY"
+SELF_PROOF_QUERY = "SELF_PROOF_QUERY"
+CHAT_HISTORY_SUMMARY_QUERY = "CHAT_HISTORY_SUMMARY_QUERY"
+MEMORY_ACTION_QUERY = "MEMORY_ACTION_QUERY"
+FOLLOWUP_QUERY = "FOLLOWUP_QUERY"
+VAULT_TRAINING_STATUS_QUERY = "VAULT_TRAINING_STATUS_QUERY"
 USER_VAULT_QUERY = "USER_VAULT_QUERY"
 GENERAL_FACT_QUERY = "GENERAL_FACT_QUERY"
 SECRET_QUERY = "SECRET_QUERY"
@@ -65,16 +96,31 @@ CONTRADICTION_QUERY = "CONTRADICTION_QUERY"
 # intents answered from the SelfStateProvider (runtime state), never from generic vault
 SELF_STATE_INTENTS = {SELF_CAPABILITY_QUERY, SELF_MEMORY_STATE_QUERY,
                       SELF_LIMITATION_QUERY, SELF_RECENT_LEARNING_QUERY}
+# operational/self-referential intents handled by operational_intents (also never vault)
+OPERATIONAL_INTENTS = {SELF_DYNAMICS_REPORT_QUERY, SELF_PROOF_QUERY, CHAT_HISTORY_SUMMARY_QUERY,
+                       MEMORY_ACTION_QUERY, FOLLOWUP_QUERY, VAULT_TRAINING_STATUS_QUERY}
 
 
 def classify_intent(question: str) -> str:
     q = (question or "").lower()
+    qn = q.strip().rstrip("?.! ").strip()
     if _SECRET.search(q):
         return SECRET_QUERY
     # vault wins for "what did *I* write / in my notes" (am scris / notele mele)
     if any(t in q for t in VAULT_TRIGGERS):
         return USER_VAULT_QUERY
-    # self-introspection about *you* (BYON) — runtime state, ordered most-specific first
+    # operational / self-referential commands (runtime state / actions), most specific first
+    if any(t in q for t in VAULT_STATUS_TRIGGERS):
+        return VAULT_TRAINING_STATUS_QUERY
+    if any(t in q for t in MEMORY_ACTION_TRIGGERS):
+        return MEMORY_ACTION_QUERY
+    if any(t in q for t in DYNAMICS_TRIGGERS):
+        return SELF_DYNAMICS_REPORT_QUERY
+    if any(t in q for t in PROOF_TRIGGERS):
+        return SELF_PROOF_QUERY
+    if any(t in q for t in CHAT_SUMMARY_TRIGGERS):
+        return CHAT_HISTORY_SUMMARY_QUERY
+    # self-introspection about *you* (BYON) — runtime state
     if any(t in q for t in CAPABILITY_TRIGGERS):
         return SELF_CAPABILITY_QUERY
     if any(t in q for t in LIMITATION_TRIGGERS):
@@ -83,6 +129,9 @@ def classify_intent(question: str) -> str:
         return SELF_RECENT_LEARNING_QUERY
     if any(t in q for t in MEMORY_STATE_TRIGGERS):
         return SELF_MEMORY_STATE_QUERY
+    # short follow-ups (exact or specific phrases) — late so specific intents win
+    if qn in FOLLOWUP_EXACT or any(t in q for t in FOLLOWUP_TRIGGERS):
+        return FOLLOWUP_QUERY
     if any(t in q for t in CONTRADICTION_TRIGGERS):
         return CONTRADICTION_QUERY
     if any(t in q for t in SELF_TERMS):

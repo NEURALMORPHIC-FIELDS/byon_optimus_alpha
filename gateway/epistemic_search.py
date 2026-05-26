@@ -199,6 +199,20 @@ class EpistemicSearch:
                                 sources_searched=["runtime:self_state", "memory-service:stats"],
                                 memory_hits=[], web_results=[], claude_hypothesis=None, synthesis=syn)
 
+        # --- operational / self-referential commands: runtime state / actions, never vault --
+        if intent in qr.OPERATIONAL_INTENTS:
+            from .operational_intents import OperationalIntents
+            op = OperationalIntents(mem_client, str(namespace_dir) if namespace_dir else None, session_id)
+            status, answer, srcs = op.handle(intent, question)
+            clk.set_phase("done")
+            learning.record_event("chat", question=question, status=status, intent=intent)
+            syn = {"epistemic_verdict": status, "memory_view": "runtime/operational",
+                   "claude_view": "not used", "web_view": "not used", "conflict_view": "none",
+                   "confidence": 0.9, "sources": srcs, "intent": intent}
+            return self._result(trace_id, clk, status, "done", answer=answer, confidence=0.9,
+                                sources_searched=srcs, memory_hits=[], web_results=[],
+                                claude_hypothesis=None, synthesis=syn)
+
         # --- phase: internal committed + session/candidate memory ------------
         clk.set_phase("memory")
         # per-user isolation: BYON user_id maps to the memory-service thread; scope="thread"

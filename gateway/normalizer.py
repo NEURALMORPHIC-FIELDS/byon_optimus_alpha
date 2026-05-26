@@ -22,11 +22,13 @@ from .types import (
 )
 
 _VALID = {"KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
-          "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "UNKNOWN", "REFUSED", "ERROR"}
+          "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "UNKNOWN", "REFUSED", "ERROR",
+          "SELF_STATE_GROUNDED", "ACTION_DONE", "ACTION_REQUIRED"}
 # statuses that legitimately carry an answer body (with explicit uncertainty), never as a
 # confident asserted fact. KNOWN is the only grounded-confident status.
 _CARRY_ANSWER = {"KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
-                 "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE"}
+                 "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE",
+                 "SELF_STATE_GROUNDED", "ACTION_DONE", "ACTION_REQUIRED"}
 
 
 def normalize(result: BYONResult, *, audit_trace_id: str, user_namespace: str,
