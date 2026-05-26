@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "byon-dcortex"
+version = "10.0.0"
+description = "BYON Optimus + D_Cortex — cognitive agent with morphogenetic, addressable, persistent and chronodynamic memory (off-Colab, enterprise harness)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "NEURALMORPHIC-FIELDS" }]
+keywords = ["morphogenetic-memory", "addressable-memory", "epistemic-memory-contract", "cognitive-agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+    "requests>=2.28.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha"
+Repository = "https://github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha"
+
+[project.optional-dependencies]
+realtext = [
+    "tokenizers>=0.13.0",
+    "datasets>=2.14.0",
+    "sentence-transformers>=2.2.0",
+]
+service = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "scipy>=1.10.0",
+    "faiss-cpu>=1.7.4",
+    "prometheus-client>=0.19.0",
+    "anthropic>=0.32.0",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.setuptools]
+packages = ["dcortex"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "slow: long-running CPU/GPU audits (deselect with -m 'not slow')",
+    "integration: requires byon_optimus memory-service running",
+    "live: requires a live ANTHROPIC_API_KEY",
+]

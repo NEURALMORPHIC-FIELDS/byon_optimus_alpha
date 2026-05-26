@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "BYON Optimus + D_Cortex (byon_optimus_alpha)"
+abstract: >-
+  An off-Colab, testable, locally-runnable research prototype in which BYON Optimus acts
+  as the orchestrator / epistemic auditor and D_Cortex is integrated as an additive
+  morphogenetic, addressable, persistent and chronodynamic memory organ, with a real
+  sealed FCE-M v15.7a consolidator. Validated through the v9.9.0 -> v10.0 progression,
+  including the v10 Longitudinal Generalization & Isolation milestone (8/8,
+  zero false assertions on ungrounded queries). Advanced experimental prototype;
+  FULL_LEVEL3_NOT_DECLARED preserved.
+type: software
+version: "10.0.0"
+license: Apache-2.0
+repository-code: "https://github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha"
+authors:
+  - name: "NEURALMORPHIC-FIELDS"
+keywords:
+  - morphogenetic memory
+  - addressable persistent memory
+  - epistemic memory contract
+  - retrieval grounding
+  - cognitive agent

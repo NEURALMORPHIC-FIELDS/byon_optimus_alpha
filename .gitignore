@@ -1,0 +1,39 @@
+# Secrets & third-party / runtime material — never committed
+secrets/
+external/
+runtime/
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Virtual environments
+.venv/
+.venv_*/
+venv/
+env/
+
+# Node
+node_modules/
+
+# Model / index artifacts & logs
+*.pt
+*.faiss
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
