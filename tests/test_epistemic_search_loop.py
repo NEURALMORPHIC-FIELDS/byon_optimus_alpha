@@ -145,7 +145,7 @@ def test_no_private_secret_search(tmp_path):
 
 def test_source_sweep_lists_exhausted_sources(tmp_path):
     out = _run(tmp_path, mem=FakeMem([]), allow_web=False, allow_claude=False)
-    assert "memory" in out["sources_searched"]
+    assert any(s.startswith("memory") for s in out["sources_searched"])
     assert out["epistemic_status"] in ("UNKNOWN", "ASK_USER_FOR_SOURCE")
 
 

@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 from .internal_clock import (InternalResearchClock, PRESSURE_HIGH_CERTAINTY,
                              PRESSURE_SOURCES_CONFLICT, PRESSURE_UNSAFE_TOPIC, PRESSURE_WEB_FAIL)
 from .perspective_synthesis import synthesize
+from . import query_router as qr
 from . import web_search as ws
 
 _SECRET = re.compile(r"(?i)\b(password|secret|private key|api[ _-]?key|token|pin|ssn|credit\s*card)\b")
@@ -90,6 +91,70 @@ class EpistemicSearch:
             return clk
         return _REGISTRY[trace_id]
 
+    # Canonical retrieval probes — English, so they reliably match the English relation/repo
+    # facts regardless of the user's query language (fixes cross-lingual self-knowledge recall).
+    _CANON_QUERIES = [
+        "BYON architecture components D_Cortex FCE-M memory-service Claude role",
+        "BYON orchestrator auditor Worker Auditor Executor epistemic contract",
+        "BYON operational Level 2 FULL_LEVEL3_NOT_DECLARED; D_Cortex function; FCE-M function; Claude not authority",
+    ]
+
+    def _gather_canonical(self, mem_client, user_id: str):
+        """Actively pull the committed relation/repo canonical facts so a self-architecture
+        answer is complete even when the user's (e.g. Romanian) query has low cosine to the
+        English facts."""
+        seen, out = set(), []
+        for q in self._CANON_QUERIES:
+            try:
+                hits = mem_client.search_facts(q, top_k=10, threshold=0.30,
+                                               thread_id=user_id, scope="thread")
+            except Exception:
+                hits = []
+            for h in hits:
+                md = h.get("metadata") or {}
+                src = md.get("source", "")
+                if md.get("trust") in qr.COMMITTED_TIERS and (src.startswith("relation:") or src.startswith("repo:")):
+                    key = h.get("content", "")
+                    if key and key not in seen:
+                        seen.add(key)
+                        out.append(h)
+        return out
+
+    def _describe_from_facts(self, question: str, committed_hits):
+        """Self-knowledge synthesis: describe from the TOP canonical facts, with Claude as a
+        language faculty over GROUNDED facts only (never inventing). Falls back to joining the
+        facts if Claude is unavailable. Returns (answer, sources)."""
+        facts, srcs = [], []
+        for h in committed_hits[:8]:
+            c = h.get("content") or (h.get("metadata") or {}).get("content_preview") or ""
+            s = (h.get("metadata") or {}).get("source") or ""
+            if c:
+                facts.append(c)
+            if s and s not in srcs:
+                srcs.append(s)
+        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if key and facts:
+            try:
+                import httpx
+                system = ("You are the language faculty of BYON. Using ONLY the grounded facts "
+                          "provided, write a concise description that answers the question. Do NOT "
+                          "add any information beyond the facts. If the facts are insufficient, say so.")
+                content = "Question: " + question + "\nGrounded facts:\n- " + "\n- ".join(facts[:8])
+                r = httpx.post("https://api.anthropic.com/v1/messages",
+                               headers={"x-api-key": key, "anthropic-version": "2023-06-01",
+                                        "content-type": "application/json"},
+                               json={"model": os.environ.get("BYON_CLAUDE_MODEL", "claude-sonnet-4-6"),
+                                     "max_tokens": 380, "temperature": 0, "system": system,
+                                     "messages": [{"role": "user", "content": content}]}, timeout=30.0)
+                r.raise_for_status()
+                txt = "".join(b.get("text", "") for b in r.json().get("content", [])
+                              if b.get("type") == "text").strip()
+                if txt:
+                    return txt, srcs[:6]
+            except Exception:
+                pass
+        return ("Grounded facts: " + " | ".join(facts[:8])) if facts else "(no grounded facts)", srcs[:6]
+
     def run(self, *, question: str, user_id: str, session_id: str, namespace_dir,
             mem_client, learning, web_provider=None, claude_provider=None,
             allow_web: bool = False, allow_claude: bool = True, action: str = "start",
@@ -120,16 +185,41 @@ class EpistemicSearch:
         # --- phase: internal committed + session/candidate memory ------------
         clk.set_phase("memory")
         # per-user isolation: BYON user_id maps to the memory-service thread; scope="thread"
-        # also returns system-scope canonical facts (thread_id=None).
-        memory_hits = mem_client.search_facts(question, top_k=5, threshold=0.35,
-                                              thread_id=user_id, scope="thread") if mem_client else []
-        sources_searched.append("memory")
-        committed = [h for h in memory_hits if ((h.get("metadata") or {}).get("trust") or h.get("trust"))
-                     in ("VERIFIED_PROJECT_FACT", "DOMAIN_VERIFIED", "USER_PREFERENCE")]
-        # fast path: committed grounded answer -> KNOWN, skip Claude/web
+        # also returns system-scope canonical facts (thread_id=None). Larger top_k so canonical
+        # facts are in the candidate pool, then trust-tier + intent re-ranking decides priority.
+        intent = qr.classify_intent(question)
+        raw_hits = mem_client.search_facts(question, top_k=20, threshold=0.30,
+                                           thread_id=user_id, scope="thread") if mem_client else []
+        memory_hits = qr.rerank(raw_hits, intent)
+        sources_searched.append(f"memory[{intent}]")
+        committed = qr.committed(memory_hits)
+
+        # SELF/architecture queries: actively gather the canonical relation/repo facts (so the
+        # answer is complete cross-lingually), then synthesize a description with Claude as
+        # language faculty over those GROUNDED facts.
+        if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
+            canon = self._gather_canonical(mem_client, user_id) if mem_client else []
+            pool = qr.rerank(raw_hits + canon, intent)
+            committed_pool = qr.committed(pool)
+        else:
+            committed_pool = committed
+        if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY) and committed_pool:
+            memory_hits = pool
+            answer, srcs = self._describe_from_facts(question, committed_pool)
+            clk.set_phase("done")
+            learning.record_event("chat", question=question, status="KNOWN", grounded=True, intent=intent)
+            syn = {"epistemic_verdict": "KNOWN", "memory_view": "canonical project/relation facts",
+                   "claude_view": "phrased grounded facts (not authority)", "web_view": "not needed",
+                   "conflict_view": "none", "confidence": 0.9, "sources": srcs, "intent": intent}
+            return self._result(trace_id, clk, "KNOWN", "done", answer=answer, confidence=0.9,
+                                sources_searched=sources_searched, memory_hits=memory_hits,
+                                web_results=[], claude_hypothesis=None, synthesis=syn)
+
+        # fast path: committed grounded answer -> KNOWN, skip Claude/web (reranked order)
         if committed:
             syn = synthesize(question=question, memory_hits=memory_hits, candidate_hits=[],
                              claude_hypothesis=None, web_results=[], web_enabled=allow_web)
+            syn["intent"] = intent
             clk.set_phase("done")
             learning.record_event("chat", question=question, status=syn["epistemic_verdict"], grounded=True)
             return self._result(trace_id, clk, syn["epistemic_verdict"], "done",

@@ -5,6 +5,39 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.3.1-alpha] — Retrieval priority + source routing fix
+
+> Fixes the v10.3 ranking defect (vault EXTRACTED_USER_CLAIM out-ranking committed
+> VERIFIED_PROJECT_FACT for architecture questions). Root cause: the code read a `score`
+> field that didn't exist (the real field is `similarity`), so hits were never re-ranked.
+
+### Added
+- `gateway/query_router.py` — query **intent router** (`SELF_ARCHITECTURE_QUERY`,
+  `USER_VAULT_QUERY`, `GENERAL_FACT_QUERY`, `SECRET_QUERY`, `CONTRADICTION_QUERY`) + a
+  **trust-tier re-ranker**: final rank = similarity + trust boost + intent boost, with the
+  order SYSTEM_CANONICAL > VERIFIED_PROJECT_FACT > DOMAIN_VERIFIED > USER_PREFERENCE >
+  EXTRACTED_USER_CLAIM > PROVISIONAL_WEB > DISPUTED_OR_UNSAFE.
+- Self-architecture queries now **actively gather** the canonical relation/repo facts
+  (`_gather_canonical`, English probes) so the description is complete even for cross-lingual
+  (Romanian) queries, then synthesize with Claude as language faculty over GROUNDED facts.
+
+### Behaviour
+- `descrie acest model BYON` → **KNOWN**, grounded in `relation:`/`repo:` facts (D_Cortex,
+  FCE-M, memory-service, Claude-role, Level 2 / FULL_LEVEL3_NOT_DECLARED) — **not** vault notes.
+- `care este relatia dintre BYON, D_Cortex si FCE-M?` → **KNOWN**, relation facts dominate.
+- `ce am scris despre FCE-M?` → vault sources dominate (PROVISIONAL, user memory).
+- Vault `EXTRACTED_USER_CLAIM` can no longer out-rank repo `VERIFIED_PROJECT_FACT` for
+  architecture queries even at much higher cosine.
+
+### Verified
+- Tests **113/113** (+6 `test_retrieval_priority.py`: intent classification,
+  canonical_self_query_boosts_verified_project_facts, vault_query_boosts_vault_sources,
+  extracted_user_claim_cannot_outrank_verified_for_architecture_query,
+  relation_query_uses_relation_facts_first, byon_self_description_no_sme_wrong_source).
+- Live re-verified end-to-end on the restarted stack (3627 persisted facts).
+
+---
+
 ## [10.3.0-alpha] — Active Memory Core (canonical only; no fake backend)
 
 > An architecture audit of `byon_optimus` + D_Cortex preceded this; the canonical
