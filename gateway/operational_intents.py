@@ -76,6 +76,8 @@ class OperationalIntents:
             return self.handle_followup()
         if intent == qr.VAULT_TRAINING_STATUS_QUERY:
             return self.handle_vault_training_status()
+        if intent == qr.RELATION_FIELD_QUERY:
+            return self.handle_relation_field_query(question)
         return ("UNKNOWN", "", ["runtime:self_state"])
 
     def handle_self_dynamics_report(self) -> Tuple[str, str, List[str]]:
@@ -193,6 +195,30 @@ class OperationalIntents:
                 f"Concret, pasul urmator: cere detalii/surse, marcheaza feedback, sau "
                 f"ruleaza o actiune (ex. consolideaza memoria).",
                 ["runtime:session_log"])
+
+    def _relation_field(self):
+        """The system relation field lives in the lifeloop namespace (sibling of the candidate
+        lifecycle). namespace_dir is the caller's user root → users_root is its parent."""
+        from .relation_field import lifeloop_field, RelationFieldBuilder
+        from .candidate_lifecycle import CandidateLifecycle
+        users_root = self.namespace_dir.parent if self.namespace_dir else "runtime/users"
+        field = lifeloop_field(users_root)
+        if field.is_empty():                              # lazily build once from existing memory
+            try:
+                lc = CandidateLifecycle(field.dir, self.mem, "lifeloop")
+                RelationFieldBuilder(field, mem_client=self.mem, lifecycle=lc).rebuild()
+            except Exception:
+                pass
+        return field
+
+    def handle_relation_field_query(self, question: str) -> Tuple[str, str, List[str]]:
+        """Relation-aware answer (Cycle 10): consult the relation field BEFORE any Claude/web, and
+        ground the answer in committed relations with provenance. The field navigates structure;
+        BYON + source policy + the Auditor remain the only truth authority."""
+        from . import relation_reports as rr
+        field = self._relation_field()
+        out = rr.render_answer(field, question)
+        return (out["status"], out["answer"], out["sources"])
 
     def handle_vault_training_status(self) -> Tuple[str, str, List[str]]:
         st = self.ssp.collect()

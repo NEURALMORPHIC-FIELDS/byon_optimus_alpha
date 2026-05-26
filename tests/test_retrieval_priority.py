@@ -24,7 +24,9 @@ VAULT_FCEM = _hit("Jurnal intern despre FCE-M in notele mele", 0.80,
 def test_intent_classification():
     assert qr.classify_intent("descrie acest model BYON") == qr.SELF_ARCHITECTURE_QUERY
     assert qr.classify_intent("ce am scris despre FCE-M?") == qr.USER_VAULT_QUERY
-    assert qr.classify_intent("care este relatia dintre BYON, D_Cortex si FCE-M?") == qr.SELF_ARCHITECTURE_QUERY
+    # Cycle 10: an explicit "what is the relation between X and Y" now routes to the relational
+    # memory field (answered from committed relations with provenance), not generic architecture.
+    assert qr.classify_intent("care este relatia dintre BYON, D_Cortex si FCE-M?") == qr.RELATION_FIELD_QUERY
     assert qr.classify_intent("what is my bank password?") == qr.SECRET_QUERY
     assert qr.classify_intent("who won the 1998 world cup?") == qr.GENERAL_FACT_QUERY
 

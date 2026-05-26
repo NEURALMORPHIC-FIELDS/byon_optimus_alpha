@@ -128,6 +128,20 @@ def test_harness_covers_cycle9_gates():
         assert gate in src, f"harness missing Cycle 9 gate {gate}"
 
 
+def test_harness_covers_cycle10_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle10_suite)
+    for gate in ["relation_field_status_present", "entity_created_for_BYON",
+                 "relation_BYON_has_component_D_Cortex", "relation_BYON_has_component_FCE_M",
+                 "relation_Claude_not_truth_authority", "contradiction_relation_visible",
+                 "relation_query_answers_from_relation_field", "relation_answer_includes_sources",
+                 "relation_field_not_truth_authority", "temporal_relation_change_visible",
+                 "source_bleed_still_blocked", "candidate_lifecycle_still_passes",
+                 "tombstoned_facts_still_excluded", "restart_recall_still_passes",
+                 "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 10 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

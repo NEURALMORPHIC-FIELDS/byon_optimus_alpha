@@ -11,7 +11,7 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.12-alpha (Active Memory Runtime + semantic candidate learning, validated, real runs).** Progression:
+> **Status — v10.13-alpha (Active Memory Runtime + relational memory field, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
@@ -31,10 +31,13 @@ maintainable, testable, locally-runnable product:
 > task execution** (results stored as candidates, never truth) →
 > **v10.11** **candidate-to-commit lifecycle** (consolidation-only state machine; independent-evidence
 > merge; disputed challenger; commit per source class) →
-> **v10.12-alpha** **semantic contradiction + evidence quality** — candidates merge/dispute by
-> semantic relation (paraphrase merge, contradiction dispute, canonical conflict dominates), and
-> commit requires evidence COUNT **and** QUALITY ≥ threshold; disputes carry an explanation
-> (**live harness 106/106 graded PASS, 0 fail**; restart recall passes; **361 non-live tests**).
+> **v10.12** **semantic contradiction + evidence quality** — candidates merge/dispute by semantic
+> relation (paraphrase merge, contradiction dispute, canonical conflict dominates), and commit
+> requires evidence COUNT **and** QUALITY ≥ threshold; disputes carry an explanation →
+> **v10.13-alpha** **relational memory field v1** — entities + typed relations over committed facts /
+> candidates / disputes / vault / tasks, with relation-aware retrieval, neighborhood / contradiction /
+> dependency / theme reports and temporal tracking; the field navigates structure but is **never a
+> truth authority** (**live harness 121/121 graded PASS, 0 fail**; restart recall passes; **393 non-live tests**).
 > BYON stays the only epistemic authority throughout; LifeLoop observes and proposes but never
 > answers the user or decides truth. See `STATUS.md` and `CHANGELOG.md`.
 >

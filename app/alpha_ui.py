@@ -142,6 +142,17 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                 archive_cand_btn = gr.Button("Archive candidate")
             cand_action_info = gr.Textbox(label="Candidate action result", interactive=False, lines=4)
 
+        with gr.Accordion("🕸️ Relation Field (structure/navigation over memory — never truth authority)", open=False):
+            rel_status = gr.JSON(label="Relation field status (entities / relations / committed / disputed)")
+            with gr.Row():
+                refresh_rel_btn = gr.Button("Refresh relation field")
+                rebuild_rel_btn = gr.Button("Rebuild relation field")
+            with gr.Row():
+                rel_entity_box = gr.Textbox(label="Entity (e.g. BYON, D_Cortex, FCE-M)", scale=2)
+                view_neighborhood_btn = gr.Button("View neighborhood")
+                view_contradictions_btn = gr.Button("View contradictions")
+            rel_view = gr.JSON(label="Neighborhood / contradictions (with provenance)")
+
         with gr.Accordion("Runtime health", open=False):
             health_json = gr.JSON()
             refresh_health = gr.Button("Refresh health")
@@ -337,5 +348,24 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         request_evidence_btn.click(lambda c: _cand_op(c, "request-evidence"), cand_id_box, cand_action_info)
         approve_commit_btn.click(lambda c: _cand_op(c, "approve-commit"), cand_id_box, cand_action_info)
         archive_cand_btn.click(lambda c: _cand_op(c, "archive"), cand_id_box, cand_action_info)
+
+        # ---- Relation Field panel (Gateway-only; the field navigates, it never answers/decides) ----
+        def on_rel_refresh():
+            return client.relation_field_status()
+
+        def on_rel_rebuild():
+            client.relation_field_rebuild()
+            return client.relation_field_status()
+
+        def on_rel_neighborhood(entity):
+            return client.relation_field_neighborhood((entity or "").strip())
+
+        def on_rel_contradictions():
+            return client.relation_field_contradictions()
+
+        refresh_rel_btn.click(on_rel_refresh, None, rel_status)
+        rebuild_rel_btn.click(on_rel_rebuild, None, rel_status)
+        view_neighborhood_btn.click(on_rel_neighborhood, rel_entity_box, rel_view)
+        view_contradictions_btn.click(on_rel_contradictions, None, rel_view)
 
     return demo

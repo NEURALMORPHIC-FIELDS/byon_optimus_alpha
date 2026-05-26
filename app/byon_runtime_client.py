@@ -221,6 +221,30 @@ class BYONRuntimeClient:
         except Exception:
             return {"ok": False, "message": "candidate op unavailable"}
 
+    def relation_field_status(self) -> Dict[str, Any]:
+        try:
+            return self._request("GET", "/v1/lifeloop/relation-field/status").json()
+        except Exception:
+            return {"total_entities": 0, "total_relations": 0, "is_truth_authority": False}
+
+    def relation_field_neighborhood(self, entity: str) -> Dict[str, Any]:
+        try:
+            return self._request("GET", f"/v1/lifeloop/relation-field/neighborhood/{entity}").json()
+        except Exception:
+            return {"neighborhood": {}, "contradictions": []}
+
+    def relation_field_contradictions(self) -> Dict[str, Any]:
+        try:
+            return self._request("GET", "/v1/lifeloop/relation-field/contradictions").json()
+        except Exception:
+            return {"count": 0, "contradictions": []}
+
+    def relation_field_rebuild(self) -> Dict[str, Any]:
+        try:
+            return self._request("POST", "/v1/lifeloop/relation-field/rebuild").json()
+        except Exception:
+            return {"ok": False, "message": "relation-field rebuild unavailable"}
+
     # -- forget ------------------------------------------------------------
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         try:
@@ -330,3 +354,16 @@ class DemoBYONClient:
 
     def lifeloop_candidate_op(self, candidate_id: str, op: str) -> Dict[str, Any]:
         return {"ok": True, "op": op, "demo": True}
+
+    def relation_field_status(self) -> Dict[str, Any]:
+        return {"total_entities": 0, "total_relations": 0, "is_truth_authority": False,
+                "answers_user_directly": False, "demo": True}
+
+    def relation_field_neighborhood(self, entity: str) -> Dict[str, Any]:
+        return {"neighborhood": {"entity": entity, "demo": True}, "contradictions": []}
+
+    def relation_field_contradictions(self) -> Dict[str, Any]:
+        return {"count": 0, "contradictions": [], "demo": True}
+
+    def relation_field_rebuild(self) -> Dict[str, Any]:
+        return {"ok": True, "demo": True}

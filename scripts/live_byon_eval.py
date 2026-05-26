@@ -435,6 +435,9 @@ class Harness:
         # A16. Semantic contradiction + evidence-quality gates (Cycle 9).
         self._cycle9_suite()
 
+        # A17. Relational memory field gates (Cycle 10).
+        self._cycle10_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -1366,6 +1369,140 @@ class Harness:
         self._add("LifeLoop_still_not_truth_authority",
                   lls.get("is_truth_authority") is False and lls.get("answers_user_directly") is False,
                   "lifeloop claims authority", category="other")
+        try:
+            l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
+        except Exception:
+            l3 = False
+        self._add("FULL_LEVEL3_NOT_DECLARED_preserved", l3, "level-3 flag not preserved", category="other")
+
+    # -- Cycle 10: relational memory field suite ----------------------------
+    def _cycle10_suite(self) -> None:
+        import os as _os
+        import time as _t
+
+        def rf_get(path):
+            try:
+                return httpx.get(f"{self.url}/v1/lifeloop/relation-field/{path}", timeout=40).json()
+            except Exception:
+                return {}
+
+        def rf_rebuild():
+            try:
+                return httpx.post(f"{self.url}/v1/lifeloop/relation-field/rebuild", timeout=90).json()
+            except Exception:
+                return {}
+
+        uid = uuid.uuid4().hex[:6]
+
+        # plant a fresh contradiction in the lifeloop candidate ledger so the field has a disputed
+        # relation regardless of history, then (re)build the relation field from existing memory.
+        try:
+            from gateway.candidate_lifecycle import CandidateLifecycle
+            from gateway.memory_service_client import MemoryServiceClient
+            from gateway.namespace import UserNamespace
+            ns_root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
+            lc = CandidateLifecycle(ns_root, MemoryServiceClient(self.mem_url), "lifeloop")
+            tp = f"c10rel_{uid}"
+            lc.ingest_task_result(task_id=f"r1_{uid}", topic=tp, claim=f"the {uid} link is up",
+                                  sources_used=[f"s1_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                  epistemic_status="PROVISIONAL", source_event_ids=["e"])
+            lc.ingest_task_result(task_id=f"r2_{uid}", topic=tp, claim=f"the {uid} link is down",
+                                  sources_used=[f"s2_{uid}"], source_class="EXTRACTED_USER_CLAIM",
+                                  epistemic_status="PROVISIONAL", source_event_ids=["e"])
+        except Exception:
+            pass
+        rb = rf_rebuild()
+        status = rf_get("status")
+
+        # 1. relation field status present
+        self._add("relation_field_status_present",
+                  isinstance(status.get("total_relations"), int) and status.get("total_relations") > 0,
+                  f"no relation field status ({status})", category="other",
+                  epistemic_status=f"relations={status.get('total_relations')}")
+
+        # 2. entity created for BYON
+        ent = rf_get("entity/BYON")
+        self._add("entity_created_for_BYON",
+                  (ent.get("entity") or {}).get("canonical_name") == "BYON",
+                  "BYON entity missing", category="other")
+
+        # 3/4. BYON has_component D_Cortex and FCE-M
+        nb = rf_get("neighborhood/BYON").get("neighborhood", {})
+        rels = nb.get("relations", [])
+        def _has_comp(obj_sub):
+            return any(r.get("relation_type") == "has_component"
+                       and obj_sub.lower() in str(r.get("object", "")).lower() for r in rels)
+        self._add("relation_BYON_has_component_D_Cortex", _has_comp("d_cortex"),
+                  "no BYON has_component D_Cortex", category="other")
+        self._add("relation_BYON_has_component_FCE_M", _has_comp("fce-m"),
+                  "no BYON has_component FCE-M", category="other")
+
+        # 5. Claude is recorded as NOT the truth authority
+        cnb = rf_get("neighborhood/Claude").get("neighborhood", {})
+        claude_not_auth = any(str(r.get("predicate")) == "not_role"
+                              and "truth authority" in str(r.get("object", "")).lower()
+                              for r in cnb.get("relations", []))
+        self._add("relation_Claude_not_truth_authority", claude_not_auth,
+                  "Claude not_role truth authority relation missing", category="other")
+
+        # 6. contradiction relation visible
+        contras = rf_get("contradictions")
+        self._add("contradiction_relation_visible", contras.get("count", 0) >= 1,
+                  f"no disputed relations visible ({contras.get('count')})", category="other")
+
+        # 7/8. a relation query answers FROM the relation field, with sources
+        out = self.research("ce concepte sunt legate de BYON?", user=f"c10_{uid}", session="c10")
+        ans = (out.get("answer") or "")
+        self._add("relation_query_answers_from_relation_field",
+                  out.get("epistemic_status") == "KNOWN" and
+                  ("d_cortex" in ans.lower() or "fce-m" in ans.lower()),
+                  f"relation query not answered from field ({out.get('epistemic_status')})",
+                  category="other", epistemic_status=out.get("epistemic_status"))
+        rsrc = (out.get("synthesis") or {}).get("sources") or out.get("sources_searched") or []
+        self._add("relation_answer_includes_sources",
+                  any("relation" in str(s) for s in rsrc),
+                  f"relation answer missing relation sources ({rsrc})", category="other")
+
+        # 9. relation field is NOT a truth authority
+        self._add("relation_field_not_truth_authority",
+                  status.get("is_truth_authority") is False and contras.get("is_truth_authority") is False,
+                  "relation field claims truth authority", category="other")
+
+        # 10. temporal relation change visible (contradicted_at recorded; recent changes surfaced)
+        recent = status.get("recent_changes") or []
+        any_contradicted_at = any(c.get("contradicted_at") for c in status.get("top_contradictions") or [])
+        self._add("temporal_relation_change_visible",
+                  bool(recent) and bool(status.get("recent_changes")) and any_contradicted_at,
+                  "no temporal relation change visible", category="other",
+                  epistemic_status=f"recent={len(recent)}")
+
+        # 11..15. invariants still hold
+        bu = "c10b_" + uid
+        sb = self.research("care e codul secret al cardului meu?", user=bu, session="c10")
+        self._add("source_bleed_still_blocked",
+                  sb.get("epistemic_status") in ("UNKNOWN", "REFUSED", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE"),
+                  f"unexpected {sb.get('epistemic_status')}", category=CAT_SOURCE_BLEED,
+                  epistemic_status=sb.get("epistemic_status"))
+        try:
+            cc = httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30).json()
+            lifecycle_ok = isinstance(cc.get("counts"), dict)
+        except Exception:
+            lifecycle_ok = False
+        self._add("candidate_lifecycle_still_passes", lifecycle_ok,
+                  "candidate lifecycle endpoint not healthy", category="other")
+        tv = self._memory_status().get("tombstoned_vault_facts")
+        self._add("tombstoned_facts_still_excluded", isinstance(tv, int) and tv > 0,
+                  f"tombstoned not reflected ({tv})", category="other")
+        # restart_recall: a previously committed fact remains retrievable from the engine
+        hits = []
+        try:
+            mc = self._consistent()
+            hits = mc.search_facts("BYON has component D_Cortex", top_k=10, threshold=0.0,
+                                   thread_id=None, scope="thread")
+        except Exception:
+            hits = []
+        self._add("restart_recall_still_passes", any(h.get("content") for h in hits),
+                  "committed self-knowledge not retrievable from engine", category=CAT_RESTART)
         try:
             l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
         except Exception:

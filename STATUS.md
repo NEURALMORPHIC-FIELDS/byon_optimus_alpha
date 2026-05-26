@@ -28,6 +28,7 @@ This file states only what was **run and verified**, organised by the version pr
 | **v10.10-alpha** | **In-engine read/write consistency signal + permissioned autonomous memory-only tasks** (results = candidates) | **PASS** — **307 non-live; live harness 76/76 graded, 0 fail; restart recall passes** |
 | **v10.11-alpha** | **Candidate-to-commit lifecycle** (states + pure consolidation decision; independent-evidence merge; disputed challenger; commit per source class; Track A in-engine snapshot deferred honestly) | **PASS** — 338 non-live; live harness 93/93 graded, 0 fail; restart recall passes |
 | **v10.12-alpha** | **Semantic contradiction + evidence quality** (semantic relation classifier; paraphrase merge / contradiction dispute; evidence-quality commit gate; dispute explanation records; Claude/NLI advisory-only) | **PASS** — **361 non-live; live harness 106/106 graded, 0 fail; restart recall passes** |
+| **v10.13-alpha** | **Relational memory field v1** (entities + typed relations over committed facts / candidates / disputes / vault / tasks; relation-aware retrieval; neighborhood / contradiction / dependency / theme reports; temporal tracking; never a truth authority) | **PASS** — **393 non-live; live harness 121/121 graded, 0 fail; restart recall passes** |
 
 ---
 

@@ -72,6 +72,23 @@ MEMORY_ACTION_TRIGGERS = ["imbunatateste-ti memoria", "îmbunătățește-ți me
                           "antreneaza-te pe", "antrenează-te pe", "consolideaza memoria",
                           "consolidează memoria", "consolideaza-ti memoria", "reindexeaza vault",
                           "reindexează vault", "train vault", "consolidate memory", "antreneaza-te pe vault"]
+# relation-field navigation (Cycle 10) — "how are things related / what depends on what /
+# where are the contradictions / which themes recur / what changed". Specific phrases so a plain
+# "cine este BYON" stays SELF_ARCHITECTURE and "ce contradictii ai observat" stays internal-state.
+RELATION_FIELD_TRIGGERS = ["relatie intre", "relatie între", "relatia intre", "relatia dintre",
+                           "relația dintre", "relație între", "relatie dintre", "relation between",
+                           "relationship between", "ce depinde de", "ce depind de", "what depends on",
+                           "ce contrazice", "contradictii in jurul", "contradicții în jurul",
+                           "contradictii exista", "contradicții există", "ce sustine ideea",
+                           "ce susține ideea", "unde apare", "concepte legate", "concepte sunt legate",
+                           "concepts related", "related concepts", "harta memoriei", "memory map",
+                           "camp relational", "câmp relațional", "campul relational", "câmpul relațional",
+                           "relation field", "relational field", "campul relational",
+                           "schimbat in memoria despre", "schimbat în memoria despre", "what changed about",
+                           "invatat recent despre", "învățat recent despre", "ce relatii s-au consolidat",
+                           "ce relații s-au consolidat", "relatii au devenit disputate",
+                           "relații au devenit disputate", "relatii s-au consolidat recent",
+                           "teme recurente", "recurrent themes", "recurring themes"]
 VAULT_STATUS_TRIGGERS = ["cat din vault ai indexat", "cât din vault ai indexat", "statusul vaultului",
                          "care este statusul vaultului", "vault training status",
                          "ce ai indexat din obsidian", "status vault", "cat ai indexat din vault"]
@@ -106,13 +123,15 @@ USER_VAULT_QUERY = "USER_VAULT_QUERY"
 GENERAL_FACT_QUERY = "GENERAL_FACT_QUERY"
 SECRET_QUERY = "SECRET_QUERY"
 CONTRADICTION_QUERY = "CONTRADICTION_QUERY"
+RELATION_FIELD_QUERY = "RELATION_FIELD_QUERY"
 
 # intents answered from the SelfStateProvider (runtime state), never from generic vault
 SELF_STATE_INTENTS = {SELF_CAPABILITY_QUERY, SELF_MEMORY_STATE_QUERY,
                       SELF_LIMITATION_QUERY, SELF_RECENT_LEARNING_QUERY, SELF_INTERNAL_STATE_QUERY}
 # operational/self-referential intents handled by operational_intents (also never vault)
 OPERATIONAL_INTENTS = {SELF_DYNAMICS_REPORT_QUERY, SELF_PROOF_QUERY, CHAT_HISTORY_SUMMARY_QUERY,
-                       MEMORY_ACTION_QUERY, FOLLOWUP_QUERY, VAULT_TRAINING_STATUS_QUERY}
+                       MEMORY_ACTION_QUERY, FOLLOWUP_QUERY, VAULT_TRAINING_STATUS_QUERY,
+                       RELATION_FIELD_QUERY}
 
 
 def classify_intent(question: str) -> str:
@@ -123,6 +142,10 @@ def classify_intent(question: str) -> str:
     # vault wins for "what did *I* write / in my notes" (am scris / notele mele)
     if any(t in q for t in VAULT_TRIGGERS):
         return USER_VAULT_QUERY
+    # relation-field navigation (Cycle 10) — before contradiction/self-architecture so
+    # "ce contradictii exista in jurul FCE-M" / "concepte legate de BYON" reach the relation field.
+    if any(t in q for t in RELATION_FIELD_TRIGGERS):
+        return RELATION_FIELD_QUERY
     # operational / self-referential commands (runtime state / actions), most specific first
     if any(t in q for t in VAULT_STATUS_TRIGGERS):
         return VAULT_TRAINING_STATUS_QUERY
@@ -193,6 +216,14 @@ def rerank(hits: List[Dict[str, Any]], intent: str) -> List[Dict[str, Any]]:
                 boost += 0.6                           # repo/docs next
             elif src.startswith("vault:"):
                 boost -= 0.6                            # vault is lower priority here
+        elif intent == RELATION_FIELD_QUERY:
+            boost += 0.15 * tier                       # prefer trusted relation/repo facts
+            if src.startswith("relation:"):
+                boost += 1.0
+            elif src.startswith("repo:"):
+                boost += 0.5
+            elif src.startswith("vault:"):
+                boost -= 0.4
         elif intent == USER_VAULT_QUERY:
             if src.startswith("vault:"):
                 boost += 0.8                            # vault dominates

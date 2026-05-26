@@ -107,6 +107,15 @@ def create_app(config: Optional[GatewayConfig] = None,
                 source_event_ids=task.get("trigger_event_ids") or [],
                 is_secret=(out.get("query_class") == "secret"))
             candidate_id = (cand or {}).get("candidate_id")
+            if cand:    # Cycle 10: keep the relation field fresh without a full rebuild
+                try:
+                    from .relation_field import lifeloop_field, RelationFieldBuilder
+                    rfield = lifeloop_field(cfg.users_root)
+                    RelationFieldBuilder(rfield, mem_client=b.mem if hasattr(b, "mem") else None,
+                                         lifecycle=lcyc).incremental_update({"type": "candidate",
+                                                                             "candidate": cand})
+                except Exception:
+                    pass
         except Exception:
             pass
         return {"epistemic_status": status, "answer_summary": (out.get("answer") or "")[:200],
@@ -466,6 +475,61 @@ def create_app(config: Optional[GatewayConfig] = None,
     @app.post("/v1/lifeloop/consolidate-candidates")
     def lifeloop_consolidate_candidates() -> Dict[str, Any]:
         return {"ok": True, "decisions": _candidate_consolidator()}
+
+    # -- Cycle 10: relational memory field (structure/navigation, NOT a truth store) ----
+    def _relation_field(build_if_empty: bool = True):
+        from .relation_field import lifeloop_field, RelationFieldBuilder
+        from .candidate_lifecycle import CandidateLifecycle
+        field = lifeloop_field(cfg.users_root)
+        if build_if_empty and field.is_empty():
+            lc = CandidateLifecycle(field.dir, getattr(resolved_backend, "mem", None), "lifeloop")
+            RelationFieldBuilder(field, mem_client=getattr(resolved_backend, "mem", None),
+                                 lifecycle=lc).rebuild()
+        return field
+
+    @app.get("/v1/lifeloop/relation-field/status")
+    def relation_field_status() -> Dict[str, Any]:
+        return _relation_field().status()
+
+    @app.get("/v1/lifeloop/relation-field/entity/{entity}")
+    def relation_field_entity(entity: str) -> Dict[str, Any]:
+        e = _relation_field().get_entity(entity)
+        if e is None:
+            raise HTTPException(status_code=404, detail="entity not found in relation field")
+        return {"entity": e}
+
+    @app.get("/v1/lifeloop/relation-field/neighborhood/{entity}")
+    def relation_field_neighborhood(entity: str) -> Dict[str, Any]:
+        from . import relation_reports as rr
+        field = _relation_field()
+        return {"neighborhood": rr.entity_neighborhood(field, entity),
+                "contradictions": rr.contradiction_map(field, focus=entity)["contradictions"]}
+
+    @app.get("/v1/lifeloop/relation-field/contradictions")
+    def relation_field_contradictions() -> Dict[str, Any]:
+        from . import relation_reports as rr
+        field = _relation_field()
+        return {"count": len(field.contradictions()),
+                "contradictions": rr.contradiction_map(field)["contradictions"],
+                "is_truth_authority": False}
+
+    @app.post("/v1/lifeloop/relation-field/rebuild")
+    def relation_field_rebuild() -> Dict[str, Any]:
+        from .relation_field import lifeloop_field, RelationFieldBuilder
+        from .candidate_lifecycle import CandidateLifecycle
+        from .vault_manifest import VaultManifest
+        field = lifeloop_field(cfg.users_root)
+        mem = getattr(resolved_backend, "mem", None)
+        lc = CandidateLifecycle(field.dir, mem, "lifeloop")
+        vm = None
+        try:                                              # attach the active vault manifest if any
+            vh = os.environ.get("BYON_VAULT_HASH")
+            if vh:
+                vm = VaultManifest(vh)
+        except Exception:
+            vm = None
+        stats = RelationFieldBuilder(field, mem_client=mem, lifecycle=lc, vault_manifest=vm).rebuild()
+        return {"ok": True, "stats": stats, "status": field.status()}
 
     @app.post("/v1/lifeloop/candidate/{candidate_id}/{op}")
     def lifeloop_candidate_op(candidate_id: str, op: str) -> Dict[str, Any]:

@@ -5,6 +5,39 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.13.0-alpha] — Cycle 10: relational memory field v1
+
+> A navigation/structure layer OVER the memory BYON already has, so it can answer "how are these
+> related / what depends on what / where are the contradictions / which themes recur / what changed".
+> The field is NOT a truth authority and NOT another vector store.
+> **Live verdict: 121/121 graded gates PASS, 0 fail** (all Cycle 1–9 gates + 15 new), restart recall passed.
+
+### Added
+- `gateway/relation_field.py` — `RelationField` (entities + typed relations in two JSONL ledgers,
+  dedup by stable relation id) and `RelationFieldBuilder` (`rebuild()` / `incremental_update(event)`).
+  Allowed relation types: has_component, role_of, depends_on, supports, contradicts, refines,
+  broader/narrower_than, caused_by, derived_from, mentioned_in, belongs_to_project, user_prefers,
+  user_corrected, source_confirms/disputes, consolidation_promoted, candidate_challenger_of. Status:
+  candidate / reinforced / committed / disputed / archived. Canonical/system relations outrank
+  vault/user; disputed relations stay visible AS disputed; secret content is never ingested.
+- **Ingestion** from existing memory only (no re-embedding): the canonical relation seed +
+  `relation:` facts in memory-service, candidate lifecycle, dispute records, vault manifest chunks,
+  LifeLoop task results — each edge keeps provenance (source ids) + source class.
+- **Relation-aware retrieval**: a new `RELATION_FIELD_QUERY` intent (operational, query-class
+  `operational`) consults the relation field BEFORE Claude/web and answers from committed relations
+  with provenance, gated by source policy + the Auditor.
+- `gateway/relation_reports.py` — entity neighborhood, contradiction map, dependency map, recurrent
+  themes, source-class breakdown, recent relation changes, and the grounded `render_answer`.
+- **Temporal tracking** on every relation: first_seen / last_seen / reinforcement_count /
+  contradicted_at / committed_at / archived_at + a per-edge source_history.
+- **API** `GET /v1/lifeloop/relation-field/{status,entity/{e},neighborhood/{e},contradictions}` and
+  `POST /v1/lifeloop/relation-field/rebuild`; a Gradio "Relation Field" panel (Gateway-only).
+
+### Verified
+- 393 non-live tests (32 new); live harness **121/121 graded PASS, 0 fail** (15 new Cycle 10 gates +
+  all Cycle 1–9). Two-phase restart verify passed. The relation field reports `is_truth_authority:
+  false`; BYON + source policy + the Auditor remain the only truth authority.
+
 ## [10.12.0-alpha] — Cycle 9: semantic contradiction + evidence quality
 
 > Candidates are merged/disputed by their SEMANTIC relation, not a claim-key string match, and a
