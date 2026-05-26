@@ -62,6 +62,46 @@ class MemoryServiceClient:
             "fact": fact, "source": source, "tags": tags or [], "thread_id": thread_id,
             "trust": trust, "disputed": disputed, "disputed_pattern": disputed_pattern}})
 
+    def store_facts_batch(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Store many facts in one call, preserving per-item source_id / source / trust / tags.
+        Uses the memory-service batch endpoint when available; otherwise falls back to per-item
+        stores (still one logical operation) and reports per-item ids + failures."""
+        payload = {"action": "store_batch", "type": "fact",
+                   "data": {"items": [{"fact": it.get("fact"), "source": it.get("source", ""),
+                                       "tags": it.get("tags") or [], "thread_id": it.get("thread_id"),
+                                       "trust": it.get("trust")} for it in items]}}
+        r = self._act(payload)
+        if r.get("success") is not False and ("results" in r or "ids" in r):
+            return r
+        # fallback: server has no batch endpoint -> per-item, but report per-item results
+        stored, failed = [], []
+        for it in items:
+            try:
+                res = self.store_fact(it.get("fact"), source=it.get("source", ""),
+                                      tags=it.get("tags") or [], thread_id=it.get("thread_id"),
+                                      trust=it.get("trust"))
+                if isinstance(res, dict) and res.get("success") is False:
+                    failed.append({"source_id": it.get("source_id"), "error": res.get("error")})
+                else:
+                    stored.append({"source_id": it.get("source_id"),
+                                   "ctx_id": (res or {}).get("ctx_id") if isinstance(res, dict) else None})
+            except Exception as exc:
+                failed.append({"source_id": it.get("source_id"), "error": str(exc)[:200]})
+        return {"success": True, "fallback": True, "stored": len(stored), "failed": len(failed),
+                "ids": stored, "failed_items": failed}
+
+    def tombstone_fact(self, *, ctx_id=None, source_id=None, content_sha_value=None,
+                       reason: str = "", trust=None, canonical: bool = False,
+                       operator: bool = False, by_content_sha: bool = False,
+                       audit_trace_id=None, store=None) -> Dict[str, Any]:
+        """Mark a fact inactive via the tombstone overlay (no physical delete). Requires a reason;
+        tombstoning canonical/verified facts requires operator=True. Audited + reversible."""
+        from .tombstones import TombstoneStore
+        ts = store if store is not None else TombstoneStore()
+        return ts.tombstone(ctx_id=ctx_id, source_id=source_id, content_sha_value=content_sha_value,
+                            reason=reason, trust=trust, canonical=canonical, operator=operator,
+                            by_content_sha=by_content_sha, audit_trace_id=audit_trace_id)
+
     def store_conversation(self, content: str, *, role: str = "user",
                            thread_id: Optional[str] = None) -> Dict[str, Any]:
         return self._act({"action": "store", "type": "conversation",

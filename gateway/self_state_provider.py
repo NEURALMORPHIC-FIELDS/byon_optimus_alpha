@@ -102,6 +102,8 @@ class SelfStateProvider:
             "web_enabled": os.environ.get("BYON_WEB_SEARCH_ENABLED", "false").strip().lower()
                            in ("1", "true", "yes", "on"),
             "claude_present": bool(os.environ.get("ANTHROPIC_API_KEY", "").strip()),
+            "tombstones": (self.mem.tombstone_counts() if hasattr(self.mem, "tombstone_counts") else {}),
+            "read_consistency_mode": getattr(self.mem, "read_consistency_mode", "direct"),
             "local_backend_forbidden_in_real": True,
             "full_level3_not_declared": True,
             "last_consolidations": self._lifeloop_tail({"consolidate"}, 3),
@@ -168,6 +170,10 @@ class SelfStateProvider:
             out.append("vault training: not run")
         if st["last_consolidations"]:
             out.append(f"last consolidation(s): {len(st['last_consolidations'])} recorded (FCE-M)")
+        tomb = (st.get("tombstones") or {}).get("tombstoned_active")
+        if tomb:
+            out.append(f"retired (tombstoned, excluded from search): {tomb} fact(s)")
+        out.append(f"read consistency: {st.get('read_consistency_mode', 'direct')}")
         out.append("FULL_LEVEL3_NOT_DECLARED preserved")
         return out
 

@@ -64,6 +64,16 @@ def test_harness_covers_substrate_gates():
         assert gate in src, f"harness missing substrate gate {gate}"
 
 
+def test_harness_covers_cycle5_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle5_suite)
+    for gate in ["read_consistency_during_write", "no_false_zero_vault_count_during_write",
+                 "batch_write_status", "tombstone_excluded_from_search", "compaction_dry_run",
+                 "compaction_apply_if_enabled", "vault_active_vs_tombstoned_counts",
+                 "source_bleed_still_blocked_after_compaction", "recent_write_buffer_still_works"]:
+        assert gate in src, f"harness missing Cycle 5 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

@@ -193,6 +193,44 @@ def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_b
             pass
         return rep
 
+    # batched writes (Cycle 5): accumulate to-store chunks and flush in one call per batch,
+    # holding the write intent once per batch instead of per chunk (less reader-visible churn).
+    batch_size = int(os.environ.get("BYON_VAULT_WRITE_BATCH_SIZE", "50"))
+    pending: List[Dict[str, Any]] = []
+
+    def _flush() -> None:
+        nonlocal chunks_stored, errors
+        if not pending:
+            return
+        items = [pp["item"] for pp in pending]
+        if hasattr(client, "store_facts_batch"):
+            res = client.store_facts_batch(items)
+            ids = {d.get("source_id"): d.get("ctx_id") for d in (res.get("ids") or [])}
+            failed = {f.get("source_id") for f in (res.get("failed_items") or [])}
+        else:
+            ids, failed = {}, set()
+            for pp in pending:
+                it = pp["item"]
+                try:
+                    r = client.store_fact(it["fact"], source=it["source"], tags=it["tags"],
+                                          thread_id=it["thread_id"], trust=it["trust"])
+                    ids[it["source_id"]] = (r or {}).get("ctx_id") if isinstance(r, dict) else None
+                except Exception as exc:
+                    failed.add(it["source_id"])
+                    errlog.log(pp["rel"], ve.STORE, str(exc), "store", True)
+        for pp in pending:
+            sid = pp["item"]["source_id"]
+            if sid in failed:
+                errlog.log(pp["rel"], ve.STORE, "batch store failed", "store", True)
+                errors += 1
+                continue
+            manifest.record_chunk(rel_path=pp["rel"], file_sha=pp["f_sha"], index=pp["index"],
+                                  chunk_sha=pp["csha"], memory_ctx_id=ids.get(sid))
+            chunks_stored += 1
+            trust_tiers[pp["item"]["trust"]] = trust_tiers.get(pp["item"]["trust"], 0) + 1
+        pending.clear()
+        lock.heartbeat()
+
     consolidated = None
     for p in notes:
         if max_files is not None and files_indexed >= max_files:
@@ -227,7 +265,6 @@ def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_b
         top_folder = rel.split("/", 1)[0] if "/" in rel else ""
         trust = "VERIFIED_PROJECT_FACT" if top_folder in verified else "EXTRACTED_USER_CLAIM"
         note_backlinks = backlinks.get(rel, [])
-        file_had_error = False
         try:
             chunks = md_heading_chunks(text)
         except Exception as exc:
@@ -241,30 +278,23 @@ def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_b
                 manifest.record_chunk(rel_path=rel, file_sha=f_sha, index=i, chunk_sha=csha)
                 chunks_dedup += 1
                 continue
+            sid = source_id(rel, i, csha)
             note_tags = ["vault", f"note:{rel}", f"heading:{heading[:40]}", f"sha:{f_sha[:12]}",
-                         f"source_id:{source_id(rel, i, csha)}"] + \
-                        [f"tag:{t}" for t in tags[:8]] + \
+                         f"source_id:{sid}"] + [f"tag:{t}" for t in tags[:8]] + \
                         ([f"backlink:{b}" for b in note_backlinks[:5]])
-            try:
-                res = client.store_fact(chunk, source=f"vault:{rel}#{heading}", tags=note_tags,
-                                        thread_id=owner, trust=trust)
-                ctx_id = res.get("ctx_id") if isinstance(res, dict) else None
-            except Exception as exc:
-                etype, rec = ve.classify_exception(exc, "store")
-                errlog.log(rel, etype, str(exc), "store", rec)
-                errors += 1
-                file_had_error = True
-                continue
-            manifest.record_chunk(rel_path=rel, file_sha=f_sha, index=i, chunk_sha=csha,
-                                  memory_ctx_id=ctx_id)
-            chunks_stored += 1
-            trust_tiers[trust] = trust_tiers.get(trust, 0) + 1
-        if not file_had_error:
-            files_indexed += 1
-            last_completed_file = rel
+            pending.append({"item": {"fact": chunk, "source": f"vault:{rel}#{heading}",
+                                     "tags": note_tags, "thread_id": owner, "trust": trust,
+                                     "source_id": sid}, "rel": rel, "f_sha": f_sha,
+                            "index": i, "csha": csha})
+            if len(pending) >= batch_size:
+                _flush()
+        files_indexed += 1
+        last_completed_file = rel
         if files_scanned % progress_every == 0:
+            _flush()
             _report(completed=False)
 
+    _flush()
     try:
         consolidated = client.fce_consolidate().get("fce_status")
     except Exception:

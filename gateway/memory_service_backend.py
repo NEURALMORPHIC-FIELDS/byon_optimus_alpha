@@ -48,7 +48,13 @@ class MemoryServiceBackend:
     def __init__(self, memory_url: str = "http://127.0.0.1:8000", *, mem_client=None,
                  web_provider=None, claude_provider=None) -> None:
         self.memory_url = memory_url
-        self.mem = mem_client or MemoryServiceClient(memory_url)
+        # Production wraps the canonical client in the read-consistent, tombstone-aware layer
+        # (Cycle 5). Tests may inject a raw client.
+        if mem_client is not None:
+            self.mem = mem_client
+        else:
+            from .consistent_client import ConsistentMemoryClient
+            self.mem = ConsistentMemoryClient(MemoryServiceClient(memory_url))
         self.web = web_provider if web_provider is not None else ws.get_provider()
         self.claude = claude_provider if claude_provider is not None else ClaudeHypothesisProvider()
         self.search = EpistemicSearch()
@@ -231,9 +237,22 @@ class MemoryServiceBackend:
         except Exception:
             pass
         lock = VaultTrainingLock().status()
+        # Cycle 5: read-consistency mode + active vs tombstoned vault facts
+        read_mode = getattr(self.mem, "read_consistency_mode", "direct")
+        tomb_counts = self.mem.tombstone_counts() if hasattr(self.mem, "tombstone_counts") else {}
+        active_vault = tombstoned_vault = None
+        try:
+            if hasattr(self.mem, "vault_fact_count"):
+                vc = self.mem.vault_fact_count(os.environ.get("BYON_VAULT_OWNER", "lucian"))
+                active_vault, tombstoned_vault = vc.get("active"), vc.get("tombstoned")
+        except Exception:
+            pass
         return {
             "memory_service_reachable": bool((self.mem.health() or {}).get("_reachable")),
+            "read_consistency_mode": read_mode,
             "vault_report": vault,
+            "active_vault_facts": active_vault, "tombstoned_vault_facts": tombstoned_vault,
+            "tombstones": tomb_counts,
             "indexing_in_progress": bool(lock.get("indexing_in_progress")),
             "active_writer_pid": lock.get("pid") if lock.get("indexing_in_progress") else None,
             "lock": lock,

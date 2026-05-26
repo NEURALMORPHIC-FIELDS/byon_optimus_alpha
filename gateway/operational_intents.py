@@ -211,10 +211,19 @@ class OperationalIntents:
             stale = bool(vr.get("partial")) or (notes_total and notes < notes_total) or \
                 (notes <= 3 and total_facts and total_facts > 100)
         complete = bool(vr.get("complete")) and not stale
+        # Cycle 5: active vs tombstoned vault facts
+        active_tomb = None
+        if self.mem is not None and hasattr(self.mem, "vault_fact_count"):
+            try:
+                active_tomb = self.mem.vault_fact_count(vr.get("owner") or "lucian")
+            except Exception:
+                active_tomb = None
         mem_note = (f", {vault_in_mem} fapte vault in memory-service" if isinstance(vault_in_mem, int)
                     and vault_in_mem >= 0 else "")
+        at_note = (f" [active={active_tomb.get('active')}, tombstoned={active_tomb.get('tombstoned')}]"
+                   if isinstance(active_tomb, dict) else "")
         msg = (f"Vault: {notes}/{notes_total or '?'} note indexate, {vr.get('chunks_stored')} chunks"
-               f"{mem_note} (total facts in memory-service: {total_facts}).")
+               f"{mem_note}{at_note} (total facts in memory-service: {total_facts}).")
         if complete:
             msg += " Indexare COMPLETA (raportul si memory-service sunt de acord)."
         elif stale:

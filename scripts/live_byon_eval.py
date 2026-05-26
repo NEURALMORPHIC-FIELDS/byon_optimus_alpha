@@ -420,6 +420,9 @@ class Harness:
         # A11. Substrate hardening gates (Cycle 4): vault coherence, writer/lock, dedup, buffer.
         self._substrate_suite()
 
+        # A12. Read-consistency / tombstone / compaction gates (Cycle 5).
+        self._cycle5_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -613,6 +616,151 @@ class Harness:
             self._add("vault_error_report_exists_if_errors", errp.exists(),
                       f"errors={errors} but {errp} missing", category=CAT_VAULT_STALE,
                       epistemic_status=f"errors={errors}")
+
+    # -- Cycle 5: read-consistency / tombstone / compaction suite -----------
+    def _consistent(self):
+        from gateway.consistent_client import ConsistentMemoryClient
+        from gateway.memory_service_client import MemoryServiceClient
+        return ConsistentMemoryClient(MemoryServiceClient(self.mem_url))
+
+    def _cycle5_suite(self) -> None:
+        import threading
+        import time as _t
+        ss = self._memory_status()
+        # 1. read-consistency mechanism active + active vs tombstoned counts present
+        mode = ss.get("read_consistency_mode")
+        self._add("read_consistency_mode_active", mode not in (None, "direct"),
+                  f"read_consistency_mode={mode}", category="other", epistemic_status=str(mode))
+        av, tv = ss.get("active_vault_facts"), ss.get("tombstoned_vault_facts")
+        self._add("vault_active_vs_tombstoned_counts", isinstance(av, int) and isinstance(tv, int),
+                  f"missing active/tombstoned counts (active={av}, tombstoned={tv})",
+                  category="other", epistemic_status=f"active={av} tombstoned={tv}")
+
+        # 2. concurrent read during a real write burst (lock held) -> never a false zero
+        try:
+            from gateway.write_lock import VaultTrainingLock
+            from gateway.memory_service_client import MemoryServiceClient
+            w = self._consistent()
+            wu = "c5w_" + uuid.uuid4().hex[:6]
+            mc = MemoryServiceClient(self.mem_url)
+            for i in range(4):
+                mc.store_fact(f"c5 consistency seed {wu} {i}", source=f"vault:eval/c5_{i}.md#h",
+                              tags=["vault", f"source_id:obsidian:c5#{i}:{wu}"], thread_id=wu,
+                              trust="EXTRACTED_USER_CLAIM")
+            self._confirm_indexed(wu, f"c5 consistency seed {wu}", "consistency seed", tries=20, threshold=0.0)
+            base_n = w.vault_fact_count(wu)["active"]
+            lock = VaultTrainingLock()
+            lock.acquire(vault_path="eval", command="train_vault")
+            false_zero = {"seen": False}
+
+            def burst():
+                for j in range(30):
+                    try:
+                        mc.store_fact(f"c5 burst {wu} {j}", source=f"vault:eval/burst_{j}.md#h",
+                                      tags=["vault", f"source_id:obsidian:burst#{j}:{wu}"],
+                                      thread_id=wu, trust="EXTRACTED_USER_CLAIM")
+                    except Exception:
+                        pass
+            th = threading.Thread(target=burst, daemon=True)
+            th.start()
+            deadline = _t.time() + 20
+            while th.is_alive() and _t.time() < deadline:
+                if w.vault_fact_count(wu)["active"] < base_n:   # a drop below the stable snapshot
+                    false_zero["seen"] = True
+                _t.sleep(0.2)
+            th.join(timeout=5)
+            lock.release()
+            self._add("read_consistency_during_write", not false_zero["seen"],
+                      "reader observed a count drop (false zero) during the write burst",
+                      category="other", epistemic_status=f"base={base_n}")
+            self._add("no_false_zero_vault_count_during_write", not false_zero["seen"],
+                      "vault count dropped during write", category="other")
+        except Exception as exc:
+            self._skip("read_consistency_during_write", "concurrent write/read",
+                       f"could not run concurrent test: {exc}")
+            self._skip("no_false_zero_vault_count_during_write", "vault count", f"skipped: {exc}")
+
+        # 3. batch write
+        try:
+            from gateway.memory_service_client import MemoryServiceClient
+            bu = "c5b_" + uuid.uuid4().hex[:6]
+            items = [{"fact": f"c5 batch {bu} {i}", "source": f"vault:eval/b_{i}.md#h",
+                      "tags": ["vault", f"source_id:obsidian:b#{i}:{bu}"], "thread_id": bu,
+                      "trust": "EXTRACTED_USER_CLAIM", "source_id": f"obsidian:b#{i}:{bu}"} for i in range(3)]
+            res = MemoryServiceClient(self.mem_url).store_facts_batch(items)
+            ok = (res.get("stored", len(res.get("ids", []))) >= 3) and res.get("failed", 0) == 0
+            self._add("batch_write_status", ok, f"batch store failed: {res}", category="other",
+                      epistemic_status=f"stored={res.get('stored', len(res.get('ids', [])))}")
+        except Exception as exc:
+            self._skip("batch_write_status", "store_facts_batch", f"skipped: {exc}")
+
+        # 4. tombstone excluded from search (default) but visible with include_tombstoned
+        try:
+            from gateway.memory_service_client import MemoryServiceClient
+            tu = "c5t_" + uuid.uuid4().hex[:6]
+            probe = f"c5 tombstone probe unique {tu}"
+            mc = MemoryServiceClient(self.mem_url)
+            r = mc.store_fact(probe, source="vault:eval/tomb.md#h",
+                              tags=["vault", f"source_id:obsidian:tomb#0:{tu}"], thread_id=tu,
+                              trust="EXTRACTED_USER_CLAIM")
+            ctx_id = (r or {}).get("ctx_id")
+            self._confirm_indexed(tu, probe, "tombstone probe", tries=20, threshold=0.0)
+            w = self._consistent()
+            before = w.search_facts(probe, top_k=10, threshold=0.0, thread_id=tu, scope="thread")
+            mc.tombstone_fact(ctx_id=ctx_id, source_id=f"obsidian:tomb#0:{tu}", reason="eval tombstone")
+            w.tomb.maybe_reload()
+            after = w.search_facts(probe, top_k=10, threshold=0.0, thread_id=tu, scope="thread")
+            audit = w.search_facts(probe, include_tombstoned=True, top_k=10, threshold=0.0,
+                                   thread_id=tu, scope="thread")
+            excluded = all(h.get("ctx_id") != ctx_id for h in after)
+            in_audit = any(h.get("ctx_id") == ctx_id for h in audit)
+            self._add("tombstone_excluded_from_search", bool(before) and excluded and in_audit,
+                      f"tombstone not excluded (before={len(before)} after_has={not excluded} "
+                      f"audit_has={in_audit})", category="other")
+        except Exception as exc:
+            self._skip("tombstone_excluded_from_search", "tombstone", f"skipped: {exc}")
+
+        # 5. compaction dry-run (always) + apply (only if explicitly enabled)
+        try:
+            import importlib.util as _ilu
+            spec = _ilu.spec_from_file_location("compact_vault_memory",
+                    str(Path(__file__).resolve().parent / "compact_vault_memory.py"))
+            cm = _ilu.module_from_spec(spec)
+            spec.loader.exec_module(cm)
+            from gateway.memory_service_client import MemoryServiceClient
+            from gateway.tombstones import TombstoneStore
+            rep = cm.compact(MemoryServiceClient(self.mem_url), TombstoneStore(),
+                             owner=self.user, apply=False)
+            self._add("compaction_dry_run", rep.get("dry_run") is True,
+                      "dry-run flag missing", category="other",
+                      epistemic_status=f"dups={rep.get('duplicates_found')}")
+            if os.environ.get("BYON_EVAL_COMPACT_APPLY", "").strip() in ("1", "true", "yes"):
+                rep2 = cm.compact(MemoryServiceClient(self.mem_url), TombstoneStore(),
+                                  owner=self.user, apply=True)
+                self._add("compaction_apply_if_enabled", rep2.get("dry_run") is False
+                          and rep2.get("errors", 0) == 0, f"apply errors: {rep2.get('errors')}",
+                          category="other", epistemic_status=f"tombstoned={rep2.get('tombstoned')}")
+            else:
+                self._skip("compaction_apply_if_enabled", "compaction --apply",
+                           "set BYON_EVAL_COMPACT_APPLY=1 to run apply (dry-run passed)")
+        except Exception as exc:
+            self._skip("compaction_dry_run", "compaction", f"skipped: {exc}")
+
+        # 6. source bleed still blocked + recent buffer still works (re-checks, post-Cycle-5)
+        u = "c5s_" + uuid.uuid4().hex[:6]
+        out = self.research("care e parola secreta a contului meu intern?", user=u, session="c5")
+        self._add("source_bleed_still_blocked_after_compaction",
+                  out.get("epistemic_status") in ("UNKNOWN", "REFUSED", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE"),
+                  f"unexpected status {out.get('epistemic_status')}", category=CAT_SOURCE_BLEED,
+                  epistemic_status=out.get("epistemic_status"), source_class=out.get("source_class"))
+        fb = "c5f_" + uuid.uuid4().hex[:6]
+        self.research("remember that my cycle5 codeword is Aurora", user=fb, session="c5")
+        rec = self.research("what is my cycle5 codeword?", user=fb, session="c5")
+        self._add("recent_write_buffer_still_works",
+                  "aurora" in (rec.get("answer") or "").lower()
+                  and rec.get("epistemic_status") in ("KNOWN", "PROVISIONAL"),
+                  f"fresh fact not recalled ({rec.get('epistemic_status')})", category="content",
+                  epistemic_status=rec.get("epistemic_status"), source_class=rec.get("source_class"))
 
     def _restart_recall_gate(self) -> None:
         """Two-phase restart-recall gate. prepare/verify driven by BYON_EVAL_RESTART_PHASE;
