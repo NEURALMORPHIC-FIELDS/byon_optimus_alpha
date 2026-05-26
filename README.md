@@ -102,6 +102,42 @@ $env:BYON_VALIDATE_REAL_FCEM="true"; python -m pytest tests/test_v10_milestone.p
 > profile (the fast suite stays green offline). In **release validation**
 > (`BYON_VALIDATE_REAL_FCEM=true`), a missing real v15.7a engine is a hard FAIL, never a skip.
 
+## Run BYON Alpha App
+
+A runnable local web UI to chat with BYON — one command, usable by non-technical people.
+
+```bash
+pip install -e .[app]      # gradio + fastapi + httpx + python-dotenv
+python run_alpha_app.py    # → http://localhost:7860
+```
+
+### Real mode (default)
+
+1. Start the BYON runtime: memory-service (:8000), orchestrator, and the Gateway
+   (`python -m gateway.server` → :8090). Set `FCEM_MEMORY_ENGINE_ROOT` and
+   `ANTHROPIC_API_KEY` for the real organism.
+2. Configure:
+   ```
+   BYON_GATEWAY_URL=http://127.0.0.1:8090
+   BYON_ALPHA_DEMO_MODE=false
+   ```
+3. Run `python run_alpha_app.py` and open `http://localhost:7860`.
+
+Every message is routed Gateway → BYON Optimus → memory-service (D_Cortex + real FCE-M)
+→ Claude → **BYON final audit**. The UI shows the answer **and** its epistemic status
+(`KNOWN` / `UNKNOWN` / `DISPUTED` / `REFUSED` / `ERROR`), grounded flag, audit trace id,
+grounding/memory/FCE-M summaries, and buttons for clear / forget memory / show audit /
+export logs. **If BYON is down you get `ERROR`, never a fabricated answer.**
+
+### Demo UI mode (UI testing only — not real BYON)
+
+```bash
+BYON_ALPHA_DEMO_MODE=true python run_alpha_app.py
+```
+
+Shows a visible **"DEMO MODE — NOT REAL BYON RUNTIME"** banner and returns canned
+responses. Not real validation; never use for family alpha.
+
 ## Audit verdicts
 
 The D_Cortex run emits `runtime/dcortex_out/v9_9_results.json`, `v9_9_report.md`,
