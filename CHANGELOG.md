@@ -5,6 +5,43 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.14.0-alpha] — Cycle 11: relation inference + grounded relational reasoning
+
+> The relation field graduates from lexical/seed structure to GROUNDED inference over committed
+> facts / candidate claims / dispute explanations / vault-chunk CONTENT / self-training docs / task
+> summaries. Inference produces relation CANDIDATES with quotes + provenance — never truth.
+> **Live verdict: 137/137 graded gates PASS, 0 fail** (all Cycle 1–10 gates + 16 new), restart recall passed.
+
+### Added
+- `gateway/relation_inference.py` — `infer_relations_from_text(text, source, source_class,
+  provenance, context, claude_advisor)` → RelationCandidate list. Methods: deterministic pattern
+  rules, canonical schema rules, candidate-lifecycle records, and OPTIONAL Claude extraction as a
+  language faculty (opt-in `BYON_RELATION_INFERENCE_CLAUDE`, bounded snippet, advisory only). Secret
+  text is never inferred from and never sent to Claude; every candidate carries an evidence quote +
+  source id + source class + method, and starts as a CANDIDATE.
+- **Content ingestion** (no re-embedding, no new vector store): `RelationFieldBuilder.infer_from_memory`
+  mines stored fact/vault-chunk CONTENT via memory-service retrieval (system scope + each vault
+  owner's thread); candidate claims and task-result summaries are mined too.
+- **Bounded multi-hop reasoning**: `RelationField.multi_hop_path(start, target, max_depth=2)` — each
+  hop keeps its provenance + source classes; a disputed hop marks the whole path disputed; an
+  all-committed canonical path outranks a vault path.
+- **Relation-candidate lifecycle**: `evaluate_relation` + `consolidate()` — inferred relations
+  commit only with ≥2 independent sources (or a canonical/system source) + quality ≥ threshold +
+  no contradiction; a contradiction disputes the prior relation; stale weak relations archive.
+- **Relation proposals back to the candidate lifecycle**: `RelationProposer` emits RelationProposals
+  (missing / contradiction / dependency / consolidation) that become CANDIDATES in
+  `candidate_lifecycle` — the field proposes, it never commits; a canonical-conflict proposal is disputed.
+- **Rendering**: relation answers show evidence quotes, per-relation status + source class, multi-hop
+  paths with per-hop provenance, a "not enough evidence" frame for weak relations, and user-memory
+  framing for vault relations (never objective truth).
+- **API**: `POST /v1/lifeloop/relation-field/{infer,consolidate,propose}`, `GET .../path`, and
+  `rebuild?owner=` mines that owner's vault content.
+
+### Verified
+- 424 non-live tests (31 new); live harness **137/137 graded PASS, 0 fail** (16 new Cycle 11 gates +
+  all Cycle 1–10). Two-phase restart verify passed. The relation field still reports
+  `is_truth_authority: false`; source policy + the Auditor remain dominant; FULL_LEVEL3_NOT_DECLARED preserved.
+
 ## [10.13.0-alpha] — Cycle 10: relational memory field v1
 
 > A navigation/structure layer OVER the memory BYON already has, so it can answer "how are these

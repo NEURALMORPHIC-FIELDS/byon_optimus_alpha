@@ -220,14 +220,18 @@ class RelationField:
             return DISPUTED
         if explicit in (ARCHIVED, COMMITTED, REINFORCED, CANDIDATE, DISPUTED):
             return explicit
-        if any(sc in CANONICAL_SOURCE_CLASSES for sc in rel.get("source_classes", [])):
+        # canonical schema / SYSTEM_CANONICAL commit directly (the declared project structure);
+        # INFERRED relations (Cycle 11) start as candidates and only commit via consolidate().
+        if rel.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in rel.get("source_classes", []):
             return COMMITTED
         return REINFORCED if rel.get("evidence_count", 0) >= 2 else CANDIDATE
 
     def add_relation(self, subject: str, predicate: str, obj: str, *,
                      relation_type: Optional[str] = None, source_id: Optional[str] = None,
                      source_class: Optional[str] = None, status: Optional[str] = None,
-                     is_contradiction: bool = False, ts: Optional[str] = None) -> Dict[str, Any]:
+                     is_contradiction: bool = False, ts: Optional[str] = None,
+                     origin: str = "inferred", evidence_quote: Optional[str] = None,
+                     method: Optional[str] = None, confidence: Optional[float] = None) -> Dict[str, Any]:
         now = ts or _now()
         subject, obj = (subject or "").strip()[:160], (obj or "").strip()[:200]
         rtype = relation_type if relation_type in RELATION_TYPES else _rtype(predicate)
@@ -242,6 +246,8 @@ class RelationField:
                  "relation_type": rtype, "source_ids": [], "source_classes": [],
                  "evidence_count": 0, "contradiction_count": 0, "confidence": 0.5,
                  "status": CANDIDATE, "created_at": now, "updated_at": now,
+                 # Cycle 11: provenance + inference origin
+                 "origin": origin, "evidence_quote": evidence_quote, "method": method,
                  # temporal tracking
                  "first_seen": now, "last_seen": now, "reinforcement_count": 0,
                  "contradicted_at": None, "committed_at": None, "archived_at": None,
@@ -249,6 +255,12 @@ class RelationField:
             action = "created"
         else:
             action = "reinforced" if (source_id not in r.get("source_ids", [])) else "seen"
+            if evidence_quote and not r.get("evidence_quote"):
+                r["evidence_quote"] = evidence_quote
+            if method and not r.get("method"):
+                r["method"] = method
+            if origin == "canonical_schema":              # an inferred edge later confirmed canonical
+                r["origin"] = "canonical_schema"
         if source_id and source_id not in r["source_ids"]:
             r["source_ids"].append(source_id)
             r["evidence_count"] = r.get("evidence_count", 0) + 1
@@ -263,6 +275,8 @@ class RelationField:
         r["last_seen"] = now
         r["updated_at"] = now
         r["confidence"] = round(min(0.95, 0.4 + 0.15 * r["evidence_count"]), 3)
+        if confidence is not None:
+            r["confidence"] = round(max(r["confidence"], min(0.95, float(confidence))), 3)
         r["status"] = self._status_for(r, status)
         if r["status"] == COMMITTED and not r.get("committed_at"):
             r["committed_at"] = now
@@ -368,6 +382,156 @@ class RelationField:
             "source_class_breakdown": self.source_class_breakdown(),
         }
 
+    # -- relation-candidate lifecycle (Cycle 11) ----------------------------
+    def ingest_candidate_relation(self, rc: Dict[str, Any]) -> Dict[str, Any]:
+        """Add one inferred RelationCandidate. A contradiction edge ALSO disputes any existing
+        relation between the same two entities (so a negated claim makes the prior relation
+        visibly disputed). Inferred relations start as candidates — they never commit on ingest."""
+        subj, obj = rc.get("subject", ""), rc.get("object", "")
+        if rc.get("is_contradiction") or rc.get("relation_type") == CONTRADICTS:
+            r = self.add_relation(subj, rc.get("predicate") or "contradicts", obj,
+                                  relation_type=CONTRADICTS, source_id=rc.get("source_id"),
+                                  source_class=rc.get("source_class"), is_contradiction=True,
+                                  status=DISPUTED, origin="inferred",
+                                  evidence_quote=rc.get("evidence_quote"), method=rc.get("method"),
+                                  confidence=rc.get("confidence"))
+            self._dispute_between(subj, obj, rc.get("source_id"))
+            return r
+        return self.add_relation(subj, rc.get("predicate") or "", obj,
+                                 relation_type=rc.get("relation_type"), source_id=rc.get("source_id"),
+                                 source_class=rc.get("source_class"), origin="inferred",
+                                 evidence_quote=rc.get("evidence_quote"), method=rc.get("method"),
+                                 confidence=rc.get("confidence"))
+
+    def _dispute_between(self, subject: str, obj: str, source_id: Optional[str]) -> int:
+        sid, oid = self.resolve(subject), self.resolve(obj)
+        n = 0
+        for r in self._rel.values():
+            if r.get("relation_type") == CONTRADICTS:
+                continue
+            ends = {self.resolve(r["subject"]), self.resolve(r["object"])}
+            if sid in ends and oid in ends:
+                r["contradiction_count"] = r.get("contradiction_count", 0) + 1
+                r["contradicted_at"] = _now()
+                r["status"] = DISPUTED
+                r["updated_at"] = _now()
+                self._rel[r["relation_id"]] = r
+                self._append(self.edges_path, r)
+                n += 1
+        return n
+
+    def relation_quality(self, r: Dict[str, Any]) -> float:
+        ev = len(set(r.get("source_ids", [])))
+        classes = set(r.get("source_classes", []))
+        verified = bool(classes & CANONICAL_SOURCE_CLASSES) or "DOMAIN_VERIFIED" in classes
+        q = 0.5 + 0.15 * min(ev, 3) + 0.1 * (1 if len(classes) >= 2 else 0)
+        q += 0.2 * (1 if verified else 0) - 0.3 * (1 if r.get("contradiction_count", 0) > 0 else 0)
+        return round(max(0.0, min(1.0, q)), 3)
+
+    def _policy_allows_commit(self, r: Dict[str, Any]) -> bool:
+        return "DISPUTED_OR_UNSAFE" not in r.get("source_classes", [])
+
+    def evaluate_relation(self, r: Dict[str, Any], *, commit_quality: float = 0.70,
+                          stale_days: int = 30) -> Dict[str, Any]:
+        ev = len(set(r.get("source_ids", [])))
+        contra = r.get("contradiction_count", 0)
+        canonical = r.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in r.get("source_classes", [])
+        q = self.relation_quality(r)
+        try:
+            age_days = (time.time() - time.mktime(time.strptime(
+                r.get("first_seen", _now()), "%Y-%m-%dT%H:%M:%SZ"))) / 86400.0
+        except (ValueError, TypeError):
+            age_days = 0.0
+        if contra > 0:
+            return {"action": DISPUTED, "quality": q, "reason": "active contradiction"}
+        if (canonical or ev >= 2) and q >= commit_quality and self._policy_allows_commit(r):
+            return {"action": COMMITTED, "quality": q,
+                    "reason": f"{'canonical' if canonical else f'{ev} independent sources'}, quality {q}"}
+        if age_days >= stale_days and ev < 2 and q < 0.70:
+            return {"action": ARCHIVED, "quality": q, "reason": f"stale ({age_days:.0f}d) and weak"}
+        if ev >= 2:
+            return {"action": REINFORCED, "quality": q, "reason": "independent evidence"}
+        return {"action": CANDIDATE, "quality": q, "reason": "needs more independent evidence"}
+
+    def consolidate(self, *, commit_quality: float = 0.70, stale_days: int = 30) -> List[Dict[str, Any]]:
+        """The ONLY path that promotes an inferred candidate relation to committed/disputed/archived.
+        Canonical/system relations may commit directly; everything else needs >=2 independent
+        sources + quality + no contradiction. Never commits a DISPUTED_OR_UNSAFE relation."""
+        decisions = []
+        for r in list(self._rel.values()):
+            if r.get("status") not in (CANDIDATE, REINFORCED):
+                continue
+            d = self.evaluate_relation(r, commit_quality=commit_quality, stale_days=stale_days)
+            act = d["action"]
+            if act != r["status"]:
+                r["status"] = act
+                r["updated_at"] = _now()
+                if act == COMMITTED and not r.get("committed_at"):
+                    r["committed_at"] = _now()
+                if act == ARCHIVED and not r.get("archived_at"):
+                    r["archived_at"] = _now()
+                self._rel[r["relation_id"]] = r
+                self._append(self.edges_path, r)
+            decisions.append({"relation_id": r["relation_id"], **d})
+        return decisions
+
+    # -- bounded multi-hop reasoning (Cycle 11) -----------------------------
+    def multi_hop_path(self, start: str, target: Optional[str] = None, *, max_depth: int = 2,
+                       limit: int = 12) -> Dict[str, Any]:
+        """Bounded traversal (default depth 2). Each hop keeps its relation + provenance; a disputed
+        hop marks the whole path disputed; an all-committed canonical path outranks a vault path."""
+        max_depth = max(1, min(int(max_depth or 2), 4))
+        start_eid = self.resolve(start)
+        tgt_eid = self.resolve(target) if target else None
+        if not start_eid or (target and not tgt_eid):
+            return {"start": start, "target": target, "max_depth": max_depth, "paths": []}
+
+        def neighbors(eid):
+            out = []
+            for r in self._rel.values():
+                s, o = self.resolve(r["subject"]), self.resolve(r["object"])
+                if s == eid:
+                    out.append((r, o))
+                elif o == eid:
+                    out.append((r, s))
+            return out
+
+        paths: List[List[Dict[str, Any]]] = []
+        stack = [(start_eid, [], {start_eid})]
+        while stack and len(paths) < limit:
+            cur, hops, visited = stack.pop()
+            if hops and (tgt_eid is None or cur == tgt_eid):
+                paths.append(hops)
+                if tgt_eid is not None:
+                    continue
+            if len(hops) >= max_depth:
+                continue
+            for r, nxt in neighbors(cur):
+                if nxt in visited:
+                    continue
+                stack.append((nxt, hops + [r], visited | {nxt}))
+
+        out = [self._path_obj(h) for h in paths]
+        out.sort(key=lambda p: (0 if p["canonical"] else 1, 0 if p["path_status"] != DISPUTED else 1,
+                                len(p["hops"])))
+        return {"start": start, "target": target, "max_depth": max_depth, "paths": out[:limit]}
+
+    def _path_obj(self, hops: List[Dict[str, Any]]) -> Dict[str, Any]:
+        statuses = [h.get("status") for h in hops]
+        disputed = any(s == DISPUTED for s in statuses) or any(h.get("contradiction_count", 0) > 0
+                                                               for h in hops)
+        all_committed = all(s == COMMITTED for s in statuses)
+        canonical = all(h.get("origin") == "canonical_schema" or
+                        "SYSTEM_CANONICAL" in h.get("source_classes", []) for h in hops)
+        path_status = DISPUTED if disputed else (COMMITTED if all_committed else "provisional")
+        return {"length": len(hops), "path_status": path_status, "canonical": canonical,
+                "source_classes": sorted({sc for h in hops for sc in h.get("source_classes", [])}),
+                "hops": [{"subject": h["subject"], "relation_type": h["relation_type"],
+                          "object": h["object"], "status": h["status"],
+                          "source_classes": h.get("source_classes", []),
+                          "source_ids": h.get("source_ids", [])[:3],
+                          "evidence_quote": h.get("evidence_quote")} for h in hops]}
+
 
 def lifeloop_field(users_root: str | Path) -> RelationField:
     """The system-level relation field lives in the lifeloop namespace, beside the candidate
@@ -384,12 +548,14 @@ class RelationFieldBuilder:
 
     def __init__(self, field: RelationField, *, mem_client: Optional[Any] = None,
                  lifecycle: Optional[Any] = None, vault_manifest: Optional[Any] = None,
-                 lifeloop_dir: str | Path = "runtime/lifeloop") -> None:
+                 lifeloop_dir: str | Path = "runtime/lifeloop",
+                 owners: Optional[List[str]] = None) -> None:
         self.f = field
         self.mem = mem_client
         self.lc = lifecycle
         self.vm = vault_manifest
         self.lifeloop_dir = Path(lifeloop_dir)
+        self.owners = owners or []                         # vault owners whose chunk CONTENT to mine
 
     # -- per-source ingestion ----------------------------------------------
     def _seed_canonical(self) -> int:
@@ -399,7 +565,9 @@ class RelationFieldBuilder:
         n = 0
         for subj, pred, tgt in _RELATIONS:
             self.f.add_relation(subj, pred, tgt, source_id=f"relation:{subj}->{pred}->{tgt}",
-                                source_class="VERIFIED_PROJECT_FACT", status=COMMITTED)
+                                source_class="VERIFIED_PROJECT_FACT", status=COMMITTED,
+                                origin="canonical_schema",
+                                evidence_quote=f"{subj} {pred.replace('_', ' ')} {tgt}")
             n += 1
         return n
 
@@ -422,8 +590,53 @@ class RelationFieldBuilder:
                     seen.add(src)
                     subj, pred, tgt = triple
                     self.f.add_relation(subj, pred, tgt, source_id=src,
-                                        source_class="VERIFIED_PROJECT_FACT", status=COMMITTED)
+                                        source_class="VERIFIED_PROJECT_FACT", status=COMMITTED,
+                                        origin="canonical_schema",
+                                        evidence_quote=str(h.get("content") or "")[:200])
                     n += 1
+        return n
+
+    def infer_from_memory(self, queries: Optional[List[str]] = None, *, cap: int = 80) -> int:
+        """Cycle 11: infer relation candidates from stored fact/chunk CONTENT (not filenames). Reuses
+        memory-service retrieval — no new vector store, no re-embedding. System scope + each owner's
+        vault thread so vault CHUNK CONTENT is mined too. Secret content yields nothing."""
+        if self.mem is None:
+            return 0
+        from . import relation_inference as ri
+        from .source_policy import source_class_of
+        queries = queries or [
+            "depends on requires component contains supports contradicts role function",
+            "BYON D_Cortex FCE-M memory-service Claude architecture components",
+            "consolidation auditor epistemic contract derived from based on"]
+        # owner vault threads FIRST (each with its own budget) so a single planted note is never
+        # starved by the thousands of system facts; then the system/self-training scope.
+        n, seen = 0, set()
+        for owner in self.owners:
+            n += self._infer_scope(ri, source_class_of, queries, owner, "thread", seen, cap=40)
+        n += self._infer_scope(ri, source_class_of, queries, None, "thread", seen, cap=cap)
+        return n
+
+    def _infer_scope(self, ri, source_class_of, queries, owner, scope, seen, *, cap) -> int:
+        n = 0
+        for q in queries:
+            try:                                          # high recall so a single owner vault note
+                hits = self.mem.search_facts(q, top_k=200, threshold=0.0, thread_id=owner, scope=scope)
+            except Exception:                              # is not drowned by system facts in-thread
+                hits = []
+            for h in hits:
+                content = h.get("content") or ""
+                src = str((h.get("metadata") or {}).get("source") or h.get("source") or "")
+                key = src or content[:40]
+                if not content or key in seen:
+                    continue
+                seen.add(key)
+                sc = source_class_of(h)
+                for rc in ri.infer_relations_from_text(content, src or f"fact:{h.get('ctx_id')}",
+                                                       sc, {"ctx_id": h.get("ctx_id")}):
+                    self.f.ingest_candidate_relation(rc)
+                    n += 1
+                if n >= cap:
+                    return n
         return n
 
     def ingest_candidate(self, c: Dict[str, Any]) -> int:
@@ -432,6 +645,9 @@ class RelationFieldBuilder:
             return 0
         sc = c.get("source_class")
         self.f.add_entity(topic, entity_type="topic", source_class=sc)
+        from . import relation_inference as ri          # mine relations from the claim CONTENT
+        for rc in ri.infer_from_candidate(c):
+            self.f.ingest_candidate_relation(rc)
         n = 0
         cid = c.get("candidate_id", "")
         if c.get("status") == "committed":
@@ -472,7 +688,15 @@ class RelationFieldBuilder:
         self.f.add_relation(topic, "derived_from", "lifeloop task",
                             relation_type=DERIVED_FROM, source_id=f"task:{t.get('task_id','')}",
                             source_class=t.get("source_class"))
-        return 1
+        n = 1
+        summary = t.get("answer_summary") or ""           # Cycle 11: mine the result CONTENT too
+        if summary:
+            from . import relation_inference as ri
+            for rc in ri.infer_relations_from_text(summary, f"task:{t.get('task_id','')}",
+                                                   t.get("source_class"), {"task_id": t.get("task_id")}):
+                self.f.ingest_candidate_relation(rc)
+                n += 1
+        return n
 
     def _from_vault(self, cap: int = 400) -> int:
         if self.vm is None:
@@ -523,9 +747,20 @@ class RelationFieldBuilder:
         stats["vault"] = self._from_vault()
         for t in self._read_jsonl("task_results.jsonl"):
             stats["task_results"] += self.ingest_task_result(t)
+        stats["inferred"] = self.infer_from_memory()       # Cycle 11: content-based inference
         stats["entities"] = self.f.counts()["entities"]
         stats["relations"] = self.f.counts()["relations"]
         return stats
+
+    def infer_text(self, text: str, *, source: str, source_class: Optional[str],
+                   provenance: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Run the grounded extractor on one bounded text and ingest the candidates (never commits).
+        Used by the operator/infer endpoint and incremental updates. Secret text yields nothing."""
+        from . import relation_inference as ri
+        cands = ri.infer_relations_from_text(text, source, source_class, provenance or {})
+        for rc in cands:
+            self.f.ingest_candidate_relation(rc)
+        return cands
 
     def incremental_update(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Apply a single source event without a full rebuild. Dedup by stable relation id means a
@@ -550,6 +785,90 @@ class RelationFieldBuilder:
                                 source_id=event.get("source_id"),
                                 source_class=event.get("source_class"),
                                 is_contradiction=bool(event.get("is_contradiction")))
+        elif etype == "text":
+            self.infer_text(event.get("text", ""), source=event.get("source", "text"),
+                            source_class=event.get("source_class"),
+                            provenance=event.get("provenance"))
         after = self.f.counts()["relations"]
         return {"type": etype, "relations_before": before, "relations_after": after,
                 "new_relation": after > before}
+
+
+# -- Relation proposals back to the candidate lifecycle (Cycle 11) ----------
+PROPOSAL_MISSING = "missing_candidate"
+PROPOSAL_CONTRADICTION = "contradiction"
+PROPOSAL_DEPENDENCY = "dependency"
+PROPOSAL_CONSOLIDATION = "consolidation"
+
+
+def make_proposal(field: "RelationField", r: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Turn a relation into a RelationProposal for the candidate lifecycle. The relation field can
+    PROPOSE (missing fact / contradiction / dependency / consolidation) but never commit."""
+    rid = r["relation_id"]
+    canonical = r.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in r.get("source_classes", [])
+    base = {"proposal_id": "prop_" + rid[4:], "relation_id": rid,
+            "evidence": r.get("evidence_quote") or "", "source_class": (r.get("source_classes") or [None])[0]}
+    if r.get("status") == DISPUTED or r.get("contradiction_count", 0) > 0:
+        return {**base, "proposal_type": PROPOSAL_CONTRADICTION,
+                "suggested_claim": f"{r['subject']} {r['relation_type']} {r['object']} (contested)",
+                "status": DISPUTED}
+    if r.get("status") == REINFORCED and r.get("relation_type") in (DEPENDS_ON, HAS_COMPONENT):
+        return {**base, "proposal_type": PROPOSAL_DEPENDENCY,
+                "suggested_claim": f"{r['subject']} {r['relation_type']} {r['object']}",
+                "status": CANDIDATE}
+    if r.get("status") == REINFORCED:
+        return {**base, "proposal_type": PROPOSAL_CONSOLIDATION,
+                "suggested_claim": f"{r['subject']} {r['relation_type']} {r['object']}",
+                "status": CANDIDATE}
+    return None
+
+
+class RelationProposer:
+    """Scans the relation field and proposes candidates BACK to the candidate lifecycle. Suggestions
+    become candidates (never committed by the field); a canonical-conflict proposal is marked
+    disputed. The field cannot commit and cannot override source policy."""
+
+    def __init__(self, field: "RelationField", *, lifecycle: Optional[Any] = None,
+                 proposals_path: Optional[str | Path] = None) -> None:
+        self.f = field
+        self.lc = lifecycle
+        self.path = Path(proposals_path) if proposals_path else (field.dir / "relation_proposals.jsonl")
+
+    def run(self, *, cap: int = 25) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for r in list(self.f._rel.values()):
+            if len(out) >= cap:
+                break
+            p = make_proposal(self.f, r)
+            if not p:
+                continue
+            if self.lc is not None:                        # propose -> CANDIDATE (never committed here)
+                try:
+                    epi = "DISPUTED" if p["status"] == DISPUTED else "PROVISIONAL"
+                    self.lc.ingest_task_result(
+                        task_id="relprop_" + r["relation_id"][4:], topic=r["subject"],
+                        claim=p["suggested_claim"], sources_used=r.get("source_ids", [])[:3],
+                        epistemic_status=epi, source_class=p["source_class"],
+                        source_event_ids=[r["relation_id"]])
+                    p["routed_to_candidate_lifecycle"] = True
+                except Exception:
+                    p["routed_to_candidate_lifecycle"] = False
+            self._write(p)
+            out.append(p)
+        return out
+
+    def _write(self, p: Dict[str, Any]) -> None:
+        try:
+            self.f.dir.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(p, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
+
+    def list(self) -> List[Dict[str, Any]]:
+        if not self.path.exists():
+            return []
+        try:
+            return [json.loads(x) for x in self.path.read_text(encoding="utf-8").splitlines() if x.strip()]
+        except (OSError, json.JSONDecodeError):
+            return []

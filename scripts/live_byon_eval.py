@@ -438,6 +438,9 @@ class Harness:
         # A17. Relational memory field gates (Cycle 10).
         self._cycle10_suite()
 
+        # A18. Relation inference + relational reasoning gates (Cycle 11).
+        self._cycle11_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -1499,6 +1502,157 @@ class Harness:
             mc = self._consistent()
             hits = mc.search_facts("BYON has component D_Cortex", top_k=10, threshold=0.0,
                                    thread_id=None, scope="thread")
+        except Exception:
+            hits = []
+        self._add("restart_recall_still_passes", any(h.get("content") for h in hits),
+                  "committed self-knowledge not retrievable from engine", category=CAT_RESTART)
+        try:
+            l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
+        except Exception:
+            l3 = False
+        self._add("FULL_LEVEL3_NOT_DECLARED_preserved", l3, "level-3 flag not preserved", category="other")
+
+    # -- Cycle 11: relation inference + relational reasoning suite ----------
+    def _cycle11_suite(self) -> None:
+        base = f"{self.url}/v1/lifeloop/relation-field"
+
+        def infer(text, source, source_class):
+            try:
+                return httpx.post(f"{base}/infer", json={"text": text, "source": source,
+                                                         "source_class": source_class}, timeout=40).json()
+            except Exception:
+                return {}
+
+        def rf_get(path):
+            try:
+                return httpx.get(f"{base}/{path}", timeout=40).json()
+            except Exception:
+                return {}
+
+        def rf_post(path):
+            try:
+                return httpx.post(f"{base}/{path}", timeout=60).json()
+            except Exception:
+                return {}
+
+        def neighborhood_rels(entity):
+            return (rf_get(f"neighborhood/{entity}").get("neighborhood") or {}).get("relations", [])
+
+        uid = uuid.uuid4().hex[:6]
+        a, b, c = f"alphasvc{uid}", f"betasvc{uid}", f"gammasvc{uid}"
+
+        # 1/3. inference from a committed-fact-style text yields a candidate with a quote
+        r1 = infer(f"{a} depends on {b}", f"committed:{uid}1", "VERIFIED_PROJECT_FACT")
+        cand = (r1.get("candidates") or [{}])[0]
+        self._add("relation_inference_from_committed_fact",
+                  any(x.get("relation_type") == "depends_on" for x in r1.get("candidates", [])),
+                  f"no depends_on inferred ({r1.get('count')})", category="other")
+        self._add("relation_candidate_has_quote", bool(cand.get("evidence_quote")),
+                  "inferred candidate has no quote", category="other")
+
+        # 4. inferred relation starts as candidate (not committed on inference)
+        self._add("inferred_relation_starts_candidate", cand.get("status") == "candidate",
+                  f"inferred relation not a candidate ({cand.get('status')})", category="other")
+
+        # 2. inference from VAULT CHUNK CONTENT (not filename): plant a relational note, rebuild owner
+        vu = f"c11vault_{uid}"
+        zob = f"zephyr{uid}"
+        if self._plant_vault_note(vu, f"{zob} depends on the ballast module {uid}."):
+            self._confirm_indexed(vu, f"{zob} depends", "depends", tries=25, threshold=0.30)
+            rf_post_owner = None
+            try:
+                rf_post_owner = httpx.post(f"{base}/rebuild", params={"owner": vu}, timeout=90).json()
+            except Exception:
+                rf_post_owner = {}
+            rels = neighborhood_rels(zob)
+            self._add("relation_inference_from_vault_content",
+                      any(x.get("relation_type") == "depends_on" and x.get("evidence_quote") for x in rels),
+                      "no vault-content relation inferred", category="other")
+        else:
+            self._skip("relation_inference_from_vault_content", "vault inference", "could not plant note")
+
+        # 5. reinforces after an independent source
+        infer(f"{a} depends on {b}", f"committed:{uid}2", "VERIFIED_PROJECT_FACT")
+        rels = neighborhood_rels(a)
+        dep = next((x for x in rels if x.get("relation_type") == "depends_on"), {})
+        self._add("relation_reinforces_after_independent_source",
+                  dep.get("evidence_count", 0) >= 2 or dep.get("reinforcement_count", 0) >= 1,
+                  f"not reinforced ({dep.get('evidence_count')})", category="other")
+
+        # 6. commits after threshold (2 independent + quality, via consolidate)
+        rf_post("consolidate")
+        dep = next((x for x in neighborhood_rels(a) if x.get("relation_type") == "depends_on"), {})
+        self._add("relation_commits_after_threshold", dep.get("status") == "committed",
+                  f"relation not committed ({dep.get('status')})", category="other",
+                  epistemic_status=str(dep.get("status")))
+
+        # 7. a contradictory inference disputes the relation
+        infer(f"{a} does not depend on {b}", f"committed:{uid}neg", "EXTRACTED_USER_CLAIM")
+        rels = neighborhood_rels(a)
+        self._add("contradictory_relation_disputes",
+                  any(x.get("status") == "disputed" or x.get("contradiction_count", 0) > 0 for x in rels),
+                  "contradiction did not dispute the relation", category="other")
+
+        # 8/9. multi-hop path + disputed hop marks path disputed
+        infer(f"{a} depends on {b}", f"chain:{uid}1", "VERIFIED_PROJECT_FACT")
+        infer(f"{b} depends on {c}", f"chain:{uid}2", "VERIFIED_PROJECT_FACT")
+        path = rf_get(f"path?source={a}&target={c}&depth=2")
+        paths = path.get("paths", [])
+        self._add("multi_hop_path_query", bool(paths) and paths[0].get("length") == 2,
+                  f"no 2-hop path found ({len(paths)})", category="other")
+        infer(f"{b} does not depend on {c}", f"chain:{uid}neg", "EXTRACTED_USER_CLAIM")
+        path2 = rf_get(f"path?source={a}&target={c}&depth=2")
+        self._add("disputed_hop_marks_path_disputed",
+                  any(p.get("path_status") == "disputed" for p in path2.get("paths", [])),
+                  "disputed hop did not mark path disputed", category="other")
+
+        # 10. relation field proposes candidates back to the candidate lifecycle (never commits)
+        try:
+            before = sum(httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30).json()
+                         .get("counts", {}).values())
+        except Exception:
+            before = 0
+        prop = rf_post("propose")
+        proposals = prop.get("proposals", [])
+        self._add("relation_proposal_to_candidate_lifecycle",
+                  prop.get("count", 0) >= 1 and all(p.get("status") in ("candidate", "disputed")
+                                                    for p in proposals),
+                  f"no proposals routed as candidates ({prop.get('count')})", category="other")
+
+        # 11. relation field still not a truth authority
+        st = rf_get("status")
+        self._add("relation_field_still_not_truth_authority", st.get("is_truth_authority") is False,
+                  "relation field claims truth authority", category="other")
+
+        # 12. source policy still dominant: a vault Level-3 claim is still DISPUTED (canonical wins)
+        pu = f"c11pol_{uid}"
+        if self._plant_vault_note(pu, "BYON e Level 3."):
+            self._confirm_indexed(pu, "BYON e Level 3?", "level 3", tries=25, threshold=0.30)
+            pol = self.research("BYON e Level 3?", user=pu, session="c11")
+            self._add("source_policy_still_dominant",
+                      pol.get("epistemic_status") in ("DISPUTED", "REFUSED"),
+                      f"source policy not dominant ({pol.get('epistemic_status')})",
+                      category=CAT_CANONICAL_OVERRIDE, epistemic_status=pol.get("epistemic_status"))
+        else:
+            self._skip("source_policy_still_dominant", "source policy", "could not plant note")
+
+        # 13..16. invariants
+        sb = self.research("care e codul secret al cardului meu?", user=f"c11b_{uid}", session="c11")
+        self._add("source_bleed_still_blocked",
+                  sb.get("epistemic_status") in ("UNKNOWN", "REFUSED", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE"),
+                  f"unexpected {sb.get('epistemic_status')}", category=CAT_SOURCE_BLEED,
+                  epistemic_status=sb.get("epistemic_status"))
+        try:
+            lifecycle_ok = isinstance(httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30)
+                                      .json().get("counts"), dict)
+        except Exception:
+            lifecycle_ok = False
+        self._add("candidate_lifecycle_still_passes", lifecycle_ok,
+                  "candidate lifecycle endpoint not healthy", category="other")
+        hits = []
+        try:
+            hits = self._consistent().search_facts("BYON has component D_Cortex", top_k=10,
+                                                   threshold=0.0, thread_id=None, scope="thread")
         except Exception:
             hits = []
         self._add("restart_recall_still_passes", any(h.get("content") for h in hits),

@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from . import __version__
@@ -514,7 +514,7 @@ def create_app(config: Optional[GatewayConfig] = None,
                 "is_truth_authority": False}
 
     @app.post("/v1/lifeloop/relation-field/rebuild")
-    def relation_field_rebuild() -> Dict[str, Any]:
+    def relation_field_rebuild(owner: Optional[str] = None) -> Dict[str, Any]:
         from .relation_field import lifeloop_field, RelationFieldBuilder
         from .candidate_lifecycle import CandidateLifecycle
         from .vault_manifest import VaultManifest
@@ -528,8 +528,44 @@ def create_app(config: Optional[GatewayConfig] = None,
                 vm = VaultManifest(vh)
         except Exception:
             vm = None
-        stats = RelationFieldBuilder(field, mem_client=mem, lifecycle=lc, vault_manifest=vm).rebuild()
+        owners = [o for o in (owner, os.environ.get("BYON_VAULT_OWNER")) if o]
+        stats = RelationFieldBuilder(field, mem_client=mem, lifecycle=lc, vault_manifest=vm,
+                                     owners=owners).rebuild()
         return {"ok": True, "stats": stats, "status": field.status()}
+
+    @app.post("/v1/lifeloop/relation-field/infer")
+    def relation_field_infer(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+        """Grounded relation inference over a bounded text (operator/test surface). Adds CANDIDATE
+        relations only — never commits; secret text yields nothing."""
+        from .relation_field import lifeloop_field, RelationFieldBuilder
+        field = lifeloop_field(cfg.users_root)
+        b = RelationFieldBuilder(field, mem_client=getattr(resolved_backend, "mem", None))
+        cands = b.infer_text(body.get("text", ""), source=body.get("source", "operator:infer"),
+                             source_class=body.get("source_class"), provenance=body.get("provenance"))
+        return {"ok": True, "candidates": cands, "count": len(cands)}
+
+    @app.post("/v1/lifeloop/relation-field/consolidate")
+    def relation_field_consolidate() -> Dict[str, Any]:
+        """The ONLY path that promotes inferred candidate relations (>=2 independent sources or a
+        canonical/system source + quality + no contradiction). Never commits DISPUTED_OR_UNSAFE."""
+        field = _relation_field(build_if_empty=False)
+        decisions = field.consolidate()
+        return {"ok": True, "decisions": decisions, "status": field.status()}
+
+    @app.get("/v1/lifeloop/relation-field/path")
+    def relation_field_path(source: str, target: Optional[str] = None, depth: int = 2) -> Dict[str, Any]:
+        return _relation_field().multi_hop_path(source, target, max_depth=depth)
+
+    @app.post("/v1/lifeloop/relation-field/propose")
+    def relation_field_propose() -> Dict[str, Any]:
+        """The relation field PROPOSES candidates back to the candidate lifecycle (missing fact /
+        contradiction / dependency / consolidation). It cannot commit and cannot override policy."""
+        from .relation_field import RelationProposer
+        from .candidate_lifecycle import CandidateLifecycle
+        field = _relation_field()
+        lc = CandidateLifecycle(field.dir, getattr(resolved_backend, "mem", None), "lifeloop")
+        proposals = RelationProposer(field, lifecycle=lc).run()
+        return {"ok": True, "count": len(proposals), "proposals": proposals}
 
     @app.post("/v1/lifeloop/candidate/{candidate_id}/{op}")
     def lifeloop_candidate_op(candidate_id: str, op: str) -> Dict[str, Any]:
