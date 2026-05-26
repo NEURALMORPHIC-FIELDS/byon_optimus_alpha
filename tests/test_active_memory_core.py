@@ -148,7 +148,8 @@ def test_vault_training_stores_chunks_backlinks_and_ignores_obsidian(tmp_path):
     vt = importlib.import_module("gateway.vault_training")
     mem = FakeMem()
     v = _make_vault(tmp_path)
-    rep = vt.train_vault("http://x", vault_path=str(v), mem_client=mem, owner="lucian")
+    rep = vt.train_vault("http://x", vault_path=str(v), mem_client=mem, owner="lucian",
+                         report_dir=str(tmp_path / "training"))  # isolated report/manifest
     assert rep["files"] == 2 and rep["chunks_stored"] > 0  # .obsidian/app.json not counted
     assert rep["backlinks"] >= 1  # FCE-M notes -> [[Architecture]]
     assert rep["consolidated"] == "consolidated"

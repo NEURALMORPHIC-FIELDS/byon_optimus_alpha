@@ -25,7 +25,10 @@ from .perspective_synthesis import synthesize
 from . import query_router as qr
 from . import web_search as ws
 
-_SECRET = re.compile(r"(?i)\b(password|secret|private key|api[ _-]?key|token|pin|ssn|credit\s*card)\b")
+_SECRET = re.compile(
+    r"(?i)\b(password|parol[ăa]|secret|secret[ăa]|private\s+key|cheie\s+(?:privat[ăa]|secret[ăa])|"
+    r"api[ _-]?key|token|pin|cod\s+pin|cod\s+de\s+acces|ssn|cnp|iban|credit\s*card|"
+    r"card\s+(?:bancar|de\s+credit)|cont\s+bancar)\b")
 _HIGH_CERTAINTY = re.compile(r"(?i)\b(exactly|precisely|definitely|certain|guarantee|for sure)\b")
 
 # Active research turns: research_trace_id -> InternalResearchClock (for continue/conclude).
@@ -221,6 +224,12 @@ class EpistemicSearch:
         raw_hits = mem_client.search_facts(question, top_k=20, threshold=0.30,
                                            thread_id=user_id, scope="thread") if mem_client else []
         memory_hits = qr.rerank(raw_hits, intent)
+        # A personal Obsidian note (vault:* / EXTRACTED_USER_CLAIM) may answer "what did I write
+        # about X" (USER_VAULT) but must NOT silently ground an EXTERNAL/objective question — a
+        # note that merely shares vocabulary with the query is not evidence about the world.
+        if intent != qr.USER_VAULT_QUERY:
+            memory_hits = [h for h in memory_hits
+                           if not str((h.get("metadata") or {}).get("source", "")).startswith("vault:")]
         sources_searched.append(f"memory[{intent}]")
         committed = qr.committed(memory_hits)
 

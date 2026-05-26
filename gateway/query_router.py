@@ -69,13 +69,19 @@ VAULT_STATUS_TRIGGERS = ["cat din vault ai indexat", "cât din vault ai indexat"
                          "care este statusul vaultului", "vault training status",
                          "ce ai indexat din obsidian", "status vault", "cat ai indexat din vault"]
 FOLLOWUP_TRIGGERS = ["de ce conteaza", "de ce contează", "ce inseamna asta", "ce înseamnă asta",
-                     "ce urmeaza", "ce urmează", "and so", "why does it matter"]
-FOLLOWUP_EXACT = {"asa si", "asa si?", "așa și", "așa și?", "si", "si?", "și", "și?", "ok si", "ok si?"}
+                     "ce urmeaza", "ce urmează", "and so", "why does it matter",
+                     "si apoi", "și apoi", "si dupa", "și după", "dupa aceea", "după aceea",
+                     "and then", "what next", "continua", "continuă"]
+FOLLOWUP_EXACT = {"asa si", "asa si?", "așa și", "așa și?", "si", "si?", "și", "și?", "ok si", "ok si?",
+                  "apoi", "apoi?", "si apoi", "si apoi?", "și apoi", "și apoi?", "si dupa?", "și după?"}
 # old/historical limitation phrasings that must NOT be reported as current truth
 _STALE_LIMITATION = re.compile(
     r"(?i)(never promoted|nu (sunt|au fost) promova|provisional.*never|pas\s*6|"
     r"never consolidat|nu se consolid|last-write-wins|provizoriile nu)")
-_SECRET = re.compile(r"(?i)\b(password|secret|private key|api[ _-]?key|token|pin|ssn|credit\s*card)\b")
+_SECRET = re.compile(
+    r"(?i)\b(password|parol[ăa]|secret|secret[ăa]|private\s+key|cheie\s+(?:privat[ăa]|secret[ăa])|"
+    r"api[ _-]?key|token|pin|cod\s+pin|cod\s+de\s+acces|ssn|cnp|iban|credit\s*card|"
+    r"card\s+(?:bancar|de\s+credit)|cont\s+bancar)\b")
 
 SELF_ARCHITECTURE_QUERY = "SELF_ARCHITECTURE_QUERY"
 SELF_CAPABILITY_QUERY = "SELF_CAPABILITY_QUERY"

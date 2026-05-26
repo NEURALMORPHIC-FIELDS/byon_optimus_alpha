@@ -27,10 +27,27 @@ class OperationalIntents:
                                      lifeloop_events=lifeloop_events,
                                      namespace_dir=str(namespace_dir) if namespace_dir else None)
 
-    # -- session log (per-session audit records in the user's namespace) ----
+    # -- session log: prefer the literal session event stream, fall back to audit log ----
     def _session_events(self) -> List[Dict[str, Any]]:
         if not self.namespace_dir:
             return []
+        try:
+            from .session_events import SessionEvents
+            se = SessionEvents(self.namespace_dir, self.session_id)
+            if se.exists():
+                rows = []
+                for r in se.read():
+                    if r.get("role") == "user":
+                        rows.append({"message": r.get("message"), "epistemic_status": None,
+                                     "role": "user", "ts": r.get("ts")})
+                    elif r.get("role") == "assistant":
+                        rows.append({"message": r.get("answer"), "intent": r.get("intent"),
+                                     "epistemic_status": r.get("epistemic_status"),
+                                     "role": "assistant", "ts": r.get("ts")})
+                if rows:
+                    return rows
+        except Exception:
+            pass
         adir = self.namespace_dir / "audit"
         if not adir.exists():
             return []
@@ -118,10 +135,12 @@ class OperationalIntents:
             return ("KNOWN", "Nu exista un jurnal de evenimente pentru aceasta sesiune "
                     f"(session_id={self.session_id}). Nu caut in vault pentru asta.",
                     ["runtime:session_log"])
-        lines = [f"Rezumat sesiune {self.session_id} ({len(evs)} interactiuni):"]
-        for r in evs[-20:]:
-            q = (r.get("message") or r.get("question") or "")[:70]
-            lines.append(f"- [{r.get('epistemic_status')}] {q}")
+        # prefer the user turns (questions) for a "what did we discuss" summary
+        user_turns = [r for r in evs if r.get("role") == "user"] or evs
+        lines = [f"Rezumat sesiune {self.session_id} ({len(user_turns)} mesaje):"]
+        for r in user_turns[-20:]:
+            q = (r.get("message") or r.get("question") or "")[:80]
+            lines.append(f"- {q}")
         return ("KNOWN", "\n".join(lines), ["runtime:session_log"])
 
     def handle_memory_action(self, question: str) -> Tuple[str, str, List[str]]:
@@ -158,13 +177,21 @@ class OperationalIntents:
             return ("ASK_USER_FOR_SOURCE",
                     "Despre ce anume? Nu am un context anterior in aceasta sesiune.",
                     ["runtime:session_log"])
-        last = evs[-1]
-        q = (last.get("message") or last.get("question") or "")[:80]
-        stt = last.get("epistemic_status")
+        # prefer the previous ASSISTANT turn (the actual answer being followed up on)
+        prev_asst = next((r for r in reversed(evs) if r.get("role") == "assistant"), None)
+        if prev_asst is None:
+            # fallback (audit rows have no role): the previous distinct user question
+            prev = [r for r in evs if (r.get("message") or r.get("question"))]
+            last = prev[-2] if len(prev) >= 2 else (prev[-1] if prev else {})
+            q = (last.get("message") or last.get("question") or "")[:80]
+            stt = last.get("epistemic_status")
+        else:
+            q = (prev_asst.get("message") or "")[:90]
+            stt = prev_asst.get("epistemic_status")
         return ("KNOWN",
-                f"Continuare la intrebarea anterioara: '{q}' (status: {stt}). "
-                f"Inseamna ca raspunsul anterior a fost evaluat epistemic ca {stt}; "
-                f"urmatorul pas util ar fi sa ceri detalii, surse, sau sa marchezi feedback.",
+                f"Continuare la raspunsul anterior (status: {stt}): \"{q}\". "
+                f"Concret, pasul urmator: cere detalii/surse, marcheaza feedback, sau "
+                f"ruleaza o actiune (ex. consolideaza memoria).",
                 ["runtime:session_log"])
 
     def handle_vault_training_status(self) -> Tuple[str, str, List[str]]:

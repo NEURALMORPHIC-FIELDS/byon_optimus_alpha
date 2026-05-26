@@ -36,6 +36,32 @@ def test_harness_covers_all_pass_criteria():
         assert gate in src, f"harness missing criterion {gate}"
 
 
+def test_harness_covers_adversarial_cases():
+    import inspect
+    src = inspect.getsource(_load().Harness._adversarial)
+    for gate in ["adv_style_learning", "adv_stale_vault", "adv_followup_chain",
+                 "adv_memory_action", "adv_contradiction_teachB", "adv_vault_intent_separation",
+                 "adv_secret", "adv_web_disabled", "adv_restart_recall"]:
+        assert gate in src, f"harness missing adversarial case {gate}"
+
+
+def test_harness_report_has_epistemic_fields():
+    import inspect
+    src = inspect.getsource(_load().Harness.run)
+    for field in ["pass_count", "fail_count", "skipped_count", "failure_categories",
+                  "any_vault_used_incorrectly", "all_statuses_epistemically_valid", "root_cause_hint"]:
+        assert field in src, f"report missing field {field}"
+
+
+def test_categorize_maps_reasons():
+    m = _load()
+    assert m._categorize("a source contains forbidden 'vault:'")[0] == "grounding"
+    assert m._categorize("status=KNOWN not in (...)")[0] == "epistemic_status"
+    assert m._categorize("intent=X != Y")[0] == "intent_routing"
+    assert m._categorize("LEAK")[0] == "isolation"
+    assert m._categorize("request failed: boom")[0] == "transport"
+
+
 @pytest.mark.live
 def test_live_eval_all_pass_if_gateway_up():
     import httpx

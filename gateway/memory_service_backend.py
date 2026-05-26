@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from .byon_backend import BYONResult
 from .continuous_learning import ContinuousLearning
 from .epistemic_search import ClaudeHypothesisProvider, EpistemicSearch, is_secret_query
+from .expression_learning import ExpressionLearning
 from .memory_service_client import MemoryServiceClient
 from . import fact_extractor_bridge as feb
 from . import web_search as ws
@@ -115,9 +116,26 @@ class MemoryServiceBackend:
                  allow_web: Optional[bool] = None, allow_claude: bool = True,
                  action: str = "start", research_trace_id: Optional[str] = None) -> Dict[str, Any]:
         learning = self._learning(namespace_dir, user_id)
+        expr = ExpressionLearning(self.mem, namespace_dir=str(namespace_dir) if namespace_dir else None)
         # CANONICAL learning side-effect: every non-secret user message goes through the
         # real FactExtractor before the search loop (Phase 2).
         is_question = question.strip().endswith("?")
+        # Gate 10: a pure style/expression instruction is learned as USER_PREFERENCE (not a world
+        # fact) and acknowledged — it tunes delivery, never truth.
+        if action == "start":
+            pref = expr.store_preference(user_id, question)
+            if pref and not is_question:
+                kinds = ", ".join(pref["kinds"])
+                return {"epistemic_status": "ACTION_DONE", "research_status": "done",
+                        "answer": f"Am notat preferinta de exprimare ({kinds}). O aplic la raspunsuri, "
+                                  f"fara sa modific statusul epistemic sau sursele.",
+                        "grounded": True, "confidence": 0.9,
+                        "sources_searched": ["style:user_preference"], "web_results": [],
+                        "claude_hypothesis": None, "stress_percent": 0.0, "phase": "done", "clock": {},
+                        "synthesis": {"epistemic_verdict": "ACTION_DONE", "intent": "EXPRESSION_PREFERENCE",
+                                      "sources": ["style:user_preference"]},
+                        "research_trace_id": research_trace_id or "style", "can_extend": False,
+                        "expression_preference": pref}
         learned = {"facts": []}
         if action == "start":
             learned = self._learn_from_message(question, user_id, learning)
@@ -136,11 +154,20 @@ class MemoryServiceBackend:
                     "research_trace_id": research_trace_id or "learn", "can_extend": True,
                     "learned": learned}
         aw = self.default_allow_web if allow_web is None else allow_web
-        return self.search.run(question=question, user_id=user_id, session_id=session_id,
-                               namespace_dir=namespace_dir, mem_client=self.mem, learning=learning,
-                               web_provider=self.web, claude_provider=self.claude,
-                               allow_web=aw, allow_claude=allow_claude, action=action,
-                               research_trace_id=research_trace_id)
+        out = self.search.run(question=question, user_id=user_id, session_id=session_id,
+                              namespace_dir=namespace_dir, mem_client=self.mem, learning=learning,
+                              web_provider=self.web, claude_provider=self.claude,
+                              allow_web=aw, allow_claude=allow_claude, action=action,
+                              research_trace_id=research_trace_id)
+        # Gate 10: re-phrase the DELIVERY per learned style — status & sources are left untouched.
+        try:
+            syn = out.get("synthesis") or {}
+            srcs = syn.get("sources") or out.get("sources_searched") or []
+            out["answer"] = expr.apply(user_id, session_id, out.get("answer", ""),
+                                       out.get("epistemic_status"), srcs)
+        except Exception:
+            pass  # styling is best-effort; never block or alter a truthful answer
+        return out
 
     # -- BYONBackend.chat ----------------------------------------------------
     def chat(self, *, user_id: str, session_id: str, channel: str, message: str,
@@ -192,9 +219,20 @@ class MemoryServiceBackend:
             action = "removed_from_candidates"
         elif rating == "verify_again":
             action = "queued_for_reverification"
+        # a rejected answer may carry a STYLE complaint ("too long", "prea abstract") -> update
+        # style memory (never touches the underlying fact's correctness).
+        style_pref = None
+        if rating in ("wrong", "false", "partially_correct", "do_not_remember") or note:
+            try:
+                style_pref = ExpressionLearning(self.mem,
+                    namespace_dir=str(namespace_dir) if namespace_dir else None
+                ).record_rejection(user_id, note or value or "")
+            except Exception:
+                style_pref = None
         learning.record_event("feedback", rating=rating, target=target[:80], action=action,
-                              about_trace=audit_trace_id)
-        return {"ok": True, "rating": rating, "action": action}
+                              about_trace=audit_trace_id, style_pref=bool(style_pref))
+        return {"ok": True, "rating": rating, "action": action,
+                "style_preference": style_pref}
 
     def forget(self, *, user_id: str, namespace_dir) -> Dict[str, Any]:
         cleared = []

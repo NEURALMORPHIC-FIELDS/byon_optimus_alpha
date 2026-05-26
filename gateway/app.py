@@ -32,6 +32,7 @@ from .config import GatewayConfig
 from .namespace import UserNamespace
 from .normalizer import normalize
 from .ratelimit import RateLimiter
+from .session_events import SessionEvents
 from .types import (
     BYONChatRequest,
     BYONChatResponse,
@@ -178,6 +179,13 @@ def create_app(config: Optional[GatewayConfig] = None,
             "grounding_summary": response.grounding_summary.model_dump(),
             "memory_summary": response.memory_summary.model_dump(),
         }, user_namespace_dir=ns.root)
+        try:
+            SessionEvents(ns.root, req.session_id).log_turn(
+                question=req.message, answer=response.answer,
+                epistemic_status=response.epistemic_status, intent=None,
+                sources=response.grounding_summary.sources, audit_trace_id=trace_id)
+        except Exception:
+            pass
         return response
 
     @app.post("/v1/research")
@@ -213,6 +221,14 @@ def create_app(config: Optional[GatewayConfig] = None,
                                "stress_percent": out.get("stress_percent"),
                                "research_trace_id": out.get("research_trace_id")},
                     user_namespace_dir=ns.root)
+        try:
+            SessionEvents(ns.root, req.session_id).log_turn(
+                question=req.question, answer=out.get("answer", ""), epistemic_status=st,
+                intent=(out.get("synthesis") or {}).get("intent"),
+                sources=(out.get("synthesis") or {}).get("sources") or out.get("sources_searched"),
+                audit_trace_id=trace_id)
+        except Exception:
+            pass
         return out
 
     @app.post("/v1/consolidate")
@@ -251,6 +267,11 @@ def create_app(config: Optional[GatewayConfig] = None,
             pass
         metrics["feedback"] += 1
         lifeloop.record_feedback(rating=req.rating, user_id=req.user_id)
+        try:
+            SessionEvents(ns.root, req.session_id).append("feedback", rating=req.rating,
+                                                          value=req.value, applied=applied)
+        except Exception:
+            pass
         return {"recorded": True, "audit_trace_id": trace_id, "applied": applied}
 
     @app.post("/v1/forget")

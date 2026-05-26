@@ -48,6 +48,10 @@ def main() -> int:
                     help="ingest the canonical repo corpus into memory before running")
     ap.add_argument("--vault", default="", help="path to an Obsidian vault to train on")
     ap.add_argument("--train-vault", action="store_true", help="ingest the --vault corpus before running")
+    ap.add_argument("--max-files", type=int, default=None,
+                    help="cap the number of vault notes indexed (test/partial runs; report marked partial)")
+    ap.add_argument("--no-resume", action="store_true",
+                    help="re-index every vault note even if unchanged (ignore the resume manifest)")
     ap.add_argument("--then-run", action="store_true", help="launch the UI after training")
     args = ap.parse_args()
 
@@ -171,7 +175,8 @@ def main() -> int:
     if args.train_vault and args.vault:
         _print(f"Training on Obsidian vault: {args.vault} ...")
         from gateway.vault_training import train_vault
-        rep = train_vault(memory_url, vault_path=args.vault)
+        rep = train_vault(memory_url, vault_path=args.vault,
+                          max_files=args.max_files, resume=not args.no_resume)
         _print(f"  vault-train: {rep.get('chunks_stored', 0)} chunks from {rep.get('files', 0)} notes; "
                f"backlinks={rep.get('backlinks', 0)}; consolidate={rep.get('consolidated')}")
 
