@@ -170,3 +170,9 @@ class VaultManifest:
     def active_files(self) -> int:
         return len({r.get("file_path") for r in self._by_chunk.values()
                     if r.get("status") == STATUS_ACTIVE})
+
+    def active_sha_count(self) -> int:
+        """Distinct active CONTENT shas (deduped) — the true count of unique indexed chunks,
+        which is what the memory-service vault-fact count should agree with. Counting records
+        instead would double-count a sha recorded under both a bootstrap and a real index."""
+        return len(self._active_shas)

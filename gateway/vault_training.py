@@ -159,8 +159,8 @@ def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_b
 
     def _report(completed: bool) -> Dict[str, Any]:
         in_memory = _vault_facts_in_memory()
-        active_chunks = manifest.counts().get("active", 0)
-        # AGREE iff complete AND memory holds at least every active chunk the manifest tracks.
+        active_chunks = manifest.active_sha_count()   # distinct content (deduped), not records
+        # AGREE iff complete AND memory holds at least every distinct active chunk we tracked.
         if in_memory < 0:
             stale = True
         else:
