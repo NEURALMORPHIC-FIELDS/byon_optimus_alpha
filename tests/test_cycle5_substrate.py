@@ -69,7 +69,9 @@ def _wrap(base, tmp_path, **kw):
 # ---------------- T1 read consistency ----------------
 def test_status_reports_read_consistency_mode(tmp_path):
     w, _ = _wrap(FakeBase(), tmp_path)
-    assert w.read_consistency_mode == cc.READ_CONSISTENCY_MODE
+    # Cycle 7: primary mode is the in-engine RW lock; the Cycle-5 snapshot+retry is the fallback
+    assert w.read_consistency_mode == "in_engine_rw_lock"
+    assert w.fallback_consistency_mode == cc.READ_CONSISTENCY_MODE
 
 
 def test_concurrent_read_during_write_returns_consistent_result(tmp_path):

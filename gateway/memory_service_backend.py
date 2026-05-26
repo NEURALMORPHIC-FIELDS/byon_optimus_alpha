@@ -239,6 +239,8 @@ class MemoryServiceBackend:
         lock = VaultTrainingLock().status()
         # Cycle 5: read-consistency mode + active vs tombstoned vault facts
         read_mode = getattr(self.mem, "read_consistency_mode", "direct")
+        engine_consistency = (self.mem.engine_consistency_status()
+                              if hasattr(self.mem, "engine_consistency_status") else {})
         tomb_counts = self.mem.tombstone_counts() if hasattr(self.mem, "tombstone_counts") else {}
         active_vault = tombstoned_vault = None
         try:
@@ -250,6 +252,7 @@ class MemoryServiceBackend:
         return {
             "memory_service_reachable": bool((self.mem.health() or {}).get("_reachable")),
             "read_consistency_mode": read_mode,
+            "engine_consistency": engine_consistency,
             "vault_report": vault,
             "active_vault_facts": active_vault, "tombstoned_vault_facts": tombstoned_vault,
             "tombstones": tomb_counts,

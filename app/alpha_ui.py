@@ -115,10 +115,14 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                 tick_btn = gr.Button("Run LifeLoop tick")
                 life_consolidate_btn = gr.Button("Run consolidation")
             with gr.Row():
-                task_id_box = gr.Textbox(label="Task id (for run/approve/cancel)", scale=2)
+                task_id_box = gr.Textbox(label="Task id (for run/approve/cancel/evidence)", scale=2)
                 run_task_btn = gr.Button("Run selected task")
                 approve_web_btn = gr.Button("Approve selected web research")
                 cancel_task_btn = gr.Button("Cancel selected task")
+                evidence_btn = gr.Button("View task evidence")
+            with gr.Row():
+                topic_box = gr.Textbox(label="Topic (for mark resolved)", scale=2)
+                mark_resolved_btn = gr.Button("Mark resolved")
             life_action_info = gr.Textbox(label="LifeLoop action result", interactive=False, lines=4)
 
         with gr.Accordion("Runtime health", open=False):
@@ -271,6 +275,14 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             r = client.lifeloop_cancel_task((tid or "").strip())
             return f"cancel-task: {r}"
 
+        def on_view_evidence(tid):
+            r = client.lifeloop_task_evidence((tid or "").strip())
+            return f"evidence: {r}"
+
+        def on_mark_resolved(topic):
+            r = client.lifeloop_mark_resolved((topic or "").strip())
+            return f"mark-resolved: {r}"
+
         refresh_life.click(on_life_refresh, None, [life_summary, life_tasks, life_json])
         tick_btn.click(on_life_tick, None, [life_summary, life_tasks, life_json])
         life_consolidate_btn.click(on_life_consolidate, user_id,
@@ -278,5 +290,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         run_task_btn.click(on_run_task, task_id_box, life_action_info)
         approve_web_btn.click(on_approve_web, task_id_box, life_action_info)
         cancel_task_btn.click(on_cancel_task, task_id_box, life_action_info)
+        evidence_btn.click(on_view_evidence, task_id_box, life_action_info)
+        mark_resolved_btn.click(on_mark_resolved, topic_box, life_action_info)
 
     return demo

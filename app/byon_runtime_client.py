@@ -190,6 +190,18 @@ class BYONRuntimeClient:
         except Exception:
             return {"ok": False, "message": "cancel-task unavailable"}
 
+    def lifeloop_mark_resolved(self, topic: str) -> Dict[str, Any]:
+        try:
+            return self._request("POST", "/v1/lifeloop/mark-resolved", params={"topic": topic}).json()
+        except Exception:
+            return {"ok": False, "message": "mark-resolved unavailable"}
+
+    def lifeloop_task_evidence(self, task_id: str) -> Dict[str, Any]:
+        try:
+            return self._request("GET", f"/v1/lifeloop/task/{task_id}").json()
+        except Exception:
+            return {"ok": False, "message": "task evidence unavailable"}
+
     # -- forget ------------------------------------------------------------
     def forget(self, user_id: str, session_id: str) -> Dict[str, Any]:
         try:
@@ -283,3 +295,9 @@ class DemoBYONClient:
 
     def lifeloop_cancel_task(self, task_id: str) -> Dict[str, Any]:
         return {"ok": True, "demo": True}
+
+    def lifeloop_mark_resolved(self, topic: str) -> Dict[str, Any]:
+        return {"ok": True, "topic": topic, "demo": True}
+
+    def lifeloop_task_evidence(self, task_id: str) -> Dict[str, Any]:
+        return {"task": {"task_id": task_id, "demo": True}, "result": {}}

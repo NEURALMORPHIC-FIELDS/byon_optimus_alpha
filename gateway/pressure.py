@@ -63,8 +63,20 @@ class PressureModel:
     def _rec(self, topic: str) -> Dict[str, Any]:
         return self.topics.setdefault(topic, {
             "topic": topic, "pressure": 0.0, "unknown_count": 0, "provisional_count": 0,
-            "disputed_count": 0, "correction_count": 0, "last_seen": None,
+            "disputed_count": 0, "correction_count": 0, "last_seen": None, "last_seen_ts": 0.0,
+            "success_count": 0, "fail_count": 0, "frozen": False,
             "related_event_ids": [], "recommended_action": NO_ACTION})
+
+    def _touch(self, rec: Dict[str, Any]) -> None:
+        rec["last_seen"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        rec["last_seen_ts"] = time.time()
+
+    def priority(self, topic: str) -> float:
+        """priority = pressure + unresolved_count + disputed_bonus - recent_success_bonus."""
+        r = self.topics.get(topic) or {}
+        unresolved = r.get("unknown_count", 0) + r.get("provisional_count", 0)
+        return round(r.get("pressure", 0.0) + unresolved + 2.0 * r.get("disputed_count", 0)
+                     - 1.0 * r.get("success_count", 0), 3)
 
     def _recommend(self, rec: Dict[str, Any]) -> str:
         if rec["disputed_count"] > 0:
@@ -106,7 +118,7 @@ class PressureModel:
             if stress_high:
                 delta += 1.0
             rec["pressure"] = round(rec["pressure"] + delta, 3)
-            rec["last_seen"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            self._touch(rec)
             if event_id:
                 rec["related_event_ids"] = (rec["related_event_ids"] + [event_id])[-20:]
             rec["recommended_action"] = self._recommend(rec)
@@ -140,6 +152,50 @@ class PressureModel:
                 rec["related_event_ids"] = (rec["related_event_ids"] + [event_id])[-20:]
             self._persist()
             return 2.0
+
+    def decay(self, rate_per_hour: float = 0.5, now: Optional[float] = None) -> None:
+        """Time-based decay: unattended pressure slowly fades (an old worry matters less)."""
+        now = now if now is not None else time.time()
+        with self._lock:
+            changed = False
+            for rec in self.topics.values():
+                if rec.get("frozen") or rec["pressure"] <= 0:
+                    continue
+                dt = now - float(rec.get("last_seen_ts", 0) or 0)
+                if dt <= 0:
+                    continue
+                rec["pressure"] = round(max(0.0, rec["pressure"] - rate_per_hour * (dt / 3600.0)), 3)
+                changed = True
+            if changed:
+                self._persist()
+
+    def task_outcome(self, *, topic: str, success: bool, disputed: bool = False) -> None:
+        """A successful internal task relieves pressure; a failed one keeps/raises it; disputed
+        evidence neither clears nor loops."""
+        with self._lock:
+            rec = self._rec(topic)
+            if disputed:
+                rec["disputed_count"] += 1            # contested — keep pressure, mark disputed
+            elif success:
+                rec["success_count"] += 1
+                rec["pressure"] = round(max(0.0, rec["pressure"] - 1.0), 3)
+            else:
+                rec["fail_count"] += 1
+                rec["pressure"] = round(rec["pressure"] + 1.0, 3)
+            rec["recommended_action"] = self._recommend(rec)
+            self._persist()
+
+    def freeze(self, topic: str) -> None:
+        with self._lock:
+            self._rec(topic)["frozen"] = True
+            self._persist()
+
+    def relieve_topic(self, topic: str, amount: float = 1.0) -> None:
+        with self._lock:
+            rec = self.topics.get(topic)
+            if rec:
+                rec["pressure"] = round(max(0.0, rec["pressure"] - amount), 3)
+                self._persist()
 
     def relieve(self, amount: float = 2.0) -> float:
         """Consolidation success relieves pressure (highest-pressure topics first)."""

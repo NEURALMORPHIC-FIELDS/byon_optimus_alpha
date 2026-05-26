@@ -87,6 +87,19 @@ def test_harness_covers_cycle6_gates():
         assert gate in src, f"harness missing Cycle 6 gate {gate}"
 
 
+def test_harness_covers_cycle7_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle7_suite)
+    for gate in ["in_engine_consistency_status_present", "memory_only_task_auto_runs",
+                 "web_task_blocked_without_permission", "approve_web_required_for_external_task",
+                 "secret_task_not_created_or_run", "task_result_stored_as_candidate",
+                 "pressure_reduced_after_successful_task", "failed_task_keeps_pressure",
+                 "task_execution_log_written", "source_bleed_still_blocked",
+                 "tombstoned_facts_still_excluded", "recent_write_buffer_still_works",
+                 "LifeLoop_still_not_truth_authority", "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 7 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

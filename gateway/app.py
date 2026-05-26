@@ -83,6 +83,39 @@ def create_app(config: Optional[GatewayConfig] = None,
     lifeloop = BYONLifeLoop()
     _mem = getattr(resolved_backend, "mem", None)
 
+    # Cycle 7: autonomous memory-only task runner. Runs a task through the CANONICAL research loop
+    # (web off, audit on), stores the result as a CANDIDATE (never committed truth) under the
+    # existing ContinuousLearning policy. Never runs web/secret tasks.
+    def _lifeloop_task_runner(task: Dict[str, Any]) -> Dict[str, Any]:
+        b = resolved_backend
+        if not hasattr(b, "research"):
+            return {"epistemic_status": "ERROR", "error": "no research backend"}
+        ns = _namespace("lifeloop")
+        out = b.research(user_id="lifeloop", session_id="lifeloop_auto", question=task["question"],
+                         namespace_dir=ns.root, allow_web=False, allow_claude=True, action="start")
+        syn = out.get("synthesis") or {}
+        sources = syn.get("sources") or out.get("sources_searched") or []
+        status = out.get("epistemic_status")
+        candidate_id = None
+        try:
+            learning = b._learning(ns.root, "lifeloop") if hasattr(b, "_learning") else None
+            if learning is not None and (out.get("answer") or "").strip():
+                if status == "DISPUTED":
+                    learning.dispute(task["question"], reason="lifeloop disputed evidence")
+                    candidate_id = "disputed:" + task["question"][:40]
+                else:
+                    cand = learning.upsert_candidate(out.get("answer", "")[:200],
+                                                     source_type="lifeloop_internal_research",
+                                                     sources=sources, question=task["question"])
+                    candidate_id = (cand or {}).get("key")
+        except Exception:
+            pass
+        return {"epistemic_status": status, "answer_summary": (out.get("answer") or "")[:200],
+                "sources_used": sources, "confidence": out.get("confidence"),
+                "audit_trace_id": out.get("audit_trace_id"), "candidate_id": candidate_id,
+                "stored_as": "disputed" if status == "DISPUTED" else "candidate"}
+    lifeloop.set_task_runner(_lifeloop_task_runner)
+
     app = FastAPI(title="BYON World Connector — Gateway", version=__version__)
     app.state.config = cfg
     app.state.audit = audit
@@ -371,6 +404,18 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not t:
             raise HTTPException(status_code=404, detail="task not found")
         return {"ok": True, "task": t}
+
+    @app.post("/v1/lifeloop/mark-resolved")
+    def lifeloop_mark_resolved(topic: str) -> Dict[str, Any]:
+        lifeloop.mark_resolved(topic)
+        return {"ok": True, "topic": topic, "pressure_after": lifeloop.pressure.total()}
+
+    @app.get("/v1/lifeloop/task/{task_id}")
+    def lifeloop_task_evidence(task_id: str) -> Dict[str, Any]:
+        t = lifeloop.tasks.get(task_id)
+        if not t:
+            raise HTTPException(status_code=404, detail="task not found")
+        return {"task": t, "result": (t.get("result") or {})}
 
     @app.get("/v1/admin/metrics")
     def admin_metrics() -> Dict[str, Any]:

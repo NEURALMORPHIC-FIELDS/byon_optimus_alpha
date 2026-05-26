@@ -68,6 +68,11 @@ class BYONLifeLoop:
         self.tasks = ResearchTaskQueue(path=str(rt / "research_tasks.jsonl"))
         self.consolidation_log = rt / "consolidation_log.jsonl"
         self.snapshots_path = rt / "self_state_snapshots.jsonl"
+        self.task_results_path = rt / "task_results.jsonl"
+        self.task_exec_log = rt / "task_execution_log.jsonl"
+        self._task_runner = None          # set by the app; runs a memory-only task -> result dict
+        self.last_auto_run_task = None
+        self.last_task_result = None
         self._lock = threading.RLock()
         self._recent: Deque[str] = deque(maxlen=50)
         self._pending_consolidation_reasons: List[str] = []
@@ -227,9 +232,11 @@ class BYONLifeLoop:
             self._log_consolidation(trigger, pressure_before, self.pressure.total(), result,
                                     fce_status, cand_before, cand_after)
             consolidated = True
+        self.pressure.decay()                       # time-based decay of unattended pressure
+        ran = self.drain_tasks()                     # auto-run a few safe memory-only tasks
         self.write_self_state_snapshot(mem_client)
         return {"consolidated": consolidated, "trigger": trigger, "result": result,
-                "self_state": self.snapshot()}
+                "tasks_run": ran, "self_state": self.snapshot()}
 
     @staticmethod
     def _candidate_counts(learning) -> Dict[str, Optional[int]]:
@@ -254,6 +261,86 @@ class BYONLifeLoop:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         except OSError:
             pass
+
+    # -- autonomous memory-only task execution (Cycle 7) --------------------
+    def set_task_runner(self, runner) -> None:
+        """runner(task) -> result dict; runs a MEMORY-ONLY task through the canonical research
+        loop and stores its result as a candidate (never truth). Set by the app."""
+        self._task_runner = runner
+
+    @staticmethod
+    def _is_memory_only(task: Dict[str, Any]) -> bool:
+        allowed = set(task.get("allowed_sources") or [])
+        return ("web" not in allowed and not task.get("requires_user_permission")
+                and task.get("topic") != "[secret]" and "secret" not in (task.get("topic") or ""))
+
+    def drain_tasks(self, max_tasks: int = 3) -> List[Dict[str, Any]]:
+        """Auto-run a few SAFE memory-only tasks. Web/secret/permissioned tasks are never run
+        here. Each result is logged and stored as a candidate by the runner (never committed)."""
+        from .research_tasks import PENDING, RUNNING, DONE, FAILED, BLOCKED_NEEDS_PERMISSION
+        if self._task_runner is None:
+            return []
+        ran: List[Dict[str, Any]] = []
+        for task in sorted(self.tasks.pending(), key=lambda t: -t.get("priority", 0)):
+            if len(ran) >= max_tasks:
+                break
+            if task.get("status") != PENDING or not self._is_memory_only(task):
+                continue                       # blocked web / needs-permission / secret -> skip
+            tid = task["task_id"]
+            self.tasks.set_status(tid, RUNNING)
+            self.last_auto_run_task = tid
+            try:
+                result = self._task_runner(task) or {}
+            except Exception as exc:
+                result = {"epistemic_status": "ERROR", "error": str(exc)}
+            status = result.get("epistemic_status")
+            disputed = status == "DISPUTED"
+            success = status in ("KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "ACTION_DONE")
+            failed = status in (None, "ERROR")
+            self.record_task_result(task, result)
+            self.pressure.task_outcome(topic=task.get("topic", ""), success=success and not failed,
+                                       disputed=disputed)
+            if failed:
+                # repeated failure on a topic -> stop looping, ask the user
+                rec = self.pressure.get(task.get("topic", "")) or {}
+                if rec.get("fail_count", 0) >= 2:
+                    self.tasks.set_status(tid, BLOCKED_NEEDS_PERMISSION,
+                                          result={"reason": "repeated failure — needs user input"})
+                else:
+                    self.tasks.set_status(tid, FAILED, result=result)
+            else:
+                self.tasks.set_status(tid, DONE, result=result)
+            ran.append({"task_id": tid, "status": status})
+        return ran
+
+    def record_task_result(self, task: Dict[str, Any], result: Dict[str, Any]) -> None:
+        rec = {
+            "task_id": task.get("task_id"), "topic": task.get("topic"),
+            "question": task.get("question"), "sources_used": result.get("sources_used", []),
+            "answer_summary": (result.get("answer_summary") or "")[:300],
+            "epistemic_status": result.get("epistemic_status"), "confidence": result.get("confidence"),
+            "stored_as": result.get("stored_as", "candidate"), "candidate_id": result.get("candidate_id"),
+            "audit_trace_id": result.get("audit_trace_id"),
+            "created_at": _now()}
+        self.last_task_result = rec
+        for path, payload in ((self.task_results_path, rec),
+                              (self.task_exec_log, {"ts": _now(), "task_id": rec["task_id"],
+                                                    "epistemic_status": rec["epistemic_status"],
+                                                    "stored_as": rec["stored_as"]})):
+            try:
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            except OSError:
+                pass
+        self.ingest_event("research_task_run", task_id=rec["task_id"],
+                          epistemic_status=rec["epistemic_status"], stored_as=rec["stored_as"])
+
+    def mark_resolved(self, topic: str) -> None:
+        """Operator marks a topic resolved -> relieve its pressure and cancel its open tasks."""
+        self.pressure.relieve_topic(topic, amount=999.0)
+        for t in self.tasks.pending():
+            if t.get("topic") == topic:
+                self.tasks.cancel(t["task_id"])
 
     # -- self-state temporal snapshots --------------------------------------
     def write_self_state_snapshot(self, mem_client: Optional[Any] = None) -> Dict[str, Any]:
@@ -324,6 +411,9 @@ class BYONLifeLoop:
             "top_pressure_topics": self.pressure.top(5),
             "pending_research_tasks": self.tasks.pending(),
             "research_task_counts": self.tasks.counts(),
+            "blocked_web_tasks": [t for t in self.tasks.list() if t.get("status") == "blocked_needs_permission"],
+            "last_auto_run_task": self.last_auto_run_task,
+            "last_task_result": self.last_task_result,
             "last_consolidation": s["last_consolidate_ts"],
             "consolidation_count": s["consolidations"],
             "unknown_rate": s["unknown_rate"], "disputed_rate": s["disputed_rate"],

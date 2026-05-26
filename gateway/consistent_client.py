@@ -20,6 +20,7 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+from .engine_consistency import EngineConsistency
 from .tombstones import TombstoneStore
 from .write_lock import VaultTrainingLock
 
@@ -29,14 +30,18 @@ READ_CONSISTENCY_MODE = "rw_coordinated_snapshot+retry"
 class ConsistentMemoryClient:
     def __init__(self, base: Any, *, tombstones: Optional[TombstoneStore] = None,
                  lock: Optional[VaultTrainingLock] = None, retries: int = 4,
-                 retry_wait: float = 0.4, snapshot_ttl: float = 600.0) -> None:
+                 retry_wait: float = 0.4, snapshot_ttl: float = 600.0,
+                 engine: Optional[EngineConsistency] = None) -> None:
         self.base = base
         self.tomb = tombstones if tombstones is not None else TombstoneStore()
         self.lock = lock if lock is not None else VaultTrainingLock()
+        self.engine = engine if engine is not None else EngineConsistency()
         self.retries = retries
         self.retry_wait = retry_wait
         self.snapshot_ttl = snapshot_ttl
-        self.read_consistency_mode = READ_CONSISTENCY_MODE
+        # in-engine RW coordination is the primary signal; snapshot+retry remains the fallback
+        self.read_consistency_mode = self.engine.read_consistency_mode
+        self.fallback_consistency_mode = READ_CONSISTENCY_MODE
         self._stable: Dict[str, Dict[str, Any]] = {}   # query-key -> {hits, ts}
         self.last_read_timed_out = False
 
@@ -57,8 +62,14 @@ class ConsistentMemoryClient:
     # -- read-consistent, tombstone-filtered search -------------------------
     def search_facts(self, query: str, *, include_tombstoned: bool = False, **kw) -> List[Dict[str, Any]]:
         self.last_read_timed_out = False
+        # in-engine coordination: wait for any active write batch to commit before reading, so the
+        # reader never observes partial FAISS/metadata state (bounded by an explicit timeout).
+        try:
+            self.engine.wait_consistent(timeout=2.0)
+        except Exception:
+            pass
         hits = self.base.search_facts(query, **kw)
-        # consistency: a forced-empty during an active write burst must not be observed as truth
+        # fallback consistency: a forced-empty during an active write burst must not be observed
         if not hits and self._write_in_progress():
             deadline = time.time() + self.retries * self.retry_wait
             while time.time() < deadline:
@@ -121,3 +132,11 @@ class ConsistentMemoryClient:
     def tombstone_counts(self) -> Dict[str, int]:
         self.tomb.maybe_reload()
         return self.tomb.counts()
+
+    def engine_consistency_status(self) -> Dict[str, Any]:
+        try:
+            st = self.engine.status()
+            st["fallback_mode"] = self.fallback_consistency_mode
+            return st
+        except Exception:
+            return {"read_consistency_mode": self.fallback_consistency_mode}

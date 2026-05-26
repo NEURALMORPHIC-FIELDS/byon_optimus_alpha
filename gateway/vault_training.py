@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from .memory_service_client import MemoryServiceClient
 from .self_training import md_heading_chunks
 from . import vault_errors as ve
+from .engine_consistency import EngineConsistency
 from .vault_manifest import VaultManifest, chunk_sha256, file_sha256, source_id
 from .write_lock import VaultTrainingLock
 
@@ -197,11 +198,20 @@ def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_b
     # holding the write intent once per batch instead of per chunk (less reader-visible churn).
     batch_size = int(os.environ.get("BYON_VAULT_WRITE_BATCH_SIZE", "50"))
     pending: List[Dict[str, Any]] = []
+    engine = EngineConsistency()
 
     def _flush() -> None:
         nonlocal chunks_stored, errors
         if not pending:
             return
+        batch_id = engine.begin_write()    # readers wait for this batch to commit (in-engine RW)
+        try:
+            _flush_inner()
+        finally:
+            engine.commit_write(batch_id)
+
+    def _flush_inner() -> None:
+        nonlocal chunks_stored, errors
         items = [pp["item"] for pp in pending]
         if hasattr(client, "store_facts_batch"):
             res = client.store_facts_batch(items)

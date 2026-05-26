@@ -83,5 +83,17 @@ def test_ui_builds_with_life_panel():
     import app.alpha_ui as ui
     src = inspect.getsource(ui.build_ui)
     for token in ["Life State", "refresh_life", "tick_btn", "run_task_btn",
-                  "approve_web_btn", "cancel_task_btn", "lifeloop_state"]:
+                  "approve_web_btn", "cancel_task_btn", "lifeloop_state",
+                  "mark_resolved_btn", "evidence_btn"]:
         assert token in src, f"UI missing {token}"
+
+
+def test_ui_client_mark_resolved_and_evidence_call_gateway():
+    c, http = _client()
+    c.lifeloop_mark_resolved("some topic")
+    c.lifeloop_task_evidence("rt_1")
+    paths = [p for _, p in http.calls]
+    assert "/v1/lifeloop/mark-resolved" in paths
+    assert "/v1/lifeloop/task/rt_1" in paths
+    for _, p in http.calls:
+        assert p.startswith("/v1/")          # gateway only, never memory-service
