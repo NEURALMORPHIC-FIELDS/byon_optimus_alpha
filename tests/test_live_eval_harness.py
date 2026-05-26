@@ -55,6 +55,15 @@ def test_harness_covers_paraphrase_and_source_cases():
         assert gate in src, f"harness missing paraphrase case {gate}"
 
 
+def test_harness_covers_substrate_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._substrate_suite)
+    for gate in ["vault_report_coherent", "no_duplicate_writer", "lock_status_clean",
+                 "source_bleed_still_blocked_during_indexing", "fresh_write_immediate_recall",
+                 "vault_error_report_exists_if_errors"]:
+        assert gate in src, f"harness missing substrate gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

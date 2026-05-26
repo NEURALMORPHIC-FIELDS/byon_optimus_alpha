@@ -62,7 +62,8 @@ _N3 = "# Gamma\nThird note, standalone content.\n"
 def _run(tmp_path, mem, notes, **kw):
     report_dir = str(tmp_path / "training")
     return vt.train_vault("http://unused", vault_path=_vault(tmp_path, notes),
-                          mem_client=mem, owner="lucian", report_dir=report_dir, **kw), report_dir
+                          mem_client=mem, owner="lucian", report_dir=report_dir,
+                          vaults_base=str(tmp_path / "vaults"), use_lock=False, **kw), report_dir
 
 
 def test_vault_report_atomic_write(tmp_path):

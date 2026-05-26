@@ -78,6 +78,15 @@ def _categorize(why: str) -> tuple[str, str]:
     return "other", "see 'why'"
 
 
+def _local_vault_hash() -> str:
+    """Read the vault_hash from the local vault report (harness runs on the same host)."""
+    try:
+        r = json.loads(Path("runtime/training/vault_train_report.json").read_text(encoding="utf-8"))
+        return str(r.get("vault_hash", ""))
+    except Exception:
+        return ""
+
+
 def _post(url: str, path: str, payload: Dict[str, Any], timeout: float = 90.0) -> Dict[str, Any]:
     r = httpx.post(f"{url}{path}", json=payload, timeout=timeout)
     r.raise_for_status()
@@ -408,6 +417,9 @@ class Harness:
         # A10. Source-disambiguation paraphrase suite (system / vault / objective / bleed).
         self._paraphrase_suite()
 
+        # A11. Substrate hardening gates (Cycle 4): vault coherence, writer/lock, dedup, buffer.
+        self._substrate_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -511,6 +523,96 @@ class Harness:
         else:
             self._skip("pp_bleed_level3_disputed", l3_q,
                        "could not plant/retrieve the vault note (memory-service unreachable or not indexed)")
+
+    # -- substrate hardening suite (Cycle 4) --------------------------------
+    def _memory_status(self) -> Dict[str, Any]:
+        try:
+            r = httpx.get(f"{self.url}/v1/memory/status", params={"user_id": self.user}, timeout=30)
+            r.raise_for_status()
+            return (r.json().get("backend") or {}).get("substrate") or {}
+        except Exception:
+            return {}
+
+    def _add(self, gate: str, ok: bool, why: str, category: str = None, **extra) -> None:
+        row = {"gate": gate, "pass": bool(ok), "skipped": False,
+               "why": "ok" if ok else why, "status_epistemically_valid": True,
+               "vault_used": False, "vault_used_incorrectly": False}
+        row.update(extra)
+        if not ok:
+            row["failure_category"] = category or "other"
+            row["root_cause_hint"] = why
+        self.results.append(row)
+
+    def _substrate_suite(self) -> None:
+        ss = self._memory_status()
+        vr = ss.get("vault_report") or {}
+
+        # 1. vault report coherent: an honest report (partial=true while incomplete; complete and
+        #    not stale only when finished and memory agrees). Never a dishonest combination.
+        if not vr.get("present"):
+            self._skip("vault_report_coherent", "GET /v1/memory/status",
+                       "no vault report yet (run --train-vault)")
+        else:
+            complete, partial, stale = vr.get("complete"), vr.get("partial"), vr.get("stale")
+            scanned, eligible = vr.get("files_scanned") or 0, vr.get("eligible_files") or 0
+            coherent = (bool(complete) != bool(partial))           # exactly one of complete/partial
+            if complete:
+                coherent = coherent and (scanned >= eligible)      # complete implies all scanned
+            else:
+                coherent = coherent and bool(stale)                # partial must be stale (no false agree)
+            self._add("vault_report_coherent", coherent,
+                      f"incoherent report: complete={complete} partial={partial} stale={stale} "
+                      f"scanned={scanned}/{eligible}", category=CAT_VAULT_STALE,
+                      epistemic_status=("complete" if complete else "partial"))
+
+        # 2. no duplicate writer / 3. lock clean: no orphan-writer warning, lock not dead-but-claimed
+        lock = ss.get("lock") or {}
+        self._add("no_duplicate_writer", not ss.get("orphan_writer_warning"),
+                  "orphan/duplicate writer detected", category=CAT_RESTART,
+                  epistemic_status=f"indexing={ss.get('indexing_in_progress')}")
+        lock_clean = not (lock.get("locked") and lock.get("stale"))
+        self._add("lock_status_clean", lock_clean, "a stale lock is present (reclaim it)",
+                  category=CAT_RESTART)
+
+        # 4. source bleed still blocked (index-state independent): a personal question must not be
+        #    answered from a system/canonical fact.
+        u = "sub_user_" + uuid.uuid4().hex[:6]
+        out = self.research("care este capitala secreta a proiectului meu intern?", user=u, session="sub")
+        bleed_ok = not (out.get("query_class") == "user_personal"
+                        and out.get("source_class") in ("SYSTEM_CANONICAL", "VERIFIED_PROJECT_FACT")
+                        and out.get("epistemic_status") == "KNOWN")
+        self._add("source_bleed_still_blocked_during_indexing", bleed_ok,
+                  f"personal query grounded in {out.get('source_class')}", category=CAT_SOURCE_BLEED,
+                  epistemic_status=out.get("epistemic_status"), source_class=out.get("source_class"),
+                  query_class=out.get("query_class"))
+
+        # 5. fresh-write immediate recall: teach, then recall right away (before FAISS) -> KNOWN
+        #    from the RECENT_WRITE_BUFFER, honestly marked.
+        fw = "fw_user_" + uuid.uuid4().hex[:6]
+        self.research("remember that my cycle4 codeword is Zephyr", user=fw, session="fw")
+        rec = self.research("what is my cycle4 codeword?", user=fw, session="fw")
+        # honest immediate recall: the fact is recalled either from the write buffer (KNOWN /
+        # RECENT_WRITE_BUFFER) before FAISS, or from a fast FAISS index as the user's own claim
+        # (PROVISIONAL). Either is honest; only "not recalled at all" fails.
+        recalled = "zephyr" in (rec.get("answer") or "").lower()
+        grounded = rec.get("epistemic_status") in ("KNOWN", "PROVISIONAL")
+        fw_ok = recalled and grounded
+        self._add("fresh_write_immediate_recall", fw_ok,
+                  f"freshly taught fact not recalled (status={rec.get('epistemic_status')}, "
+                  f"answer={(rec.get('answer') or '')[:40]!r})",
+                  category="content", epistemic_status=rec.get("epistemic_status"),
+                  source_class=rec.get("source_class"))
+
+        # 6. vault error report exists if errors were recorded
+        errors = vr.get("errors") or 0
+        if not vr.get("present") or not errors:
+            self._skip("vault_error_report_exists_if_errors", "errors.jsonl",
+                       "no vault errors recorded (nothing to report)")
+        else:
+            errp = Path("runtime/vaults") / str(_local_vault_hash()) / "errors.jsonl"
+            self._add("vault_error_report_exists_if_errors", errp.exists(),
+                      f"errors={errors} but {errp} missing", category=CAT_VAULT_STALE,
+                      epistemic_status=f"errors={errors}")
 
     def _restart_recall_gate(self) -> None:
         """Two-phase restart-recall gate. prepare/verify driven by BYON_EVAL_RESTART_PHASE;

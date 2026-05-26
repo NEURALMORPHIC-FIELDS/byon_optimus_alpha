@@ -17,6 +17,7 @@ from .continuous_learning import ContinuousLearning
 from .epistemic_search import ClaudeHypothesisProvider, EpistemicSearch, is_secret_query
 from .expression_learning import ExpressionLearning
 from .memory_service_client import MemoryServiceClient
+from .recent_write_buffer import RecentWriteBuffer
 from . import fact_extractor_bridge as feb
 from . import web_search as ws
 
@@ -51,6 +52,7 @@ class MemoryServiceBackend:
         self.web = web_provider if web_provider is not None else ws.get_provider()
         self.claude = claude_provider if claude_provider is not None else ClaudeHypothesisProvider()
         self.search = EpistemicSearch()
+        self.recent_buffer = RecentWriteBuffer()   # Cycle 4: immediate recall before FAISS catches up
         self.default_allow_web = os.environ.get("BYON_WEB_SEARCH_ENABLED", "false").strip().lower() in (
             "1", "true", "yes", "on")
         self._seed_canonical()
@@ -90,9 +92,17 @@ class MemoryServiceBackend:
         the fallback stores is tagged `non_canonical_fallback`."""
         if is_secret_query(message):
             return {"facts": [], "canonical": True, "skipped": "secret"}
+        is_question = message.strip().endswith("?")
         if feb.available():
             out = feb.extract_and_store(message, thread_id=user_id, channel=channel,
                                         memory_url=self.memory_url)
+            # Cycle 4: buffer the just-written FACTS (never a question) so they are recallable
+            # before FAISS indexes them. A question is not a fact and must not be recalled back.
+            if not is_question:
+                for f in out.get("facts", []):
+                    txt = " ".join(str(f.get(k, "")) for k in ("subject", "predicate", "object")).strip()
+                    if txt:
+                        self.recent_buffer.add(user_id, txt)
             learning.record_event("interaction", canonical=bool(out.get("canonical")),
                                   facts=len(out.get("facts", [])), trust_tiers=out.get("trust_tiers"))
             return {"facts": out.get("facts", []), "canonical": bool(out.get("canonical")),
@@ -104,6 +114,7 @@ class MemoryServiceBackend:
             self.mem.store_fact(message.strip(), source=f"non_canonical_fallback:user:{user_id}",
                                 tags=["user", "non_canonical_fallback", entity],
                                 thread_id=user_id, trust="USER_PREFERENCE")
+            self.recent_buffer.add(user_id, message.strip())   # Cycle 4: immediate recall
             learning.record_event("interaction", canonical=False, fallback=True,
                                   facts=[{"subject": entity, "object": value}])
             return {"facts": [{"subject": entity, "predicate": "is", "object": value}],
@@ -158,7 +169,7 @@ class MemoryServiceBackend:
                               namespace_dir=namespace_dir, mem_client=self.mem, learning=learning,
                               web_provider=self.web, claude_provider=self.claude,
                               allow_web=aw, allow_claude=allow_claude, action=action,
-                              research_trace_id=research_trace_id)
+                              research_trace_id=research_trace_id, recent_buffer=self.recent_buffer)
         # Gate 10: re-phrase the DELIVERY per learned style — status & sources are left untouched.
         try:
             syn = out.get("synthesis") or {}
@@ -167,6 +178,12 @@ class MemoryServiceBackend:
                                        out.get("epistemic_status"), srcs)
         except Exception:
             pass  # styling is best-effort; never block or alter a truthful answer
+        try:   # Cycle 4: surface indexing-in-progress so callers know reads may be churning
+            from .write_lock import VaultTrainingLock
+            if VaultTrainingLock().status().get("indexing_in_progress"):
+                out["indexing_in_progress"] = True
+        except Exception:
+            pass
         return out
 
     # -- BYONBackend.chat ----------------------------------------------------
@@ -191,7 +208,38 @@ class MemoryServiceBackend:
         learning = self._learning(namespace_dir, user_id)
         return {"available": True, "candidates": learning.list_candidates(),
                 "committed": learning.list_committed(), "disputed": learning.list_disputed(),
-                "memory_service_stats": self.mem.stats(), **self.status()}
+                "memory_service_stats": self.mem.stats(), "substrate": self.substrate_status(),
+                **self.status()}
+
+    def substrate_status(self, *, report_dir: str = "runtime/training") -> Dict[str, Any]:
+        """Cycle 4: substrate health — vault report coherence, write-lock / indexing-in-progress,
+        recent-write buffer size, and an orphan-writer warning."""
+        from pathlib import Path as _P
+        import json as _json
+        from .write_lock import VaultTrainingLock
+        vault: Dict[str, Any] = {"present": False}
+        try:
+            p = _P(report_dir) / "vault_train_report.json"
+            if p.exists():
+                r = _json.loads(p.read_text(encoding="utf-8"))
+                vault = {"present": True, "complete": r.get("complete"), "partial": r.get("partial"),
+                         "stale": r.get("stale"), "files_scanned": r.get("files_scanned"),
+                         "files_indexed": r.get("files_indexed"), "eligible_files": r.get("eligible_files"),
+                         "errors": r.get("errors"), "errors_by_type": r.get("errors_by_type"),
+                         "vault_facts_in_memory": r.get("vault_facts_in_memory"),
+                         "manifest_active_chunks": r.get("manifest_active_chunks")}
+        except Exception:
+            pass
+        lock = VaultTrainingLock().status()
+        return {
+            "memory_service_reachable": bool((self.mem.health() or {}).get("_reachable")),
+            "vault_report": vault,
+            "indexing_in_progress": bool(lock.get("indexing_in_progress")),
+            "active_writer_pid": lock.get("pid") if lock.get("indexing_in_progress") else None,
+            "lock": lock,
+            "orphan_writer_warning": bool(lock.get("locked") and lock.get("stale")),
+            "recent_write_buffer_count": self.recent_buffer.count(),
+        }
 
     def consolidate(self, *, user_id: str, namespace_dir) -> Dict[str, Any]:
         return self._learning(namespace_dir, user_id).consolidate()

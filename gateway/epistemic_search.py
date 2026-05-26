@@ -163,7 +163,7 @@ class EpistemicSearch:
             mem_client, learning, web_provider=None, claude_provider=None,
             allow_web: bool = False, allow_claude: bool = True, action: str = "start",
             research_trace_id: Optional[str] = None, clock: Optional[InternalResearchClock] = None,
-            time_fn: Optional[Callable[[], float]] = None) -> Dict[str, Any]:
+            time_fn: Optional[Callable[[], float]] = None, recent_buffer=None) -> Dict[str, Any]:
         trace_id = research_trace_id or ("research_" + uuid.uuid4().hex)
         clk = clock or self._clock(action, trace_id, time_fn)
         if action == "continue":  # a continuation extends the budget by one window
@@ -303,6 +303,31 @@ class EpistemicSearch:
             return self._result(trace_id, clk, "KNOWN", "done", answer=answer, confidence=0.9,
                                 sources_searched=sources_searched, memory_hits=memory_hits,
                                 web_results=[], claude_hypothesis=None, synthesis=syn)
+
+        # recent-write buffer (Cycle 4): a fact just taught is not yet searchable in FAISS
+        # (~8-11s lag). If FAISS already returned it, drop it from the buffer; otherwise, for a
+        # personal recall with no committed grounding, recall it from the buffer — marked
+        # honestly as RECENT_WRITE_BUFFER (pending indexing), never faked as stable FAISS.
+        if recent_buffer is not None:
+            for h in memory_hits:
+                recent_buffer.confirm_indexed(user_id, h.get("content") or "")
+            if not committed and qclass == sp.Q_USER_PERSONAL:   # only a PERSONAL recall, never
+                buf = recent_buffer.recall(user_id, question)    # objective/vault/system queries
+                if buf:
+                    answer = buf[0]["content"]
+                    clk.set_phase("done")
+                    learning.record_event("chat", question=question, status="KNOWN",
+                                          grounded=True, intent=intent, recent_buffer=True)
+                    syn = {"epistemic_verdict": "KNOWN", "memory_view": "recent write buffer",
+                           "claude_view": "not used", "web_view": "not used", "conflict_view": "none",
+                           "confidence": 0.75, "sources": ["recent_write_buffer"], "intent": intent,
+                           "query_class": qclass, "source_class": sp.RECENT_WRITE_BUFFER,
+                           "vault_primary": False, "recent_write_buffer": True,
+                           "note": "recalled from the write buffer (pending FAISS indexing)"}
+                    return self._result(trace_id, clk, "KNOWN", "done", answer=answer,
+                                        confidence=0.75, sources_searched=sources_searched + ["recent_write_buffer"],
+                                        memory_hits=memory_hits, web_results=[], claude_hypothesis=None,
+                                        synthesis=syn)
 
         # fast path: committed grounded answer -> KNOWN, skip Claude/web (reranked order).
         # NOT for USER_VAULT: a vault question must be answered from the user's notes and framed

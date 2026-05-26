@@ -56,7 +56,8 @@ def _vault(tmp_path, notes):
 def _run(tmp_path, mem, notes=_N, **kw):
     rd = str(tmp_path / "training")
     rep = vt.train_vault("http://x", vault_path=_vault(tmp_path, notes), mem_client=mem,
-                         owner="lucian", report_dir=rd, **kw)
+                         owner="lucian", report_dir=rd,
+                         vaults_base=str(tmp_path / "vaults"), use_lock=False, **kw)
     return rep, rd
 
 
@@ -65,7 +66,7 @@ def test_full_vault_report_not_stale_after_complete_run(tmp_path):
     rep, _ = _run(tmp_path, mem)
     assert rep["complete"] is True and rep["partial"] is False
     assert rep["stale"] is False                       # report agrees with memory-service
-    assert rep["vault_facts_in_memory"] >= rep["indexed_total_cumulative"] > 0
+    assert rep["vault_facts_in_memory"] >= rep["manifest_active_chunks"] > 0
     # required field surface
     for f in ("vault_path", "vault_hash", "files_scanned", "files_indexed", "files_skipped",
               "chunks_stored", "facts_stored", "trust_tier_distribution", "errors",
