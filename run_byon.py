@@ -158,6 +158,7 @@ def main() -> int:
     backend_mode = "local" if args.local_dev and not mc.health().get("_reachable") else "memory_service"
     child_env["BYON_MEMORY_SERVICE_URL"] = memory_url
     child_env["BYON_BACKEND_MODE"] = backend_mode
+    child_env["BYON_LIFELOOP_ENABLED"] = "true"   # internal circulation daemon (no memory authority)
     _print(f"  backend mode: {backend_mode}  (canonical = memory_service)")
 
     # --- optional training BEFORE the UI: corpus + vault through the canonical pipeline ---

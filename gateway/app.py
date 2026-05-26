@@ -76,15 +76,35 @@ def create_app(config: Optional[GatewayConfig] = None,
     }
     resolved_backend = backend or _resolve_backend(cfg)
 
+    # BYONLifeLoop v1 — internal circulation (no memory authority). Holds self_state and
+    # triggers the canonical fce_consolidate; truth/storage stay in the memory-service.
+    from .lifeloop import BYONLifeLoop
+    lifeloop = BYONLifeLoop()
+    _mem = getattr(resolved_backend, "mem", None)
+
     app = FastAPI(title="BYON World Connector — Gateway", version=__version__)
     app.state.config = cfg
     app.state.audit = audit
     app.state.metrics = metrics
+    app.state.lifeloop = lifeloop
 
     def _backend() -> BYONBackend:
         return resolved_backend
 
     app.dependency_overrides.setdefault(get_backend, _backend)
+
+    # Optional background circulation daemon (opt-in; run_byon enables it in REAL mode).
+    if os.environ.get("BYON_LIFELOOP_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on"):
+        import threading
+        def _life_daemon():
+            interval = float(os.environ.get("BYON_LIFELOOP_TICK_SECONDS", "60"))
+            while True:
+                time.sleep(interval)
+                try:
+                    lifeloop.tick(_mem)
+                except Exception:
+                    pass
+        threading.Thread(target=_life_daemon, daemon=True).start()
 
     def _namespace(user_id: str) -> UserNamespace:
         ns = UserNamespace(cfg.users_root, user_id)
@@ -144,6 +164,7 @@ def create_app(config: Optional[GatewayConfig] = None,
 
         metrics["messages"] += 1
         metrics[response.epistemic_status.lower()] = metrics.get(response.epistemic_status.lower(), 0) + 1
+        lifeloop.record_interaction(question=req.message, status=response.epistemic_status, user_id=req.user_id)
 
         audit.write(trace_id, {
             "kind": "chat",
@@ -184,6 +205,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         st = str(out.get("epistemic_status", "ERROR"))
         metrics["messages"] += 1
         metrics[st.lower()] = metrics.get(st.lower(), 0) + 1
+        lifeloop.record_interaction(question=req.question, status=st, user_id=req.user_id)
         audit.write(trace_id, {"kind": "research", "user_id": req.user_id, "user_slug": ns.slug,
                                "session_id": req.session_id, "question": req.question,
                                "epistemic_status": st, "research_status": out.get("research_status"),
@@ -228,6 +250,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         except OSError:
             pass
         metrics["feedback"] += 1
+        lifeloop.record_feedback(rating=req.rating, user_id=req.user_id)
         return {"recorded": True, "audit_trace_id": trace_id, "applied": applied}
 
     @app.post("/v1/forget")
@@ -258,11 +281,22 @@ def create_app(config: Optional[GatewayConfig] = None,
             raise HTTPException(status_code=404, detail="audit trace not found")
         return JSONResponse(rec)
 
+    @app.get("/v1/lifeloop")
+    def lifeloop_state() -> Dict[str, Any]:
+        return {"self_state": lifeloop.snapshot(),
+                "consolidate_every": lifeloop.consolidate_every,
+                "pressure_threshold": lifeloop.pressure_threshold}
+
+    @app.post("/v1/lifeloop/tick")
+    def lifeloop_tick(backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
+        return lifeloop.tick(getattr(backend, "mem", None))
+
     @app.get("/v1/admin/metrics")
     def admin_metrics() -> Dict[str, Any]:
         total = max(1, metrics["messages"])
         return {
             "counters": dict(metrics),
+            "lifeloop": lifeloop.snapshot(),
             "rates": {
                 "unknown_rate": round(metrics["unknown"] / total, 4),
                 "disputed_rate": round(metrics["disputed"] / total, 4),
