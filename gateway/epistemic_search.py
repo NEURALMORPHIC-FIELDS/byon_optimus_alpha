@@ -124,6 +124,21 @@ class EpistemicSearch:
                         out.append(h)
         return out
 
+    def _relation_context_hits(self, question: str, namespace_dir):
+        """Cycle 12: committed relations from the relation field as memory-style context hits
+        (source 'relation:...'), policy-gated. Best-effort: any failure yields no context and never
+        breaks the answer path."""
+        try:
+            from .relation_field import lifeloop_field
+            from . import relation_reports as rr
+            users_root = os.path.dirname(str(namespace_dir)) if namespace_dir else "runtime/users"
+            field = lifeloop_field(users_root)
+            if field.is_empty():
+                return []
+            return rr.relation_context_hits(field, question, is_secret=False, limit=6)
+        except Exception:
+            return []
+
     def _describe_from_facts(self, question: str, committed_hits):
         """Self-knowledge synthesis: describe from the TOP canonical facts, with Claude as a
         language faculty over GROUNDED facts only (never inventing). Falls back to joining the
@@ -253,7 +268,12 @@ class EpistemicSearch:
         # language faculty over those GROUNDED facts.
         if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
             canon = self._gather_canonical(mem_client, user_id) if mem_client else []
-            pool = qr.rerank(raw_hits + canon, intent)
+            # Cycle 12: relation-aware normal answering — committed relations contribute CONTEXT
+            # (source 'relation:...', policy-gated; vault-only objective relations excluded). They
+            # rerank WITH memory facts and never outrank a real committed memory fact, and are never
+            # gathered for a secret query (is_secret_query already returned above).
+            rel_ctx = self._relation_context_hits(question, namespace_dir)
+            pool = qr.rerank(raw_hits + canon + rel_ctx, intent)
             committed_pool = qr.committed(pool)
         else:
             committed_pool = committed

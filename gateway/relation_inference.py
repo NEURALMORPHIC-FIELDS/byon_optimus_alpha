@@ -51,6 +51,8 @@ _PATTERNS = [
     (re.compile(r"(?i)\bsupports\b|\bsus[țt]ine\b|\bconfirms\b|\bconfirm[ăa]\b|\bcorroborates\b"),
      rf.SUPPORTS, False),
     (re.compile(r"(?i)\brefines\b|\brafineaz[ăa]\b|\bnarrows\b"), rf.REFINES, False),
+    (re.compile(r"(?i)\bprefers\b|\bprefer[ăa]\b|\b[îi]mi place\b|\bpreferin[țt][ăa] pentru\b"),
+     rf.USER_PREFERS, False),
     (re.compile(r"(?i)\bis the role of\b|\brole of\b|\bfunctions as\b|\bacts as\b|\bserves as\b|"
                 r"\beste rolul\b|\bare rolul (?:de|să)\b|\bare rol de\b|\bfunc[țt]ioneaz[ăa] ca\b"),
      rf.ROLE_OF, False),

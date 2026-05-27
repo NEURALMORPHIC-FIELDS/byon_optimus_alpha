@@ -5,6 +5,41 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.15.0-alpha] — Cycle 12: directed, evidence-weighted, policy-aware relational reasoning
+
+> Relation reasoning moves from undirected structure to DIRECTED, evidence-WEIGHTED, source-policy-
+> aware traversal, and committed relations now feed NORMAL answers as gated context.
+> **Live verdict: 155/155 graded gates PASS, 0 fail** (all Cycle 1–11 gates + 18 new), restart recall passed.
+
+### Added
+- **Directed semantics**: per-type `directionality` (forward / bidirectional / inverse_renderable).
+  `multi_hop_path` follows forward + bidirectional by default; `include_inverse=True` RENDERS the
+  inverse of a broader/narrower_than edge (flagged `inverse_rendered`, with a warning note) — never
+  stored as truth.
+- **Evidence-weighted ranking**: `relation_weight_score` (committed/reinforced status, source-class
+  rank, independent evidence, quality, recency, canonical origin up; disputed/candidate-only,
+  vault-only objective, stale, tombstoned, low-confidence, Claude-advisory down) used in
+  neighborhoods, dependency/contradiction maps, multi-hop path ranking and normal-answer context.
+- `gateway/relation_policy.py` — relation-type source rules: architecture `has_component`/`role_of`
+  require SYSTEM_CANONICAL/VERIFIED_PROJECT_FACT; objective relations require a verified source;
+  `user_prefers` from USER_PREFERENCE; `mentioned_in` from user/vault memory; a vault-only objective
+  relation can never commit as objective truth. Wired into `evaluate_relation` / `consolidate`.
+- **Relation-aware normal answering**: for architecture/contradiction queries, committed relations
+  are injected as `relation:` CONTEXT (policy-gated, vault-only objective excluded) BEFORE Claude/web,
+  reranked WITH memory facts; never overrides a committed memory fact, never used for secrets.
+- **Contradiction classification**: `classify_conflict` → canonical_conflict / source_scope_conflict /
+  temporal_conflict / direct_contradiction; contradiction maps + answers explain the conflict type;
+  an older vault note never outranks a newer canonical fact.
+- **Relation-aware self-state**: degree + weighted centrality, top disputed areas, recently reinforced,
+  candidate relations, source-class mix — surfaced in `status()` and via relation queries.
+- **API**: `path?include_inverse=`, `infer` accepts an explicit typed relation; status exposes
+  central_concepts + disputed_areas.
+
+### Verified
+- 459 non-live tests (35 new); live harness **155/155 graded PASS, 0 fail** (18 new Cycle 12 gates +
+  all Cycle 1–11). Two-phase restart verify passed. Relation field still `is_truth_authority: false`;
+  source policy + the Auditor remain dominant; FULL_LEVEL3_NOT_DECLARED preserved.
+
 ## [10.14.0-alpha] — Cycle 11: relation inference + grounded relational reasoning
 
 > The relation field graduates from lexical/seed structure to GROUNDED inference over committed

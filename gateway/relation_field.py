@@ -61,6 +61,67 @@ COMMITTED = "committed"
 DISPUTED = "disputed"
 ARCHIVED = "archived"
 
+# directed semantics (Cycle 12): how a stored (subject -> object) edge may be traversed/rendered.
+FORWARD = "forward"                  # traverse subject -> object only
+BIDIRECTIONAL = "bidirectional"      # traverse both ways (e.g. contradicts)
+INVERSE_RENDERABLE = "inverse_renderable"  # forward stored; the inverse may be RENDERED (not stored) on request
+_DIRECTIONALITY = {
+    HAS_COMPONENT: FORWARD, DEPENDS_ON: FORWARD, CAUSED_BY: FORWARD, DERIVED_FROM: FORWARD,
+    SUPPORTS: FORWARD, MENTIONED_IN: FORWARD, ROLE_OF: FORWARD, BELONGS_TO_PROJECT: FORWARD,
+    CONSOLIDATION_PROMOTED: FORWARD, CANDIDATE_CHALLENGER_OF: FORWARD, REFINES: FORWARD,
+    SOURCE_CONFIRMS: FORWARD, SOURCE_DISPUTES: FORWARD, USER_PREFERS: FORWARD, USER_CORRECTED: FORWARD,
+    CONTRADICTS: BIDIRECTIONAL,
+    BROADER_THAN: INVERSE_RENDERABLE, NARROWER_THAN: INVERSE_RENDERABLE,
+}
+_INVERSE_TYPE = {BROADER_THAN: NARROWER_THAN, NARROWER_THAN: BROADER_THAN}
+
+
+def directionality(relation_type: str) -> str:
+    return _DIRECTIONALITY.get(relation_type, FORWARD)
+
+
+_STATUS_W = {COMMITTED: 0.40, REINFORCED: 0.25, CANDIDATE: 0.05, DISPUTED: -0.30, ARCHIVED: -0.20}
+_OBJECTIVE_TYPES_W = {HAS_COMPONENT, DEPENDS_ON, ROLE_OF, CAUSED_BY, DERIVED_FROM, BROADER_THAN,
+                      NARROWER_THAN, REFINES, BELONGS_TO_PROJECT}
+_USER_CLASSES_W = {"USER_PREFERENCE", "USER_MEMORY_GROUNDED", "EXTRACTED_USER_CLAIM"}
+
+
+def relation_weight_score(r: Dict[str, Any], *, now_ts: Optional[float] = None,
+                          tombstoned: bool = False) -> float:
+    """Evidence/source-weighted score in [0,1] used to rank relations everywhere (neighborhoods,
+    dependency/contradiction maps, multi-hop paths, normal-answer context). Rewards committed/
+    reinforced status, source-class rank, independent evidence, quality, recency, canonical origin;
+    penalises disputed/candidate-only, vault-only OBJECTIVE relations, staleness, tombstoned source,
+    low confidence and weak (Claude-advisory) inference."""
+    now_ts = now_ts if now_ts is not None else time.time()
+    classes = set(r.get("source_classes", []))
+    ev = len(set(r.get("source_ids", [])))
+    rank = max((_SRC_RANK.get(sc, 1) for sc in classes), default=1)
+    canonical = r.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in classes
+    w = 0.30
+    w += _STATUS_W.get(r.get("status"), 0.0)
+    w += 0.05 * rank                                       # source-class rank
+    w += 0.05 * min(ev, 4)                                 # independent evidence
+    w += 0.15 * float(r.get("confidence", 0.5))
+    w += 0.15 if canonical else 0.0
+    w += 0.05 if ev >= 2 else 0.0                          # multiple independent sources
+    try:
+        age_days = (now_ts - time.mktime(time.strptime(
+            r.get("last_seen") or r.get("updated_at") or "", "%Y-%m-%dT%H:%M:%SZ"))) / 86400.0
+    except (ValueError, TypeError):
+        age_days = 0.0
+    w += 0.08 if age_days < 7 else (0.0 if age_days < 30 else -0.10)
+    # negatives
+    if r.get("relation_type") in _OBJECTIVE_TYPES_W and classes and classes <= _USER_CLASSES_W:
+        w -= 0.20                                          # vault-only objective relation
+    if tombstoned:
+        w -= 0.50
+    if r.get("method") == "claude_advisory":
+        w -= 0.10                                          # weak inference method
+    if float(r.get("confidence", 0.5)) < 0.5:
+        w -= 0.05
+    return round(max(0.0, min(1.0, w)), 4)
+
 # raw predicate -> normalised relation type
 _PRED_MAP = {
     "has_component": HAS_COMPONENT, "component_of": HAS_COMPONENT, "has component": HAS_COMPONENT,
@@ -340,9 +401,12 @@ class RelationField:
         return {"entities": ent_hits[:limit], "relations": rel_hits[:limit]}
 
     def _priority(self, r: Dict[str, Any]):
-        committed = 1 if r.get("status") == COMMITTED else 0
-        rank = max((_SRC_RANK.get(sc, 1) for sc in r.get("source_classes", [])), default=1)
-        return (committed, rank, r.get("evidence_count", 0), r.get("updated_at", ""))
+        # Cycle 12: rank by evidence/source weight (committed/canonical/quality up; disputed/
+        # candidate-only/vault-objective/stale down) — disputed stays VISIBLE, just lower.
+        return (relation_weight_score(r), r.get("updated_at", ""))
+
+    def weight(self, r: Dict[str, Any]) -> float:
+        return relation_weight_score(r)
 
     def source_class_breakdown(self) -> Dict[str, int]:
         out: Dict[str, int] = {}
@@ -380,7 +444,86 @@ class RelationField:
                                 "object": r["object"], "status": r["status"],
                                 "updated_at": r["updated_at"]} for r in self.recent_changes(10)],
             "source_class_breakdown": self.source_class_breakdown(),
+            # Cycle 12: relation-aware self-state metrics
+            "central_concepts": self.central_concepts(10),
+            "disputed_areas": self.disputed_areas(10),
         }
+
+    # -- relation metrics + conflict classification (Cycle 12) --------------
+    def central_concepts(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        deg: Dict[str, int] = {}
+        wdeg: Dict[str, float] = {}
+        for r in self._rel.values():
+            w = relation_weight_score(r)
+            for end in (self.resolve(r["subject"]), self.resolve(r["object"])):
+                if end:
+                    deg[end] = deg.get(end, 0) + 1
+                    wdeg[end] = wdeg.get(end, 0.0) + w
+        rows = []
+        for eid, d in deg.items():
+            e = self._ent.get(eid)
+            if e:
+                rows.append({"name": e["canonical_name"], "type": e["entity_type"], "degree": d,
+                             "weighted_centrality": round(wdeg[eid], 3)})
+        rows.sort(key=lambda x: (x["weighted_centrality"], x["degree"]), reverse=True)
+        return rows[:top_n]
+
+    def disputed_areas(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        cnt: Dict[str, int] = {}
+        for r in self.contradictions():
+            for end in (self.resolve(r["subject"]), self.resolve(r["object"])):
+                if end:
+                    cnt[end] = cnt.get(end, 0) + 1
+        rows = [{"name": self._ent[eid]["canonical_name"], "disputed_relations": c}
+                for eid, c in cnt.items() if eid in self._ent]
+        rows.sort(key=lambda x: x["disputed_relations"], reverse=True)
+        return rows[:top_n]
+
+    def recently_reinforced(self, limit: int = 10) -> List[Dict[str, Any]]:
+        rows = [r for r in self._rel.values() if r.get("reinforcement_count", 0) > 0]
+        return sorted(rows, key=lambda r: r.get("last_seen", ""), reverse=True)[:limit]
+
+    def candidate_relations(self, limit: int = 25) -> List[Dict[str, Any]]:
+        rows = [r for r in self._rel.values() if r.get("status") in (CANDIDATE, REINFORCED)]
+        return sorted(rows, key=self._priority, reverse=True)[:limit]
+
+    def relation_metrics(self) -> Dict[str, Any]:
+        c = self.counts()
+        return {"central_concepts": self.central_concepts(8), "disputed_areas": self.disputed_areas(8),
+                "recently_reinforced": [{"subject": r["subject"], "relation_type": r["relation_type"],
+                                         "object": r["object"], "reinforcement_count": r.get("reinforcement_count", 0),
+                                         "last_seen": r.get("last_seen")} for r in self.recently_reinforced(8)],
+                "active_candidate_relations": c["by_status"].get(CANDIDATE, 0) + c["by_status"].get(REINFORCED, 0),
+                "committed_relations": c["by_status"].get(COMMITTED, 0),
+                "disputed_relations": c["by_status"].get(DISPUTED, 0),
+                "source_class_mix": self.source_class_breakdown()}
+
+    def classify_conflict(self, r: Dict[str, Any]) -> str:
+        """Classify a disputed relation: canonical_conflict | source_scope_conflict |
+        temporal_conflict | direct_contradiction."""
+        text = f"{r.get('subject','')} {r.get('predicate','')} {r.get('object','')}"
+        try:
+            from .source_policy import CANONICAL_CONSTRAINTS
+            for c in CANONICAL_CONSTRAINTS:
+                if c["topic"].search(text) and c["unsafe"].search(text):
+                    return "canonical_conflict"
+        except Exception:
+            pass
+        classes = set(r.get("source_classes", []))
+        user = classes & {"EXTRACTED_USER_CLAIM", "USER_MEMORY_GROUNDED", "USER_PREFERENCE"}
+        objective = classes & {"SYSTEM_CANONICAL", "VERIFIED_PROJECT_FACT", "DOMAIN_VERIFIED"}
+        if user and objective:
+            return "source_scope_conflict"                 # user-memory vs objective
+        ca, fs = r.get("contradicted_at"), r.get("first_seen")
+        if ca and fs:
+            try:
+                days = (time.mktime(time.strptime(ca, "%Y-%m-%dT%H:%M:%SZ")) -
+                        time.mktime(time.strptime(fs, "%Y-%m-%dT%H:%M:%SZ"))) / 86400.0
+                if days >= 1.0:
+                    return "temporal_conflict"
+            except (ValueError, TypeError):
+                pass
+        return "direct_contradiction"
 
     # -- relation-candidate lifecycle (Cycle 11) ----------------------------
     def ingest_candidate_relation(self, rc: Dict[str, Any]) -> Dict[str, Any]:
@@ -429,7 +572,11 @@ class RelationField:
         return round(max(0.0, min(1.0, q)), 3)
 
     def _policy_allows_commit(self, r: Dict[str, Any]) -> bool:
-        return "DISPUTED_OR_UNSAFE" not in r.get("source_classes", [])
+        from . import relation_policy as rp
+        ok, _ = rp.commit_allowed(r.get("relation_type"), r.get("source_classes", []),
+                                  subject=r.get("subject"), obj=r.get("object"),
+                                  evidence_count=len(set(r.get("source_ids", []))))
+        return ok
 
     def evaluate_relation(self, r: Dict[str, Any], *, commit_quality: float = 0.70,
                           stale_days: int = 30) -> Dict[str, Any]:
@@ -444,6 +591,7 @@ class RelationField:
             age_days = 0.0
         if contra > 0:
             return {"action": DISPUTED, "quality": q, "reason": "active contradiction"}
+        # Cycle 12: relation-type source policy decides whether this edge may commit as structure.
         if (canonical or ev >= 2) and q >= commit_quality and self._policy_allows_commit(r):
             return {"action": COMMITTED, "quality": q,
                     "reason": f"{'canonical' if canonical else f'{ev} independent sources'}, quality {q}"}
@@ -475,25 +623,34 @@ class RelationField:
             decisions.append({"relation_id": r["relation_id"], **d})
         return decisions
 
-    # -- bounded multi-hop reasoning (Cycle 11) -----------------------------
+    # -- bounded, DIRECTED multi-hop reasoning (Cycle 12) -------------------
     def multi_hop_path(self, start: str, target: Optional[str] = None, *, max_depth: int = 2,
-                       limit: int = 12) -> Dict[str, Any]:
-        """Bounded traversal (default depth 2). Each hop keeps its relation + provenance; a disputed
-        hop marks the whole path disputed; an all-committed canonical path outranks a vault path."""
+                       limit: int = 12, include_inverse: bool = False) -> Dict[str, Any]:
+        """Bounded DIRECTED traversal (default depth 2). Each stored edge is traversed per its
+        directionality: forward edges subject→object only; bidirectional (contradicts) both ways;
+        inverse_renderable (broader/narrower_than) forward by default and BACKWARD only when
+        include_inverse=True — and such a backward hop is RENDERED, never stored, and flagged
+        inverse_rendered. A disputed hop marks the path disputed; an all-committed canonical path
+        is ranked first (then by edge weight)."""
         max_depth = max(1, min(int(max_depth or 2), 4))
         start_eid = self.resolve(start)
         tgt_eid = self.resolve(target) if target else None
         if not start_eid or (target and not tgt_eid):
-            return {"start": start, "target": target, "max_depth": max_depth, "paths": []}
+            return {"start": start, "target": target, "max_depth": max_depth,
+                    "include_inverse": include_inverse, "paths": []}
 
-        def neighbors(eid):
+        def steps(eid):
             out = []
             for r in self._rel.values():
                 s, o = self.resolve(r["subject"]), self.resolve(r["object"])
-                if s == eid:
-                    out.append((r, o))
-                elif o == eid:
-                    out.append((r, s))
+                d = directionality(r["relation_type"])
+                if s == eid:                               # stored direction: subject -> object
+                    out.append((r, o, "forward", False))
+                if o == eid:                               # reverse of stored direction
+                    if d == BIDIRECTIONAL:
+                        out.append((r, s, "backward", False))
+                    elif d == INVERSE_RENDERABLE and include_inverse:
+                        out.append((r, s, "inverse", True))
             return out
 
         paths: List[List[Dict[str, Any]]] = []
@@ -506,31 +663,44 @@ class RelationField:
                     continue
             if len(hops) >= max_depth:
                 continue
-            for r, nxt in neighbors(cur):
+            for r, nxt, direction, inverse in steps(cur):
                 if nxt in visited:
                     continue
-                stack.append((nxt, hops + [r], visited | {nxt}))
+                stack.append((nxt, hops + [(r, direction, inverse)], visited | {nxt}))
 
         out = [self._path_obj(h) for h in paths]
         out.sort(key=lambda p: (0 if p["canonical"] else 1, 0 if p["path_status"] != DISPUTED else 1,
-                                len(p["hops"])))
-        return {"start": start, "target": target, "max_depth": max_depth, "paths": out[:limit]}
+                                -p["weight"], len(p["hops"])))
+        return {"start": start, "target": target, "max_depth": max_depth,
+                "include_inverse": include_inverse, "paths": out[:limit]}
 
-    def _path_obj(self, hops: List[Dict[str, Any]]) -> Dict[str, Any]:
-        statuses = [h.get("status") for h in hops]
-        disputed = any(s == DISPUTED for s in statuses) or any(h.get("contradiction_count", 0) > 0
-                                                               for h in hops)
+    def _path_obj(self, steps: List[tuple]) -> Dict[str, Any]:
+        rels = [r for r, _d, _inv in steps]
+        statuses = [r.get("status") for r in rels]
+        disputed = any(s == DISPUTED for s in statuses) or any(r.get("contradiction_count", 0) > 0
+                                                               for r in rels)
         all_committed = all(s == COMMITTED for s in statuses)
-        canonical = all(h.get("origin") == "canonical_schema" or
-                        "SYSTEM_CANONICAL" in h.get("source_classes", []) for h in hops)
+        canonical = all(r.get("origin") == "canonical_schema" or
+                        "SYSTEM_CANONICAL" in r.get("source_classes", []) for r in rels)
         path_status = DISPUTED if disputed else (COMMITTED if all_committed else "provisional")
+        inverse_rendered = any(inv for _r, _d, inv in steps)
+        weight = round(min((relation_weight_score(r) for r in rels), default=0.0), 4)
+        hops = []
+        for r, direction, inv in steps:
+            rtype = r["relation_type"]
+            shown_type = _INVERSE_TYPE.get(rtype, rtype) if inv else rtype
+            hops.append({"subject": r["subject"], "relation_type": shown_type,
+                         "stored_relation_type": rtype, "object": r["object"], "status": r["status"],
+                         "direction": direction, "inverse_rendered": inv,
+                         "source_classes": r.get("source_classes", []),
+                         "source_ids": r.get("source_ids", [])[:3], "weight": relation_weight_score(r),
+                         "evidence_quote": r.get("evidence_quote")})
         return {"length": len(hops), "path_status": path_status, "canonical": canonical,
-                "source_classes": sorted({sc for h in hops for sc in h.get("source_classes", [])}),
-                "hops": [{"subject": h["subject"], "relation_type": h["relation_type"],
-                          "object": h["object"], "status": h["status"],
-                          "source_classes": h.get("source_classes", []),
-                          "source_ids": h.get("source_ids", [])[:3],
-                          "evidence_quote": h.get("evidence_quote")} for h in hops]}
+                "weight": weight, "inverse_rendered": inverse_rendered,
+                "note": ("contains an inverse-rendered hop (rendered, not stored as truth)"
+                         if inverse_rendered else None),
+                "source_classes": sorted({sc for r in rels for sc in r.get("source_classes", [])}),
+                "hops": hops}
 
 
 def lifeloop_field(users_root: str | Path) -> RelationField:

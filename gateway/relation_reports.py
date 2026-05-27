@@ -38,7 +38,12 @@ def contradiction_map(field: rf.RelationField, *, focus: Optional[str] = None) -
         eid = field.resolve(focus)
         contras = [r for r in contras
                    if field.resolve(r["subject"]) == eid or field.resolve(r["object"]) == eid]
-    return {"focus": focus, "count": len(contras), "contradictions": [_brief(r) for r in contras]}
+    out = []
+    for r in contras:
+        b = _brief(r)
+        b["conflict_type"] = field.classify_conflict(r)    # Cycle 12: explain the conflict TYPE
+        out.append(b)
+    return {"focus": focus, "count": len(out), "contradictions": out}
 
 
 def dependency_map(field: rf.RelationField, *, focus: Optional[str] = None) -> Dict[str, Any]:
@@ -69,12 +74,67 @@ def recent_relation_changes(field: rf.RelationField, *, limit: int = 15) -> Dict
                              committed_at=r.get("committed_at")) for r in field.recent_changes(limit)]}
 
 
+def central_concepts(field: rf.RelationField, *, top_n: int = 10) -> Dict[str, Any]:
+    return {"central_concepts": field.central_concepts(top_n)}
+
+
+def top_disputed_areas(field: rf.RelationField, *, top_n: int = 10) -> Dict[str, Any]:
+    return {"disputed_areas": field.disputed_areas(top_n)}
+
+
+def relation_metrics(field: rf.RelationField) -> Dict[str, Any]:
+    return field.relation_metrics()
+
+
+def relation_context_for(field: rf.RelationField, question: str, *,
+                         is_secret: bool = False, limit: int = 8) -> Dict[str, Any]:
+    """Cycle 12: committed/reinforced relations the relation field can contribute as CONTEXT to a
+    normal answer. Never for secrets; source-policy gated (a vault-only OBJECTIVE relation is
+    blocked from being presented as objective structure); ordered by evidence weight. This is
+    CONTEXT only — it never overrides a memory fact and cannot answer alone."""
+    from . import relation_policy as rp
+    if is_secret:
+        return {"focus": None, "relations": [], "sources": [], "blocked": True, "reason": "secret"}
+    focus = _focal_entity(field, question)
+    if not focus:
+        return {"focus": None, "relations": [], "sources": [], "blocked": False}
+    allowed, blocked = [], []
+    for r in field.relations_for(focus):
+        if r.get("status") not in (rf.COMMITTED, rf.REINFORCED):
+            continue
+        if rp.context_allowed(r.get("relation_type"), r.get("source_classes", []),
+                              subject=r.get("subject")):
+            allowed.append(r)
+        else:
+            blocked.append(r)
+    allowed = allowed[:limit]
+    return {"focus": focus, "relations": [_brief(r) for r in allowed],
+            "sources": _sources_of(allowed), "blocked_count": len(blocked),
+            "blocked": False}
+
+
+def relation_context_hits(field: rf.RelationField, question: str, *,
+                          is_secret: bool = False, limit: int = 6) -> list:
+    """The same committed relation context as memory-service-style hits (source 'relation:...',
+    trust per relation_policy) so the normal epistemic search can rerank them WITH memory facts and
+    source policy — they never outrank a real committed memory fact."""
+    from . import relation_policy as rp
+    ctx = relation_context_for(field, question, is_secret=is_secret, limit=limit)
+    hits = []
+    for b in ctx["relations"]:
+        trust = rp.commit_trust_for(b["relation_type"], b.get("source_classes", []))
+        hits.append({"content": f"{b['subject']} {b['relation_type'].replace('_',' ')} {b['object']}",
+                     "metadata": {"source": f"relation:{b['subject']}->{b['relation_type']}->{b['object']}",
+                                  "trust": trust}})
+    return hits
+
+
 def _brief(r: Dict[str, Any]) -> Dict[str, Any]:
     return {"subject": r["subject"], "predicate": r.get("predicate"),
             "relation_type": r["relation_type"], "object": r["object"], "status": r["status"],
             "source_classes": r.get("source_classes", []), "source_ids": r.get("source_ids", [])[:4],
             "evidence_quote": r.get("evidence_quote"), "method": r.get("method"),
-            "origin": r.get("origin"),
+            "origin": r.get("origin"), "weight": rf.relation_weight_score(r),
             "evidence_count": r.get("evidence_count", 0), "reinforcement_count": r.get("reinforcement_count", 0),
             "contradiction_count": r.get("contradiction_count", 0),
             "first_seen": r.get("first_seen"), "last_seen": r.get("last_seen"),
@@ -155,29 +215,66 @@ def render_answer(field: rf.RelationField, question: str) -> Dict[str, Any]:
         if not start:
             return _ans("ASK_USER_FOR_SOURCE", "De la ce entitate pornesc? (ex. BYON, D_Cortex)",
                         ["relation:field"], "VERIFIED_PROJECT_FACT", "path")
-        res = field.multi_hop_path(start, target, max_depth=2)
+        inc_inv = any(w in q for w in ("invers", "inverse", "ambele sensuri", "both directions"))
+        res = field.multi_hop_path(start, target, max_depth=2, include_inverse=inc_inv)
         if not res["paths"]:
-            return _ans("KNOWN", f"Nu exista un drum (≤2 hopuri) de la {start}"
+            return _ans("KNOWN", f"Nu exista un drum dirijat (≤2 hopuri) de la {start}"
                         + (f" la {target}" if target else "") + " in campul relational.",
                         ["relation:field"], "VERIFIED_PROJECT_FACT", "path")
         best = res["paths"][0]
         lines = [f"Drum {start}" + (f" → {target}" if target else "") +
                  f" ({best['path_status']}, {'canonic' if best['canonical'] else 'mixt'}, "
-                 f"{best['length']} hop):"]
+                 f"{best['length']} hop, weight {best['weight']}):"]
         srcs = ["relation:field"]
         for h in best["hops"]:
             scs = ",".join(h.get("source_classes") or []) or "necunoscut"
             tag = "DISPUTED" if h.get("status") == rf.DISPUTED else h.get("status")
             qt = (h.get("evidence_quote") or "")[:90]
+            inv = " [INVERS RANDAT, nu stocat ca adevăr]" if h.get("inverse_rendered") else ""
             lines.append(f"  • {h['subject']} {h['relation_type']} {h['object']} "
-                         f"[{tag}, {scs}]" + (f" — \"{qt}\"" if qt else ""))
+                         f"[{tag}, {scs}, dir={h.get('direction')}]{inv}" + (f" — \"{qt}\"" if qt else ""))
             for sid in (h.get("source_ids") or [])[:2]:
                 if sid and sid not in srcs:
                     srcs.append(sid)
+        if best.get("inverse_rendered"):
+            lines.append("NOTA: " + best.get("note", "contine un hop invers randat (randat, nu stocat ca adevar)."))
         if best["path_status"] == rf.DISPUTED:
             lines.append("ATENTIE: drumul contine un hop DISPUTAT -> intregul lant e provizoriu/disputat.")
         status = "DISPUTED" if best["path_status"] == rf.DISPUTED else "KNOWN"
         return _ans(status, "\n".join(lines), srcs[:12], "VERIFIED_PROJECT_FACT", "path")
+
+    # 0b) relation-aware self-state metrics: central concepts / disputed areas / candidate relations
+    if any(w in q for w in ("centrale", "central", "organizeaza memoria", "organizează memoria",
+                            "noduri", "centralitate", "centrality")):
+        rows = field.central_concepts(10)
+        if not rows:
+            return _ans("KNOWN", "Inca nu exista concepte centrale in campul relational.",
+                        ["relation:field"], "VERIFIED_PROJECT_FACT", "central_concepts")
+        lines = ["Cele mai centrale concepte (grad + centralitate ponderată):"]
+        lines += [f"- {r['name']} ({r['type']}): grad {r['degree']}, weight {r['weighted_centrality']}"
+                  for r in rows]
+        return _ans("KNOWN", "\n".join(lines), ["relation:field"], "VERIFIED_PROJECT_FACT",
+                    "central_concepts")
+    if any(w in q for w in ("zone", "cele mai multe contradic", "most contradictions", "disputed areas",
+                            "zone disputate")):
+        rows = field.disputed_areas(10)
+        if not rows:
+            return _ans("KNOWN", "Nu exista zone cu contradictii in campul relational.",
+                        ["relation:field"], "VERIFIED_PROJECT_FACT", "disputed_areas")
+        lines = ["Zone cu cele mai multe contradictii:"]
+        lines += [f"- {r['name']}: {r['disputed_relations']} relatii disputate" for r in rows]
+        return _ans("KNOWN", "\n".join(lines), ["relation:field"], "VERIFIED_PROJECT_FACT",
+                    "disputed_areas")
+    if any(w in q for w in ("relatii sunt candidate", "relații sunt candidate", "candidate relations",
+                            "relatii candidate", "relații candidate")):
+        rows = field.candidate_relations(15)
+        if not rows:
+            return _ans("KNOWN", "Nu exista relatii candidate active.", ["relation:field"],
+                        "VERIFIED_PROJECT_FACT", "candidate_relations")
+        lines = ["Relatii candidate (neconfirmate, in asteptarea dovezilor):"]
+        lines += [_frame(r) for r in rows[:10]]
+        return _ans("KNOWN", "\n".join(lines), _sources_of(rows), "VERIFIED_PROJECT_FACT",
+                    "candidate_relations")
 
     # 1) contradictions around X / global contradiction map
     if any(w in q for w in _CONTRA_WORDS):
@@ -192,7 +289,11 @@ def render_answer(field: rf.RelationField, question: str) -> Dict[str, Any]:
                         "VERIFIED_PROJECT_FACT", "contradiction_map")
         lines = [f"Contradictii (relatii DISPUTED){' in jurul lui ' + focus if focus else ''}:"]
         for r in rep["contradictions"][:8]:
-            lines.append(f"- {r['subject']} ⟂ {r['object']} [{r['status']}, surse {r['source_classes']}]")
+            lines.append(f"- {r['subject']} ⟂ {r['object']} [tip conflict: {r.get('conflict_type')}, "
+                         f"{r['status']}, surse {r['source_classes']}]")
+        lines.append("(tipuri: canonical_conflict domina; source_scope_conflict = memorie utilizator "
+                     "vs obiectiv; temporal_conflict = nota veche vs fapt nou; o nota veche nu inlocuieste "
+                     "un fapt canonic mai nou.)")
         return _ans("KNOWN", "\n".join(lines), _sources_of(rels), "VERIFIED_PROJECT_FACT",
                     "contradiction_map")
 

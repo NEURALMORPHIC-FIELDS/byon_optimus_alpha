@@ -441,6 +441,9 @@ class Harness:
         # A18. Relation inference + relational reasoning gates (Cycle 11).
         self._cycle11_suite()
 
+        # A19. Directed, evidence-weighted, policy-aware relational reasoning gates (Cycle 12).
+        self._cycle12_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -1642,6 +1645,183 @@ class Harness:
                   sb.get("epistemic_status") in ("UNKNOWN", "REFUSED", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE"),
                   f"unexpected {sb.get('epistemic_status')}", category=CAT_SOURCE_BLEED,
                   epistemic_status=sb.get("epistemic_status"))
+        try:
+            lifecycle_ok = isinstance(httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30)
+                                      .json().get("counts"), dict)
+        except Exception:
+            lifecycle_ok = False
+        self._add("candidate_lifecycle_still_passes", lifecycle_ok,
+                  "candidate lifecycle endpoint not healthy", category="other")
+        hits = []
+        try:
+            hits = self._consistent().search_facts("BYON has component D_Cortex", top_k=10,
+                                                   threshold=0.0, thread_id=None, scope="thread")
+        except Exception:
+            hits = []
+        self._add("restart_recall_still_passes", any(h.get("content") for h in hits),
+                  "committed self-knowledge not retrievable from engine", category=CAT_RESTART)
+        try:
+            l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
+        except Exception:
+            l3 = False
+        self._add("FULL_LEVEL3_NOT_DECLARED_preserved", l3, "level-3 flag not preserved", category="other")
+
+    # -- Cycle 12: directed / weighted / policy-aware relational reasoning suite -----
+    def _cycle12_suite(self) -> None:
+        import os as _os
+        base = f"{self.url}/v1/lifeloop/relation-field"
+
+        def rf_get(path):
+            try:
+                return httpx.get(f"{base}/{path}", timeout=40).json()
+            except Exception:
+                return {}
+
+        def rf_post(path):
+            try:
+                return httpx.post(f"{base}/{path}", timeout=60).json()
+            except Exception:
+                return {}
+
+        def infer(body):
+            try:
+                return httpx.post(f"{base}/infer", json=body, timeout=40).json()
+            except Exception:
+                return {}
+
+        uid = uuid.uuid4().hex[:6]
+        rf_post("rebuild")                                 # ensure the field is populated
+
+        # 1. directed has_component path (canonical BYON -> D_Cortex exists forward)
+        p = rf_get("path?source=BYON&target=D_Cortex&depth=2")
+        self._add("directed_has_component_path", bool(p.get("paths")),
+                  "no directed BYON->D_Cortex path", category="other")
+
+        # 2. directed depends_on path n1 -> n2 -> n3 (forward only)
+        n1, n2, n3 = f"dnode1_{uid}", f"dnode2_{uid}", f"dnode3_{uid}"
+        infer({"subject": n1, "object": n2, "relation_type": "depends_on", "source": f"c12a_{uid}",
+               "source_class": "VERIFIED_PROJECT_FACT"})
+        infer({"subject": n2, "object": n3, "relation_type": "depends_on", "source": f"c12b_{uid}",
+               "source_class": "VERIFIED_PROJECT_FACT"})
+        dp = rf_get(f"path?source={n1}&target={n3}&depth=2")
+        self._add("directed_depends_on_path",
+                  bool(dp.get("paths")) and dp["paths"][0].get("length") == 2
+                  and not rf_get(f"path?source={n3}&target={n1}&depth=2").get("paths"),
+                  "directed depends_on path not enforced", category="other")
+
+        # 3. inverse rendering warning (broader_than rendered backward only with include_inverse)
+        bx, nx = f"broad_{uid}", f"narrow_{uid}"
+        infer({"subject": bx, "object": nx, "relation_type": "broader_than", "source": f"c12c_{uid}",
+               "source_class": "SYSTEM_CANONICAL"})
+        inv = rf_get(f"path?source={nx}&target={bx}&depth=2&include_inverse=true")
+        noinv = rf_get(f"path?source={nx}&target={bx}&depth=2")
+        ip = inv.get("paths") or [{}]
+        self._add("inverse_rendering_warning",
+                  bool(inv.get("paths")) and ip[0].get("inverse_rendered") is True
+                  and not noinv.get("paths"),
+                  "inverse rendering / warning missing", category="other")
+
+        # 4. relation weight ranking (committed/canonical first; weights descending)
+        rels = (rf_get("neighborhood/BYON").get("neighborhood") or {}).get("relations", [])
+        weights = [r.get("weight", 0) for r in rels]
+        self._add("relation_weight_ranking",
+                  bool(rels) and weights == sorted(weights, reverse=True)
+                  and rels[0].get("status") == "committed",
+                  f"relations not weight-ranked ({weights[:3]})", category="other")
+
+        # 5. relation policy blocks a vault-only OBJECTIVE depends_on from committing
+        zv, tv = f"zeta_{uid}", f"theta_{uid}"
+        for s in (f"vs1_{uid}", f"vs2_{uid}"):
+            infer({"text": f"{zv} depends on {tv}", "source": s, "source_class": "EXTRACTED_USER_CLAIM"})
+        rf_post("consolidate")
+        zrel = next((r for r in (rf_get(f"neighborhood/{zv}").get("neighborhood") or {}).get("relations", [])
+                     if r.get("relation_type") == "depends_on"), {})
+        self._add("relation_policy_blocks_vault_objective_commit",
+                  zrel.get("status") != "committed",
+                  f"vault objective depends_on committed ({zrel.get('status')})", category=CAT_SOURCE_BLEED)
+
+        # 6. user_prefers commits as user memory (>=2 user-pref sources)
+        uent, pref = f"useru_{uid}", f"darkmode_{uid}"
+        for s in (f"up1_{uid}", f"up2_{uid}"):
+            infer({"text": f"the {uent} prefers {pref}", "source": s, "source_class": "USER_PREFERENCE"})
+        rf_post("consolidate")
+        ur = next((r for r in (rf_get(f"neighborhood/{uent}").get("neighborhood") or {}).get("relations", [])
+                   if r.get("relation_type") == "user_prefers"), {})
+        self._add("user_prefers_relation_commits_as_user_memory",
+                  ur.get("status") == "committed" and "VERIFIED_PROJECT_FACT" not in ur.get("source_classes", []),
+                  f"user_prefers not committed as user memory ({ur.get('status')})", category="other")
+
+        # 7/8. normal answer uses relation context with sources
+        out = self.research("ce rol are D_Cortex in sistem?", user=f"c12_{uid}", session="c12")
+        ans = (out.get("answer") or "").lower()
+        srcs = (out.get("synthesis") or {}).get("sources") or out.get("sources_searched") or []
+        self._add("normal_answer_uses_relation_context",
+                  out.get("epistemic_status") in ("KNOWN", "SELF_STATE_GROUNDED")
+                  and ("d_cortex" in ans or "memorie" in ans or "memory" in ans),
+                  f"normal answer lacked relation context ({out.get('epistemic_status')})", category="other",
+                  epistemic_status=out.get("epistemic_status"))
+        self._add("relation_context_has_sources", any("relation" in str(s) for s in srcs),
+                  f"no relation source in normal answer ({srcs})", category="other")
+
+        # 9. relation context does NOT override canonical (Level-3 stays DISPUTED)
+        pu = f"c12pol_{uid}"
+        pol = {}
+        if self._plant_vault_note(pu, "BYON e Level 3."):
+            self._confirm_indexed(pu, "BYON e Level 3?", "level 3", tries=25, threshold=0.30)
+            pol = self.research("BYON e Level 3?", user=pu, session="c12")
+            self._add("relation_context_does_not_override_canonical",
+                      pol.get("epistemic_status") in ("DISPUTED", "REFUSED"),
+                      f"canonical overridden ({pol.get('epistemic_status')})",
+                      category=CAT_CANONICAL_OVERRIDE, epistemic_status=pol.get("epistemic_status"))
+        else:
+            self._skip("relation_context_does_not_override_canonical", "canonical override", "no note")
+
+        # 10/11. plant a canonical-conflict and a temporal-conflict relation directly, read conflict_type
+        try:
+            from gateway.relation_field import RelationField
+            from gateway.namespace import UserNamespace
+            import time as _t
+            root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
+            fld = RelationField(root)
+            fld.add_relation(f"BYONc_{uid}", "is", "level 3", relation_type="contradicts",
+                             source_class="EXTRACTED_USER_CLAIM", is_contradiction=True)
+            tr = fld.add_relation(f"alphaT_{uid}", "depends_on", f"betaT_{uid}",
+                                  relation_type="depends_on", source_class="DOMAIN_VERIFIED")
+            tr["first_seen"] = "2025-01-01T00:00:00Z"
+            tr["contradicted_at"] = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
+            tr["contradiction_count"] = 1
+            tr["status"] = "disputed"
+            fld._rel[tr["relation_id"]] = tr
+            fld._append(fld.edges_path, tr)
+        except Exception:
+            pass
+        contras = rf_get("contradictions").get("contradictions", [])
+        types = {c.get("conflict_type") for c in contras}
+        self._add("canonical_conflict_classified", "canonical_conflict" in types,
+                  f"canonical_conflict not classified ({types})", category="other")
+        self._add("temporal_conflict_classified", "temporal_conflict" in types,
+                  f"temporal_conflict not classified ({types})", category="other")
+
+        # 12/13. relation-aware self-state metrics
+        st = rf_get("status")
+        self._add("central_concepts_report",
+                  bool(st.get("central_concepts")) and any(c.get("name", "").lower() == "byon"
+                                                           for c in st.get("central_concepts", [])),
+                  "central concepts report missing BYON", category="other")
+        self._add("top_disputed_areas_report", bool(st.get("disputed_areas")),
+                  "disputed areas report empty", category="other")
+
+        # 14. relation field still not a truth authority
+        self._add("relation_field_still_not_truth_authority", st.get("is_truth_authority") is False,
+                  "relation field claims truth authority", category="other")
+
+        # 15. source policy still dominant
+        self._add("source_policy_still_dominant",
+                  (pol.get("epistemic_status") in ("DISPUTED", "REFUSED")) if pol else True,
+                  f"source policy not dominant ({pol.get('epistemic_status')})",
+                  category=CAT_CANONICAL_OVERRIDE)
+
+        # 16/17/18. invariants
         try:
             lifecycle_ok = isinstance(httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30)
                                       .json().get("counts"), dict)

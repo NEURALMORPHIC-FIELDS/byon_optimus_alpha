@@ -11,7 +11,7 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.14-alpha (Active Memory Runtime + grounded relational reasoning, validated, real runs).** Progression:
+> **Status — v10.15-alpha (Active Memory Runtime + directed evidence-weighted relational reasoning, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
@@ -38,10 +38,16 @@ maintainable, testable, locally-runnable product:
 > candidates / disputes / vault / tasks, with relation-aware retrieval, neighborhood / contradiction /
 > dependency / theme reports and temporal tracking; the field navigates structure but is **never a
 > truth authority** →
-> **v10.14-alpha** **relation inference + grounded relational reasoning** — relations are inferred
-> from fact/chunk CONTENT (with evidence quotes + provenance), enter a relation-candidate lifecycle,
+> **v10.14** **relation inference + grounded relational reasoning** — relations are inferred from
+> fact/chunk CONTENT (with evidence quotes + provenance), enter a relation-candidate lifecycle,
 > answer bounded multi-hop path queries, and the field PROPOSES candidates back to the lifecycle but
-> never commits (**live harness 137/137 graded PASS, 0 fail**; restart recall passes; **424 non-live tests**).
+> never commits →
+> **v10.15-alpha** **directed, evidence-weighted, policy-aware relational reasoning** — traversal
+> respects per-type direction (inverse only rendered on request, never stored), relations are ranked
+> by an evidence/source weight, a relation-type source policy prevents source-class misuse, committed
+> relations feed NORMAL answers as gated context, and contradictions are classified by conflict type;
+> the relation field stays **non-authoritative** (**live harness 155/155 graded PASS, 0 fail**;
+> restart recall passes; **459 non-live tests**).
 > BYON stays the only epistemic authority throughout; LifeLoop observes and proposes but never
 > answers the user or decides truth. See `STATUS.md` and `CHANGELOG.md`.
 >

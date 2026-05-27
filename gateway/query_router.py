@@ -88,7 +88,13 @@ RELATION_FIELD_TRIGGERS = ["relatie intre", "relatie între", "relatia intre", "
                            "invatat recent despre", "învățat recent despre", "ce relatii s-au consolidat",
                            "ce relații s-au consolidat", "relatii au devenit disputate",
                            "relații au devenit disputate", "relatii s-au consolidat recent",
-                           "teme recurente", "recurrent themes", "recurring themes"]
+                           "teme recurente", "recurrent themes", "recurring themes",
+                           # Cycle 12: relation-aware self-state metrics
+                           "concepte iti organizeaza", "concepte îți organizează", "concepte organizeaza memoria",
+                           "cele mai centrale", "noduri centrale", "concepte centrale",
+                           "zone au cele mai multe contradic", "zone cu cele mai multe contradic",
+                           "ce relatii sunt candidate", "ce relații sunt candidate",
+                           "relatii s-au intarit recent", "relații s-au întărit recent"]
 VAULT_STATUS_TRIGGERS = ["cat din vault ai indexat", "cât din vault ai indexat", "statusul vaultului",
                          "care este statusul vaultului", "vault training status",
                          "ce ai indexat din obsidian", "status vault", "cat ai indexat din vault"]

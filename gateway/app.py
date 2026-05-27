@@ -539,6 +539,16 @@ def create_app(config: Optional[GatewayConfig] = None,
         relations only — never commits; secret text yields nothing."""
         from .relation_field import lifeloop_field, RelationFieldBuilder
         field = lifeloop_field(cfg.users_root)
+        # explicit relation (operator surface): add one typed edge directly as a CANDIDATE
+        if body.get("subject") and body.get("object"):
+            rc = {"subject": body["subject"], "predicate": body.get("predicate", ""),
+                  "object": body["object"], "relation_type": body.get("relation_type"),
+                  "source_id": body.get("source", "operator:relation"),
+                  "source_class": body.get("source_class"),
+                  "is_contradiction": bool(body.get("is_contradiction")),
+                  "evidence_quote": body.get("evidence_quote")}
+            r = field.ingest_candidate_relation(rc)
+            return {"ok": True, "candidates": [rc], "count": 1, "relation_id": r["relation_id"]}
         b = RelationFieldBuilder(field, mem_client=getattr(resolved_backend, "mem", None))
         cands = b.infer_text(body.get("text", ""), source=body.get("source", "operator:infer"),
                              source_class=body.get("source_class"), provenance=body.get("provenance"))
@@ -553,8 +563,10 @@ def create_app(config: Optional[GatewayConfig] = None,
         return {"ok": True, "decisions": decisions, "status": field.status()}
 
     @app.get("/v1/lifeloop/relation-field/path")
-    def relation_field_path(source: str, target: Optional[str] = None, depth: int = 2) -> Dict[str, Any]:
-        return _relation_field().multi_hop_path(source, target, max_depth=depth)
+    def relation_field_path(source: str, target: Optional[str] = None, depth: int = 2,
+                            include_inverse: bool = False) -> Dict[str, Any]:
+        return _relation_field().multi_hop_path(source, target, max_depth=depth,
+                                                include_inverse=include_inverse)
 
     @app.post("/v1/lifeloop/relation-field/propose")
     def relation_field_propose() -> Dict[str, Any]:
