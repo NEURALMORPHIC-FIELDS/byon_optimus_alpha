@@ -41,9 +41,13 @@ def contradiction_map(field: rf.RelationField, *, focus: Optional[str] = None) -
     out = []
     for r in contras:
         b = _brief(r)
-        b["conflict_type"] = field.classify_conflict(r)    # Cycle 12: explain the conflict TYPE
+        ct = field.classify_conflict(r)                    # Cycle 12: explain the conflict TYPE
+        b["conflict_type"] = ct
+        b["recommended_next_action"] = field._NEXT_ACTION.get(ct, "keep_disputed")  # Cycle 13
+        b["current_status"] = "canonical_overrides" if ct == "canonical_conflict" else "active"
         out.append(b)
-    return {"focus": focus, "count": len(out), "contradictions": out}
+    return {"focus": focus, "count": len(out), "contradictions": out,
+            "history": field.contradiction_history()[:20]}
 
 
 def dependency_map(field: rf.RelationField, *, focus: Optional[str] = None) -> Dict[str, Any]:
@@ -113,6 +117,42 @@ def relation_context_for(field: rf.RelationField, question: str, *,
             "blocked": False}
 
 
+_OBJ_RELATION_CUES = ("depinde", "depind", "depends", "influen", "risc", "risk", "sustine", "susține",
+                      "supports", "support", "contrazice", "contradic", "consecin", "consequence",
+                      "important", "de ce", "why does", "why is", "matter", "leaga", "leagă", "rol",
+                      "componente", "what depends", "what supports", "what contradicts")
+
+
+def relation_context_bundle(field: rf.RelationField, question: str, *, is_secret: bool = False,
+                            limit: int = 6) -> Dict[str, Any]:
+    """Cycle 13: bundle of policy-gated committed relation CONTEXT for a normal answer, with the
+    safety metadata the answer must carry. Empty for secrets. Never primary unless it is the only
+    grounding and the source class allows it (the search still ranks memory facts first)."""
+    if is_secret:
+        return {"used": False, "blocked": True, "reason": "secret query — relation field skipped",
+                "hits": [], "relation_ids": [], "source_classes": [], "any_disputed": False,
+                "any_candidate": False, "any_decayed": False, "primary": False}
+    q = (question or "").lower()
+    relevant = any(c in q for c in _OBJ_RELATION_CUES)
+    ctx = relation_context_for(field, question, is_secret=False, limit=limit)
+    rels = ctx.get("relations", [])
+    if not relevant or not rels:
+        return {"used": False, "blocked": False, "reason": "no relevant committed relation context",
+                "hits": [], "relation_ids": [], "source_classes": [], "any_disputed": False,
+                "any_candidate": False, "any_decayed": False, "primary": False,
+                "blocked_count": ctx.get("blocked_count", 0)}
+    hits = relation_context_hits(field, question, is_secret=False, limit=limit)
+    scs = sorted({sc for b in rels for sc in b.get("source_classes", [])})
+    return {"used": True, "blocked": False,
+            "reason": "policy-allowed committed/reinforced relations (secondary context)",
+            "hits": hits, "relation_ids": [b.get("relation_id") for b in rels if b.get("relation_id")],
+            "source_classes": scs, "focus": ctx.get("focus"),
+            "any_disputed": any(b.get("status") == rf.DISPUTED for b in rels),
+            "any_candidate": any(b.get("status") == rf.CANDIDATE for b in rels),
+            "any_decayed": any(b.get("decay_status") == "stale" for b in rels),
+            "blocked_count": ctx.get("blocked_count", 0), "primary": False}
+
+
 def relation_context_hits(field: rf.RelationField, question: str, *,
                           is_secret: bool = False, limit: int = 6) -> list:
     """The same committed relation context as memory-service-style hits (source 'relation:...',
@@ -129,12 +169,91 @@ def relation_context_hits(field: rf.RelationField, question: str, *,
     return hits
 
 
+def render_path_explanation(field: rf.RelationField, start: str, target: Optional[str] = None, *,
+                            include_inverse: bool = False, max_depth: int = 2) -> Dict[str, Any]:
+    """Cycle 13: a grounded, readable WHY/HOW explanation of the best path. Each hop carries source
+    class + evidence quote + confidence + weight + decayed_weight + status + disputed/inverse flags.
+    Epistemic status: DISPUTED if any disputed hop; PROVISIONAL if any candidate-only or unsourced
+    hop or any inverse-rendered hop; KNOWN only if every hop is committed/canonical AND sourced."""
+    res = field.multi_hop_path(start, target, max_depth=max_depth, include_inverse=include_inverse)
+    if not res["paths"]:
+        return {"found": False, "epistemic_status": "UNKNOWN", "start": start, "target": target,
+                "answer": f"Nu exista un drum dirijat (≤{max_depth} hopuri) de la {start}"
+                          + (f" la {target}" if target else "") + ".", "hops": [], "sources": ["relation:field"]}
+    best = res["paths"][0]
+    hops, sources, any_disputed, any_candidate, any_unsourced, any_inverse = [], ["relation:field"], False, False, False, False
+    for h in best["hops"]:
+        rid_src = h.get("source_ids") or []
+        sourced = bool(rid_src)
+        status = h.get("status")
+        disputed = status == rf.DISPUTED
+        candidate_only = status in (rf.CANDIDATE,)
+        any_disputed = any_disputed or disputed
+        any_candidate = any_candidate or candidate_only
+        any_unsourced = any_unsourced or not sourced
+        any_inverse = any_inverse or bool(h.get("inverse_rendered"))
+        hops.append({"subject": h["subject"], "relation_type": h["relation_type"],
+                     "direction": h.get("direction"), "inverse_rendered": bool(h.get("inverse_rendered")),
+                     "object": h["object"], "source_classes": h.get("source_classes", []),
+                     "source_ids": rid_src[:3], "evidence_quote": h.get("evidence_quote"),
+                     "weight": h.get("weight"), "decayed_weight": h.get("decayed_weight"),
+                     "confidence": h.get("confidence"), "status": status, "disputed": disputed,
+                     "sourced": sourced})
+        for sid in rid_src[:2]:
+            if sid and sid not in sources:
+                sources.append(sid)
+    if any_disputed:
+        epi, why = "DISPUTED", "a hop on this path is DISPUTED → the whole chain is disputed"
+    elif any_unsourced:
+        epi, why = "PROVISIONAL", "a hop lacks a source → cannot be asserted as known"
+    elif any_candidate:
+        epi, why = "PROVISIONAL", "a hop is candidate-only (insufficient independent evidence)"
+    elif any_inverse:
+        epi, why = "PROVISIONAL", "an inverse hop was RENDERED (not stored as truth)"
+    elif best["canonical"] or all(h["status"] == rf.COMMITTED for h in best["hops"]):
+        epi, why = "KNOWN", "every hop is committed/canonical and sourced"
+    else:
+        epi, why = "PROVISIONAL", "mixed-strength chain"
+    lines = [f"Drum {start}" + (f" → {target}" if target else "") + f" [{epi}]: {why}."]
+    for h in hops:
+        tag = "DISPUTED" if h["disputed"] else h["status"]
+        inv = " [INVERS RANDAT, nu stocat ca adevăr]" if h["inverse_rendered"] else ""
+        qt = (h["evidence_quote"] or "")[:80]
+        lines.append(f"  • {h['subject']} {h['relation_type']} {h['object']} "
+                     f"[{tag}, {','.join(h['source_classes']) or 'necunoscut'}, w={h['weight']}, "
+                     f"dir={h['direction']}]{inv}" + (f" — \"{qt}\"" if qt else ""))
+    return {"found": True, "epistemic_status": epi, "why": why, "start": start, "target": target,
+            "path_status": best["path_status"], "canonical": best["canonical"],
+            "inverse_rendered": any_inverse, "hops": hops, "sources": sources[:12],
+            "answer": "\n".join(lines)}
+
+
+def decayed_relations_report(field: rf.RelationField, *, limit: int = 12) -> Dict[str, Any]:
+    return {"decayed_relations": field.decayed_relations(limit=limit)}
+
+
+def stable_relations_report(field: rf.RelationField, *, limit: int = 12) -> Dict[str, Any]:
+    return {"stable_relations": field.stable_relations(limit=limit)}
+
+
+def weak_central_nodes_report(field: rf.RelationField, *, top_n: int = 10) -> Dict[str, Any]:
+    return {"weak_central_nodes": field.weak_central_nodes(top_n=top_n)}
+
+
+def unresolved_contradictions_report(field: rf.RelationField) -> Dict[str, Any]:
+    rows = [c for c in field.contradiction_history()
+            if c.get("current_status") not in ("resolved", "superseded")]
+    return {"unresolved_contradictions": rows}
+
+
 def _brief(r: Dict[str, Any]) -> Dict[str, Any]:
-    return {"subject": r["subject"], "predicate": r.get("predicate"),
+    return {"relation_id": r.get("relation_id"), "subject": r["subject"], "predicate": r.get("predicate"),
             "relation_type": r["relation_type"], "object": r["object"], "status": r["status"],
             "source_classes": r.get("source_classes", []), "source_ids": r.get("source_ids", [])[:4],
             "evidence_quote": r.get("evidence_quote"), "method": r.get("method"),
             "origin": r.get("origin"), "weight": rf.relation_weight_score(r),
+            "decayed_weight": rf.relation_decay(r)["decayed_weight"],
+            "decay_status": rf.relation_decay(r)["decay_status"],
             "evidence_count": r.get("evidence_count", 0), "reinforcement_count": r.get("reinforcement_count", 0),
             "contradiction_count": r.get("contradiction_count", 0),
             "first_seen": r.get("first_seen"), "last_seen": r.get("last_seen"),
@@ -242,6 +361,39 @@ def render_answer(field: rf.RelationField, question: str) -> Dict[str, Any]:
             lines.append("ATENTIE: drumul contine un hop DISPUTAT -> intregul lant e provizoriu/disputat.")
         status = "DISPUTED" if best["path_status"] == rf.DISPUTED else "KNOWN"
         return _ans(status, "\n".join(lines), srcs[:12], "VERIFIED_PROJECT_FACT", "path")
+
+    # 0a2) relation-health self-state (Cycle 13): weakened / stable / need-sources / active conflicts
+    if any(w in q for w in ("slabit", "slăbit", "decayed", "weakened", "au slabit")):
+        rows = field.decayed_relations(limit=10)
+        if not rows:
+            return _ans("KNOWN", "Nicio relatie nu s-a slabit semnificativ (toate proaspete/stabile).",
+                        ["relation:field"], "VERIFIED_PROJECT_FACT", "decayed_relations")
+        lines = ["Relatii care s-au slabit in timp (decayed, inca auditabile):"]
+        lines += [f"- {r['subject']} {r['relation_type']} {r['object']} [{r['decay_status']}, "
+                  f"w={r['decayed_weight']}, {r['decay_reason']}]" for r in rows]
+        return _ans("KNOWN", "\n".join(lines), ["relation:field"], "VERIFIED_PROJECT_FACT", "decayed_relations")
+    if any(w in q for w in ("cele mai stabile", "stable relations", "relatii stabile", "relații stabile")):
+        rows = field.stable_relations(limit=10)
+        lines = ["Cele mai stabile relatii (committed/canonical, neafectate de decay):"]
+        lines += [f"- {r['subject']} {r['relation_type']} {r['object']} [w={r['decayed_weight']}]" for r in rows]
+        return _ans("KNOWN", "\n".join(lines) if rows else "Nu exista inca relatii stabile.",
+                    ["relation:field"], "VERIFIED_PROJECT_FACT", "stable_relations")
+    if any(w in q for w in ("nevoie de surse", "need sources", "slab sustinute", "slab susținute",
+                            "weakly supported", "nevoie de verificare", "need verification")):
+        rows = field.weak_central_nodes(top_n=10)
+        lines = ["Concepte centrale dar slab sustinute (au nevoie de surse/verificare):"]
+        lines += [f"- {r['name']}: grad {r['degree']}, {r['weak_relations']} relatii slabe "
+                  f"(ratie {r['weak_ratio']})" for r in rows]
+        return _ans("KNOWN", "\n".join(lines) if rows else "Niciun nod central slab sustinut.",
+                    ["relation:field"], "VERIFIED_PROJECT_FACT", "weak_central_nodes")
+    if any(w in q for w in ("contradictii raman active", "contradicții rămân active", "active contradictions",
+                            "contradictii active", "contradicții active")):
+        rows = unresolved_contradictions_report(field)["unresolved_contradictions"]
+        lines = ["Contradictii inca active (cu actiune recomandata):"]
+        lines += [f"- {c.get('incumbent')} ⟂ {c.get('challenger')} [tip: {c.get('conflict_type')}, "
+                  f"status: {c.get('current_status')} → {c.get('recommended_next_action')}]" for c in rows[:10]]
+        return _ans("KNOWN", "\n".join(lines) if rows else "Nicio contradictie activa.",
+                    ["relation:field"], "VERIFIED_PROJECT_FACT", "active_contradictions")
 
     # 0b) relation-aware self-state metrics: central concepts / disputed areas / candidate relations
     if any(w in q for w in ("centrale", "central", "organizeaza memoria", "organizează memoria",

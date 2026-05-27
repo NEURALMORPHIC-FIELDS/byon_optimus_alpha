@@ -568,6 +568,38 @@ def create_app(config: Optional[GatewayConfig] = None,
         return _relation_field().multi_hop_path(source, target, max_depth=depth,
                                                 include_inverse=include_inverse)
 
+    @app.get("/v1/lifeloop/relation-field/explain-path")
+    def relation_field_explain_path(source: str, target: Optional[str] = None, depth: int = 2,
+                                    include_inverse: bool = False) -> Dict[str, Any]:
+        from . import relation_reports as rr
+        return rr.render_path_explanation(_relation_field(), source, target,
+                                          include_inverse=include_inverse, max_depth=depth)
+
+    @app.get("/v1/lifeloop/relation-field/contradiction-history")
+    def relation_field_contradiction_history() -> Dict[str, Any]:
+        field = _relation_field()
+        return {"history": field.contradiction_history(),
+                "unresolved": [c for c in field.contradiction_history()
+                               if c.get("current_status") not in ("resolved", "superseded")]}
+
+    @app.post("/v1/lifeloop/relation-field/scan-gaps")
+    def relation_field_scan_gaps() -> Dict[str, Any]:
+        """Cycle 13: turn weak/disputed/vault-only/decayed relation gaps into controlled internal
+        research tasks (memory-only auto, web needs permission, secret-derived skipped)."""
+        from .relation_field import RelationGapScanner
+        gaps = RelationGapScanner(_relation_field(build_if_empty=False), tasks=lifeloop.tasks).scan()
+        return {"ok": True, "count": len(gaps), "gaps": gaps}
+
+    @app.post("/v1/lifeloop/relation-field/resolve-contradiction/{contradiction_id}")
+    def relation_field_resolve_contradiction(contradiction_id: str,
+                                             body: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
+        rec = _relation_field(build_if_empty=False).resolve_contradiction(
+            contradiction_id, resolution_source=body.get("resolution_source", "operator"),
+            status=body.get("status", "resolved"))
+        if rec is None:
+            raise HTTPException(status_code=404, detail="contradiction not found")
+        return {"ok": True, "contradiction": rec}
+
     @app.post("/v1/lifeloop/relation-field/propose")
     def relation_field_propose() -> Dict[str, Any]:
         """The relation field PROPOSES candidates back to the candidate lifecycle (missing fact /

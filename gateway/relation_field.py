@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import os
 import re
 import time
 from pathlib import Path
@@ -122,6 +124,73 @@ def relation_weight_score(r: Dict[str, Any], *, now_ts: Optional[float] = None,
         w -= 0.05
     return round(max(0.0, min(1.0, w)), 4)
 
+
+def _decay_cfg() -> Dict[str, Any]:
+    g = os.environ.get
+    return {
+        "enabled": g("BYON_RELATION_DECAY_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on"),
+        "half_life": float(g("BYON_RELATION_DECAY_HALF_LIFE_DAYS", "30") or 30),
+        "min_weight": float(g("BYON_RELATION_DECAY_MIN_WEIGHT", "0.15") or 0.15),
+        "mult_canonical": float(g("BYON_CANONICAL_DECAY_MULTIPLIER", "0.0") or 0.0),
+        "mult_committed": float(g("BYON_COMMITTED_DECAY_MULTIPLIER", "0.35") or 0.35),
+        "mult_candidate": float(g("BYON_CANDIDATE_DECAY_MULTIPLIER", "1.0") or 1.0),
+        "mult_disputed": float(g("BYON_DISPUTED_DECAY_MULTIPLIER", "1.5") or 1.5),
+    }
+
+
+def _age_days(r: Dict[str, Any], now_ts: float) -> float:
+    ref = r.get("last_reinforced_at") or r.get("last_seen") or r.get("updated_at") or ""
+    try:
+        return max(0.0, (now_ts - time.mktime(time.strptime(ref, "%Y-%m-%dT%H:%M:%SZ"))) / 86400.0)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def relation_decay(r: Dict[str, Any], *, now_ts: Optional[float] = None) -> Dict[str, Any]:
+    """Temporal trust decay (Cycle 13). Returns {decay_factor, decayed_weight, decay_status,
+    decay_reason, age_days, base_weight}. Old/weak/unreinforced/disputed relations LOSE ranking
+    weight; canonical resists (multiplier 0); committed decays slower than candidate; reinforcement
+    recovers weight. Decay NEVER deletes or archives — it only lowers influence and stays auditable."""
+    now_ts = now_ts if now_ts is not None else time.time()
+    cfg = _decay_cfg()
+    tomb = bool(r.get("tombstoned"))
+    base = relation_weight_score(r, now_ts=now_ts, tombstoned=tomb)
+    if not cfg["enabled"]:
+        return {"decay_factor": 1.0, "decayed_weight": base, "decay_status": "disabled",
+                "decay_reason": "decay disabled", "age_days": 0.0, "base_weight": base}
+    classes = set(r.get("source_classes", []))
+    canonical = r.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in classes
+    status = r.get("status")
+    if canonical:
+        mult, why = cfg["mult_canonical"], "canonical (resists decay)"
+    elif status == DISPUTED:
+        mult, why = cfg["mult_disputed"], "disputed (decays faster)"
+    elif status == COMMITTED:
+        mult, why = cfg["mult_committed"], "committed (decays slower)"
+    else:
+        mult, why = cfg["mult_candidate"], "candidate-only"
+    if "VERIFIED_PROJECT_FACT" in classes:
+        mult *= 0.4
+    elif "DOMAIN_VERIFIED" in classes:
+        mult *= 0.7
+    if len(set(r.get("source_ids", []))) >= 2:
+        mult *= 0.7                                        # multiple independent sources resist
+    if r.get("method") == "claude_advisory":
+        mult *= 1.3                                        # weak method decays faster
+    age = _age_days(r, now_ts)
+    if tomb:
+        factor = 0.2                                       # tombstoned source decays hard
+        why = "tombstoned source"
+    elif mult <= 0 or cfg["half_life"] <= 0:
+        factor = 1.0
+    else:
+        factor = 0.5 ** (age * mult / cfg["half_life"])
+    decayed = round(max(cfg["min_weight"], base * factor), 4)
+    decay_status = "fresh" if factor >= 0.8 else ("decaying" if factor >= 0.4 else "stale")
+    return {"decay_factor": round(factor, 4), "decayed_weight": decayed, "decay_status": decay_status,
+            "decay_reason": f"{why}; age {age:.0f}d, half-life {cfg['half_life']:.0f}d", "age_days": round(age, 1),
+            "base_weight": base}
+
 # raw predicate -> normalised relation type
 _PRED_MAP = {
     "has_component": HAS_COMPONENT, "component_of": HAS_COMPONENT, "has component": HAS_COMPONENT,
@@ -199,8 +268,10 @@ class RelationField:
         self.dir = Path(namespace_dir)
         self.entities_path = self.dir / "relation_entities.jsonl"
         self.edges_path = self.dir / "relation_edges.jsonl"
+        self.contradictions_path = self.dir / "relation_contradictions.jsonl"   # Cycle 13 ledger
         self._ent: Dict[str, Dict[str, Any]] = {}
         self._rel: Dict[str, Dict[str, Any]] = {}
+        self._contra: Dict[str, Dict[str, Any]] = {}
         self._alias: Dict[str, str] = {}     # normalised alias/name -> entity_id
         self._load()
 
@@ -216,6 +287,14 @@ class RelationField:
                         key = r.get("entity_id") or r.get("relation_id")
                         if key:
                             sink[key] = r
+            except (OSError, json.JSONDecodeError):
+                pass
+        if self.contradictions_path.exists():
+            try:
+                for line in self.contradictions_path.read_text(encoding="utf-8").splitlines():
+                    if line.strip():
+                        c = json.loads(line)
+                        self._contra[c["contradiction_id"]] = c   # last record wins
             except (OSError, json.JSONDecodeError):
                 pass
         for e in self._ent.values():
@@ -310,7 +389,8 @@ class RelationField:
                  # Cycle 11: provenance + inference origin
                  "origin": origin, "evidence_quote": evidence_quote, "method": method,
                  # temporal tracking
-                 "first_seen": now, "last_seen": now, "reinforcement_count": 0,
+                 "first_seen": now, "last_seen": now, "last_reinforced_at": now,
+                 "reinforcement_count": 0, "tombstoned": False,
                  "contradicted_at": None, "committed_at": None, "archived_at": None,
                  "source_history": []}
             action = "created"
@@ -325,6 +405,7 @@ class RelationField:
         if source_id and source_id not in r["source_ids"]:
             r["source_ids"].append(source_id)
             r["evidence_count"] = r.get("evidence_count", 0) + 1
+            r["last_reinforced_at"] = now                  # Cycle 13: reinforcement recovers from decay
             if action == "reinforced":
                 r["reinforcement_count"] = r.get("reinforcement_count", 0) + 1
         if source_class and source_class not in r["source_classes"]:
@@ -401,12 +482,16 @@ class RelationField:
         return {"entities": ent_hits[:limit], "relations": rel_hits[:limit]}
 
     def _priority(self, r: Dict[str, Any]):
-        # Cycle 12: rank by evidence/source weight (committed/canonical/quality up; disputed/
-        # candidate-only/vault-objective/stale down) — disputed stays VISIBLE, just lower.
-        return (relation_weight_score(r), r.get("updated_at", ""))
+        # Cycle 12/13: rank by DECAYED evidence/source weight (committed/canonical/quality up;
+        # disputed/candidate-only/vault-objective/stale/decayed down) — disputed & decayed relations
+        # stay VISIBLE, just lower influence.
+        return (relation_decay(r)["decayed_weight"], r.get("updated_at", ""))
 
     def weight(self, r: Dict[str, Any]) -> float:
         return relation_weight_score(r)
+
+    def decayed_weight(self, r: Dict[str, Any]) -> float:
+        return relation_decay(r)["decayed_weight"]
 
     def source_class_breakdown(self) -> Dict[str, int]:
         out: Dict[str, int] = {}
@@ -447,6 +532,13 @@ class RelationField:
             # Cycle 12: relation-aware self-state metrics
             "central_concepts": self.central_concepts(10),
             "disputed_areas": self.disputed_areas(10),
+            # Cycle 13: decay + stability + gaps + contradiction history
+            "decay_enabled": _decay_cfg()["enabled"],
+            "decayed_relations": self.decayed_relations(limit=10),
+            "stable_relations": self.stable_relations(limit=10),
+            "weak_central_nodes": self.weak_central_nodes(top_n=10),
+            "active_contradictions": [c for c in self.contradiction_history()
+                                      if c.get("current_status") not in ("resolved", "superseded")][:10],
         }
 
     # -- relation metrics + conflict classification (Cycle 12) --------------
@@ -487,9 +579,58 @@ class RelationField:
         rows = [r for r in self._rel.values() if r.get("status") in (CANDIDATE, REINFORCED)]
         return sorted(rows, key=self._priority, reverse=True)[:limit]
 
+    def decayed_relations(self, *, limit: int = 12, threshold: float = 0.45) -> List[Dict[str, Any]]:
+        """Relations whose decay factor has fallen (weakened over time) — auditable, not deleted."""
+        rows = []
+        for r in self._rel.values():
+            d = relation_decay(r)
+            if d["decay_factor"] < 0.8 and d["decay_status"] != "disabled":
+                rows.append({"subject": r["subject"], "relation_type": r["relation_type"],
+                             "object": r["object"], "status": r["status"],
+                             "decay_status": d["decay_status"], "decayed_weight": d["decayed_weight"],
+                             "decay_reason": d["decay_reason"], "age_days": d["age_days"]})
+        rows.sort(key=lambda x: x["decayed_weight"])
+        return rows[:limit]
+
+    def stable_relations(self, *, limit: int = 12) -> List[Dict[str, Any]]:
+        rows = []
+        for r in self._rel.values():
+            d = relation_decay(r)
+            if d["decay_factor"] >= 0.8 and r.get("status") in (COMMITTED, REINFORCED):
+                rows.append({"subject": r["subject"], "relation_type": r["relation_type"],
+                             "object": r["object"], "status": r["status"],
+                             "decayed_weight": d["decayed_weight"]})
+        rows.sort(key=lambda x: x["decayed_weight"], reverse=True)
+        return rows[:limit]
+
+    def weak_central_nodes(self, *, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Central concepts whose supporting relations are weak/candidate/decayed — need sources."""
+        deg: Dict[str, int] = {}
+        weak: Dict[str, int] = {}
+        for r in self._rel.values():
+            d = relation_decay(r)
+            is_weak = r.get("status") in (CANDIDATE, DISPUTED) or d["decay_status"] == "stale"
+            for end in (self.resolve(r["subject"]), self.resolve(r["object"])):
+                if end:
+                    deg[end] = deg.get(end, 0) + 1
+                    if is_weak:
+                        weak[end] = weak.get(end, 0) + 1
+        rows = []
+        for eid, d in deg.items():
+            e = self._ent.get(eid)
+            if e and weak.get(eid, 0) > 0 and d >= 2:
+                rows.append({"name": e["canonical_name"], "degree": d,
+                             "weak_relations": weak.get(eid, 0),
+                             "weak_ratio": round(weak.get(eid, 0) / d, 2)})
+        rows.sort(key=lambda x: (x["weak_ratio"], x["degree"]), reverse=True)
+        return rows[:top_n]
+
     def relation_metrics(self) -> Dict[str, Any]:
         c = self.counts()
         return {"central_concepts": self.central_concepts(8), "disputed_areas": self.disputed_areas(8),
+                "decayed_relations": self.decayed_relations(limit=8),
+                "stable_relations": self.stable_relations(limit=8),
+                "weak_central_nodes": self.weak_central_nodes(top_n=8),
                 "recently_reinforced": [{"subject": r["subject"], "relation_type": r["relation_type"],
                                          "object": r["object"], "reinforcement_count": r.get("reinforcement_count", 0),
                                          "last_seen": r.get("last_seen")} for r in self.recently_reinforced(8)],
@@ -525,6 +666,53 @@ class RelationField:
                 pass
         return "direct_contradiction"
 
+    # -- contradiction evolution / history (Cycle 13) -----------------------
+    _NEXT_ACTION = {"canonical_conflict": "canonical_overrides",
+                    "temporal_conflict": "reinforce_current_relation",
+                    "source_scope_conflict": "ask_user_for_source",
+                    "direct_contradiction": "keep_disputed"}
+
+    def _record_contradiction(self, *, incumbent: Optional[Dict[str, Any]],
+                              challenger: Dict[str, Any], source_id: Optional[str]) -> None:
+        cid = "contra_" + hashlib.sha1(
+            f"{(incumbent or {}).get('relation_id','')}|{challenger.get('relation_id','')}".encode()
+        ).hexdigest()[:12]
+        conflict_type = self.classify_conflict(challenger if challenger.get("contradiction_count")
+                                               else (incumbent or challenger))
+        status = "canonical_overrides" if conflict_type == "canonical_conflict" else "active"
+        now = _now()
+        rec = self._contra.get(cid)
+        if rec is None:
+            rec = {"contradiction_id": cid, "first_seen": now,
+                   "source_that_introduced_conflict": source_id,
+                   "incumbent_relation": (incumbent or {}).get("relation_id"),
+                   "challenger_relation": challenger.get("relation_id"),
+                   "incumbent": f"{(incumbent or {}).get('subject','')} {(incumbent or {}).get('relation_type','')} {(incumbent or {}).get('object','')}".strip(),
+                   "challenger": f"{challenger.get('subject','')} {challenger.get('relation_type','')} {challenger.get('object','')}".strip(),
+                   "resolution_source": None}
+        rec["last_seen"] = now
+        rec["conflict_type"] = conflict_type
+        rec["current_status"] = rec.get("current_status") if rec.get("current_status") in (
+            "resolved", "superseded") else status
+        rec["recommended_next_action"] = self._NEXT_ACTION.get(conflict_type, "keep_disputed")
+        self._contra[cid] = rec
+        self._append(self.contradictions_path, rec)
+
+    def contradiction_history(self) -> List[Dict[str, Any]]:
+        return sorted(self._contra.values(), key=lambda c: c.get("last_seen", ""), reverse=True)
+
+    def resolve_contradiction(self, contradiction_id: str, *, resolution_source: str,
+                              status: str = "resolved") -> Optional[Dict[str, Any]]:
+        rec = self._contra.get(contradiction_id)
+        if not rec:
+            return None
+        rec["current_status"] = status
+        rec["resolution_source"] = resolution_source
+        rec["last_seen"] = _now()
+        self._contra[contradiction_id] = rec
+        self._append(self.contradictions_path, rec)
+        return rec
+
     # -- relation-candidate lifecycle (Cycle 11) ----------------------------
     def ingest_candidate_relation(self, rc: Dict[str, Any]) -> Dict[str, Any]:
         """Add one inferred RelationCandidate. A contradiction edge ALSO disputes any existing
@@ -538,7 +726,9 @@ class RelationField:
                                   status=DISPUTED, origin="inferred",
                                   evidence_quote=rc.get("evidence_quote"), method=rc.get("method"),
                                   confidence=rc.get("confidence"))
-            self._dispute_between(subj, obj, rc.get("source_id"))
+            incumbents = self._dispute_between(subj, obj, rc.get("source_id"))
+            self._record_contradiction(incumbent=(incumbents[0] if incumbents else None),
+                                       challenger=r, source_id=rc.get("source_id"))
             return r
         return self.add_relation(subj, rc.get("predicate") or "", obj,
                                  relation_type=rc.get("relation_type"), source_id=rc.get("source_id"),
@@ -546,9 +736,9 @@ class RelationField:
                                  evidence_quote=rc.get("evidence_quote"), method=rc.get("method"),
                                  confidence=rc.get("confidence"))
 
-    def _dispute_between(self, subject: str, obj: str, source_id: Optional[str]) -> int:
+    def _dispute_between(self, subject: str, obj: str, source_id: Optional[str]) -> List[Dict[str, Any]]:
         sid, oid = self.resolve(subject), self.resolve(obj)
-        n = 0
+        disputed = []
         for r in self._rel.values():
             if r.get("relation_type") == CONTRADICTS:
                 continue
@@ -560,8 +750,8 @@ class RelationField:
                 r["updated_at"] = _now()
                 self._rel[r["relation_id"]] = r
                 self._append(self.edges_path, r)
-                n += 1
-        return n
+                disputed.append(r)
+        return disputed
 
     def relation_quality(self, r: Dict[str, Any]) -> float:
         ev = len(set(r.get("source_ids", [])))
@@ -689,11 +879,14 @@ class RelationField:
         for r, direction, inv in steps:
             rtype = r["relation_type"]
             shown_type = _INVERSE_TYPE.get(rtype, rtype) if inv else rtype
+            dec = relation_decay(r)
             hops.append({"subject": r["subject"], "relation_type": shown_type,
                          "stored_relation_type": rtype, "object": r["object"], "status": r["status"],
                          "direction": direction, "inverse_rendered": inv,
                          "source_classes": r.get("source_classes", []),
                          "source_ids": r.get("source_ids", [])[:3], "weight": relation_weight_score(r),
+                         "decayed_weight": dec["decayed_weight"], "decay_status": dec["decay_status"],
+                         "confidence": round(min(0.99, dec["decayed_weight"]), 3),
                          "evidence_quote": r.get("evidence_quote")})
         return {"length": len(hops), "path_status": path_status, "canonical": canonical,
                 "weight": weight, "inverse_rendered": inverse_rendered,
@@ -1042,3 +1235,82 @@ class RelationProposer:
             return [json.loads(x) for x in self.path.read_text(encoding="utf-8").splitlines() if x.strip()]
         except (OSError, json.JSONDecodeError):
             return []
+
+
+# -- relation-gap task generation (Cycle 13) --------------------------------
+_SECRET_RX = re.compile(r"(?i)\b(password|parol[ăa]|secret|api[ _-]?key|token|pin|iban|cnp|"
+                        r"credit\s*card|cont\s+bancar)\b")
+_OBJECTIVE_GAP_TYPES = {HAS_COMPONENT, DEPENDS_ON, ROLE_OF, CAUSED_BY, DERIVED_FROM}
+
+
+class RelationGapScanner:
+    """LifeLoop-side: turn weak / disputed / vault-only-objective / decayed-central relation GAPS
+    into controlled internal research tasks. Memory-only tasks may run automatically; web tasks need
+    permission; secret-derived gaps produce no task; task results become candidates, never truth.
+    The relation field PROPOSES — it never commits."""
+
+    def __init__(self, field: "RelationField", *, tasks: Optional[Any] = None) -> None:
+        self.f = field
+        self.tasks = tasks
+
+    def _file(self, *, gap_type: str, subject: str, obj: str, question: str, allowed, rid: str):
+        if _SECRET_RX.search(f"{subject} {obj}"):
+            return {"gap_type": gap_type, "relation_id": rid, "task_id": None, "skipped": "secret"}
+        task_id = None
+        if self.tasks is not None:
+            try:
+                t = self.tasks.create(topic=f"relgap:{rid}", question=question,
+                                      allowed_sources=allowed, trigger_event_ids=[rid])
+                task_id = (t or {}).get("task_id")
+            except Exception:
+                task_id = None
+        return {"gap_type": gap_type, "relation_id": rid, "subject": subject, "object": obj,
+                "task_id": task_id, "allowed_sources": allowed,
+                "requires_permission": "web" in allowed}
+
+    def scan(self, *, cap: int = 20) -> List[Dict[str, Any]]:
+        from . import relation_policy as rp
+        out: List[Dict[str, Any]] = []
+        weak_central = {r["name"] for r in self.f.weak_central_nodes(top_n=8)}
+        for r in list(self.f._rel.values()):
+            if len(out) >= cap:
+                break
+            rid, subj, obj = r["relation_id"], r["subject"], r["object"]
+            status, rtype = r.get("status"), r.get("relation_type")
+            classes = r.get("source_classes", [])
+            ev = len(set(r.get("source_ids", [])))
+            d = relation_decay(r)
+            gap = None
+            if status == DISPUTED:
+                gap = self._file(gap_type="resolve_dispute", subject=subj, obj=obj, rid=rid,
+                                 question=f"resolve dispute: {subj} {rtype} {obj}",
+                                 allowed=["memory", "vault", "self_state"])
+            elif rtype in _OBJECTIVE_GAP_TYPES and rp.is_vault_only(classes):
+                # objective relation blocked because source is vault-only → seek a verified source
+                gap = self._file(gap_type="verify_with_project_source", subject=subj, obj=obj, rid=rid,
+                                 question=f"find a verified/project source for: {subj} {rtype} {obj}",
+                                 allowed=["memory", "vault", "self_state"])
+            elif "PROVISIONAL_WEB" in classes and ev < 2:
+                gap = self._file(gap_type="request_web_permission", subject=subj, obj=obj, rid=rid,
+                                 question=f"verify with independent web sources: {subj} {rtype} {obj}",
+                                 allowed=["memory", "web"])
+            elif status == CANDIDATE and ev < 2:
+                gap = self._file(gap_type="find_internal_evidence", subject=subj, obj=obj, rid=rid,
+                                 question=f"find internal evidence for: {subj} {rtype} {obj}",
+                                 allowed=["memory", "vault", "self_state"])
+            elif d["decay_status"] == "stale" and (subj in weak_central or obj in weak_central):
+                gap = self._file(gap_type="inspect_relation_gap", subject=subj, obj=obj, rid=rid,
+                                 question=f"central but decayed relation needs review: {subj} {rtype} {obj}",
+                                 allowed=["memory", "vault", "self_state"])
+            if gap:
+                out.append(gap)
+        return out
+
+    def scan_path_gap(self, start: str, target: str) -> Optional[Dict[str, Any]]:
+        """A failed path query (no directed path within depth) creates a missing-relation task."""
+        if not self.f.multi_hop_path(start, target, max_depth=2)["paths"]:
+            return self._file(gap_type="inspect_relation_gap", subject=start, obj=target,
+                              rid=_rid(start, "missing_path", target),
+                              question=f"missing relation between {start} and {target}",
+                              allowed=["memory", "vault", "self_state"])
+        return None

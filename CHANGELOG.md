@@ -5,6 +5,42 @@ Progression of the off-Colab → enterprise harness. Each entry lists what chang
 
 ---
 
+## [10.16.0-alpha] — Cycle 13: objective relation answering + trust decay + grounded path explanation
+
+> Relation context extends (safely) to GENERAL OBJECTIVE answers; relations DECAY over time without
+> being deleted; multi-hop paths get readable grounded explanations; contradictions become temporal
+> auditable objects with next-actions; relation GAPS spawn controlled internal tasks.
+> **Live verdict: 178/178 graded gates PASS, 0 fail** (all Cycle 1–12 gates + 23 new), restart recall passed.
+
+### Added
+- **Temporal trust decay** (`relation_decay`): old/weak/unreinforced/disputed relations LOSE ranking
+  weight (canonical resists, multiplier 0; committed decays slower than candidate; reinforcement
+  recovers; tombstoned decays hard). Config `BYON_RELATION_DECAY_*`. Decay never deletes/archives —
+  it only lowers influence and stays auditable. `decayed_weight` now drives all relation ranking.
+- **General objective relation-aware answering**: committed/policy-allowed relations contribute
+  SECONDARY context to objective `GENERAL_FACT` queries (not just architecture), reranked WITH memory
+  facts; vault-only objective relations excluded; never for secrets; never overrides a committed fact.
+- **Grounded path explanation** (`render_path_explanation` + `GET …/explain-path`): per-hop relation
+  type, direction, inverse-rendered flag, source class, evidence quote, confidence, weight, decayed
+  weight, status; epistemic status DISPUTED (any disputed hop) / PROVISIONAL (candidate/unsourced/
+  inverse) / KNOWN (all committed-canonical + sourced).
+- **Contradiction evolution** (`relation_contradictions.jsonl` + `…/contradiction-history`,
+  `…/resolve-contradiction`): contradiction_id, first/last_seen, source, incumbent/challenger,
+  conflict_type, current_status, recommended_next_action, resolution_source.
+- **Relation-gap task generation** (`RelationGapScanner` + `…/scan-gaps`): weak/disputed/vault-only-
+  objective/decayed-central gaps → memory-only research tasks (web needs permission, secret-derived
+  skipped, results become candidates). The field proposes, never commits.
+- **Relation-aware self-state**: decayed/stable relations, weak central nodes, active contradictions
+  in `status()` and via relation queries.
+- **Answer safety metadata** (S7): `relation_context_used` + `relation_context` block
+  (source_classes, relation_ids, primary/secondary, any_disputed/candidate/decayed, policy reason).
+
+### Verified
+- 514 non-live tests (55 new); live harness **178/178 graded PASS, 0 fail** (23 new Cycle 13 gates +
+  all Cycle 1–12). Two-phase restart verify passed. Relation field still `is_truth_authority: false`;
+  decay never deletes; vault-only objective relations never become objective truth; source policy +
+  the Auditor remain dominant; FULL_LEVEL3_NOT_DECLARED preserved.
+
 ## [10.15.0-alpha] — Cycle 12: directed, evidence-weighted, policy-aware relational reasoning
 
 > Relation reasoning moves from undirected structure to DIRECTED, evidence-WEIGHTED, source-policy-

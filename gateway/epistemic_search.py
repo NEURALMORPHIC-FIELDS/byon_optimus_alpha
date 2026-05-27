@@ -124,20 +124,43 @@ class EpistemicSearch:
                         out.append(h)
         return out
 
-    def _relation_context_hits(self, question: str, namespace_dir):
-        """Cycle 12: committed relations from the relation field as memory-style context hits
-        (source 'relation:...'), policy-gated. Best-effort: any failure yields no context and never
-        breaks the answer path."""
+    @staticmethod
+    def _attach_relation_context(syn, rel_bundle, committed) -> None:
+        """Cycle 13 (S7): record relation-context safety metadata on the synthesis. Relation context
+        is SECONDARY whenever a committed memory fact grounded the answer; it never converts the
+        answer's source_class above what the committed grounding already established."""
+        if not rel_bundle or not rel_bundle.get("used"):
+            syn["relation_context_used"] = False
+            return
+        has_committed_fact = bool(committed)
+        syn["relation_context_used"] = True
+        syn["relation_context"] = {
+            "used": True,
+            "primary": not has_committed_fact,   # primary only when no committed memory fact grounded it
+            "source_classes": rel_bundle.get("source_classes", []),
+            "relation_ids": rel_bundle.get("relation_ids", []),
+            "any_disputed": rel_bundle.get("any_disputed", False),
+            "any_candidate": rel_bundle.get("any_candidate", False),
+            "any_decayed": rel_bundle.get("any_decayed", False),
+            "policy_reason": rel_bundle.get("reason"),
+            "epistemic_status": syn.get("epistemic_verdict"),
+        }
+
+    def _relation_bundle(self, question: str, namespace_dir):
+        """Cycle 12/13: policy-gated committed relation CONTEXT + safety metadata for a normal answer.
+        Best-effort: any failure yields an empty (unused) bundle and never breaks the answer path."""
+        empty = {"used": False, "hits": [], "relation_ids": [], "source_classes": [], "primary": False,
+                 "any_disputed": False, "any_candidate": False, "any_decayed": False, "blocked": False}
         try:
             from .relation_field import lifeloop_field
             from . import relation_reports as rr
             users_root = os.path.dirname(str(namespace_dir)) if namespace_dir else "runtime/users"
             field = lifeloop_field(users_root)
             if field.is_empty():
-                return []
-            return rr.relation_context_hits(field, question, is_secret=False, limit=6)
+                return empty
+            return rr.relation_context_bundle(field, question, is_secret=False, limit=6)
         except Exception:
-            return []
+            return empty
 
     def _describe_from_facts(self, question: str, committed_hits):
         """Self-knowledge synthesis: describe from the TOP canonical facts, with Claude as a
@@ -266,15 +289,27 @@ class EpistemicSearch:
         # SELF/architecture queries: actively gather the canonical relation/repo facts (so the
         # answer is complete cross-lingually), then synthesize a description with Claude as
         # language faculty over those GROUNDED facts.
+        rel_bundle = None
         if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
             canon = self._gather_canonical(mem_client, user_id) if mem_client else []
             # Cycle 12: relation-aware normal answering — committed relations contribute CONTEXT
             # (source 'relation:...', policy-gated; vault-only objective relations excluded). They
             # rerank WITH memory facts and never outrank a real committed memory fact, and are never
             # gathered for a secret query (is_secret_query already returned above).
-            rel_ctx = self._relation_context_hits(question, namespace_dir)
-            pool = qr.rerank(raw_hits + canon + rel_ctx, intent)
+            rel_bundle = self._relation_bundle(question, namespace_dir)
+            pool = qr.rerank(raw_hits + canon + rel_bundle.get("hits", []), intent)
             committed_pool = qr.committed(pool)
+        elif intent == qr.GENERAL_FACT_QUERY and qclass == sp.Q_OBJECTIVE:
+            # Cycle 13: general objective relation-aware answering. Committed/policy-allowed relations
+            # contribute SECONDARY context (memory facts still rank first; vault-only objective
+            # relations excluded; candidate/disputed relations can't make an answer KNOWN).
+            rel_bundle = self._relation_bundle(question, namespace_dir)
+            if rel_bundle.get("used"):
+                pool = qr.rerank(raw_hits + rel_bundle["hits"], intent)
+                memory_hits = [h for h in pool if not _bleeds(h)]
+                committed_pool = qr.committed(memory_hits)
+            else:
+                committed_pool = committed
         else:
             committed_pool = committed
         # A personal vault note must NEVER override a fixed canonical constraint under paraphrase
@@ -367,6 +402,7 @@ class EpistemicSearch:
             syn["query_class"] = qclass
             syn["source_class"] = sp.source_class_of(committed[0])
             syn["vault_primary"] = sp.source_class_of(committed[0]) == sp.EXTRACTED_USER_CLAIM
+            self._attach_relation_context(syn, rel_bundle, committed)
             clk.set_phase("done")
             learning.record_event("chat", question=question, status=syn["epistemic_verdict"], grounded=True)
             return self._result(trace_id, clk, syn["epistemic_verdict"], "done",
@@ -435,6 +471,7 @@ class EpistemicSearch:
             syn["source_class"] = sp.UNKNOWN
         syn["vault_primary"] = (intent == qr.USER_VAULT_QUERY) or \
             (syn.get("source_class") == sp.EXTRACTED_USER_CLAIM)
+        self._attach_relation_context(syn, rel_bundle, committed_pool)
 
         # --- vault notes are framed as the USER'S notes, not current system state -----------
         if intent == qr.USER_VAULT_QUERY and syn.get("answer"):

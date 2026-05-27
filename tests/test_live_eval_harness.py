@@ -171,6 +171,24 @@ def test_harness_covers_cycle12_gates():
         assert gate in src, f"harness missing Cycle 12 gate {gate}"
 
 
+def test_harness_covers_cycle13_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle13_suite)
+    for gate in ["general_objective_uses_relation_context", "vault_relation_blocked_for_objective_truth",
+                 "trust_decay_reduces_stale_relation_weight", "canonical_relation_resists_decay",
+                 "recently_reinforced_relation_recovers_weight", "path_explanation_has_quotes_and_confidence",
+                 "path_explanation_has_decay_weight", "disputed_path_answer_is_disputed",
+                 "weak_path_answer_is_provisional", "inverse_path_has_warning",
+                 "contradiction_history_visible", "canonical_conflict_next_action_visible",
+                 "temporal_conflict_resolution_visible", "weak_relation_gap_creates_task",
+                 "vault_only_objective_relation_requests_verified_source", "relation_self_state_reports_decay",
+                 "weak_central_nodes_reported", "relation_context_metadata_present",
+                 "source_policy_still_dominant", "relation_field_still_not_truth_authority",
+                 "candidate_lifecycle_still_passes", "restart_recall_still_passes",
+                 "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 13 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

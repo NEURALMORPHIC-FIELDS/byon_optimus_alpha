@@ -11,7 +11,7 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.15-alpha (Active Memory Runtime + directed evidence-weighted relational reasoning, validated, real runs).** Progression:
+> **Status — v10.16-alpha (Active Memory Runtime + decaying, explainable relational reasoning, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
@@ -46,8 +46,13 @@ maintainable, testable, locally-runnable product:
 > respects per-type direction (inverse only rendered on request, never stored), relations are ranked
 > by an evidence/source weight, a relation-type source policy prevents source-class misuse, committed
 > relations feed NORMAL answers as gated context, and contradictions are classified by conflict type;
-> the relation field stays **non-authoritative** (**live harness 155/155 graded PASS, 0 fail**;
-> restart recall passes; **459 non-live tests**).
+> the relation field stays **non-authoritative** →
+> **v10.16-alpha** **objective relation answering + temporal trust decay + grounded path explanation**
+> — relations also inform general objective answers (policy-gated, secondary), old/weak relations
+> DECAY in influence without being deleted (canonical resists), multi-hop paths get readable grounded
+> explanations with per-hop confidence, contradictions become temporal auditable objects with
+> next-actions, and relation gaps spawn controlled internal tasks; still **non-authoritative**
+> (**live harness 178/178 graded PASS, 0 fail**; restart recall passes; **514 non-live tests**).
 > BYON stays the only epistemic authority throughout; LifeLoop observes and proposes but never
 > answers the user or decides truth. See `STATUS.md` and `CHANGELOG.md`.
 >

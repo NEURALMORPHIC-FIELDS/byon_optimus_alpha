@@ -94,7 +94,13 @@ RELATION_FIELD_TRIGGERS = ["relatie intre", "relatie între", "relatia intre", "
                            "cele mai centrale", "noduri centrale", "concepte centrale",
                            "zone au cele mai multe contradic", "zone cu cele mai multe contradic",
                            "ce relatii sunt candidate", "ce relații sunt candidate",
-                           "relatii s-au intarit recent", "relații s-au întărit recent"]
+                           "relatii s-au intarit recent", "relații s-au întărit recent",
+                           # Cycle 13: relation-health self-state
+                           "ce relatii ti-au slabit", "ce relații ți-au slăbit", "relatii care s-au slabit",
+                           "cele mai stabile", "relatii stabile", "relații stabile",
+                           "ce zone au nevoie de surse", "concepte centrale dar slab", "nevoie de verificare",
+                           "ce contradictii raman active", "ce contradicții rămân active",
+                           "contradictii active", "contradicții active"]
 VAULT_STATUS_TRIGGERS = ["cat din vault ai indexat", "cât din vault ai indexat", "statusul vaultului",
                          "care este statusul vaultului", "vault training status",
                          "ce ai indexat din obsidian", "status vault", "cat ai indexat din vault"]

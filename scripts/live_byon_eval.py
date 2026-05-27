@@ -444,6 +444,10 @@ class Harness:
         # A19. Directed, evidence-weighted, policy-aware relational reasoning gates (Cycle 12).
         self._cycle12_suite()
 
+        # A20. Objective relation answering + trust decay + path explanation + contradiction
+        #      evolution + relation-gap tasks + relation self-state (Cycle 13).
+        self._cycle13_suite()
+
         # A9. Restart recall: a real two-phase gate driven by BYON_EVAL_RESTART_PHASE.
         self._restart_recall_gate()
 
@@ -1837,6 +1841,226 @@ class Harness:
             hits = []
         self._add("restart_recall_still_passes", any(h.get("content") for h in hits),
                   "committed self-knowledge not retrievable from engine", category=CAT_RESTART)
+        try:
+            l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
+        except Exception:
+            l3 = False
+        self._add("FULL_LEVEL3_NOT_DECLARED_preserved", l3, "level-3 flag not preserved", category="other")
+
+    # -- Cycle 13: objective answering + decay + path explanation + contradiction evolution -----
+    def _cycle13_suite(self) -> None:
+        import os as _os
+        import time as _t
+        base = f"{self.url}/v1/lifeloop/relation-field"
+
+        def rf_get(path):
+            try:
+                return httpx.get(f"{base}/{path}", timeout=40).json()
+            except Exception:
+                return {}
+
+        def rf_post(path):
+            try:
+                return httpx.post(f"{base}/{path}", timeout=60).json()
+            except Exception:
+                return {}
+
+        def infer(body):
+            try:
+                return httpx.post(f"{base}/infer", json=body, timeout=40).json()
+            except Exception:
+                return {}
+
+        uid = uuid.uuid4().hex[:6]
+        rf_post("rebuild")
+
+        # direct field handle for planting decay/contradiction fixtures (same pattern as Cycle 12)
+        fld = None
+        try:
+            from gateway.relation_field import RelationField
+            from gateway.namespace import UserNamespace
+            root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
+            fld = RelationField(root)
+        except Exception:
+            fld = None
+
+        # 1/18. general objective query uses relation context (committed relation grounds it) + metadata
+        hx, cx = f"helios{uid}", f"calib{uid}"
+        infer({"text": f"{hx} depends on {cx}", "source": f"h1_{uid}", "source_class": "VERIFIED_PROJECT_FACT"})
+        infer({"text": f"{hx} depends on {cx}", "source": f"h2_{uid}", "source_class": "VERIFIED_PROJECT_FACT"})
+        rf_post("consolidate")
+        out = self.research(f"de ce este important {hx}?", user=f"c13_{uid}", session="c13")
+        syn = out.get("synthesis") or {}
+        self._add("general_objective_uses_relation_context", bool(syn.get("relation_context_used")),
+                  f"objective query did not use relation context ({out.get('epistemic_status')})",
+                  category="other", epistemic_status=out.get("epistemic_status"))
+        rc = syn.get("relation_context") or {}
+        self._add("relation_context_metadata_present",
+                  isinstance(rc, dict) and "source_classes" in rc and "relation_ids" in rc
+                  and "any_disputed" in rc,
+                  f"relation context metadata missing ({list(rc)})", category="other")
+
+        # 2. vault-only objective relation does not become objective truth (not committed)
+        vo, oo = f"vobj{uid}", f"other{uid}"
+        for s in (f"vs1_{uid}", f"vs2_{uid}"):
+            infer({"text": f"{vo} depends on {oo}", "source": s, "source_class": "EXTRACTED_USER_CLAIM"})
+        rf_post("consolidate")
+        vrel = next((r for r in (rf_get(f"neighborhood/{vo}").get("neighborhood") or {}).get("relations", [])
+                     if r.get("relation_type") == "depends_on"), {})
+        self._add("vault_relation_blocked_for_objective_truth", vrel.get("status") != "committed",
+                  f"vault objective relation committed ({vrel.get('status')})", category=CAT_SOURCE_BLEED)
+
+        # 3/4/5. trust decay
+        if fld is not None:
+            sds, sdo = f"stalesub{uid}", f"staleobj{uid}"
+            sr = fld.add_relation(sds, "depends_on", sdo, relation_type="depends_on",
+                                  source_id=f"st_{uid}", source_class="EXTRACTED_USER_CLAIM")
+            sr["last_reinforced_at"] = "2025-01-01T00:00:00Z"
+            sr["last_seen"] = "2025-01-01T00:00:00Z"
+            fld._rel[sr["relation_id"]] = sr
+            fld._append(fld.edges_path, sr)
+            import gateway.relation_field as _rfmod
+            d_stale = _rfmod.relation_decay(sr)
+            self._add("trust_decay_reduces_stale_relation_weight",
+                      d_stale["decayed_weight"] < d_stale["base_weight"] and d_stale["decay_status"] != "fresh",
+                      f"stale relation not decayed ({d_stale})", category="other")
+            # reinforce -> recover
+            sr2 = fld.add_relation(sds, "depends_on", sdo, relation_type="depends_on",
+                                   source_id=f"st2_{uid}", source_class="VERIFIED_PROJECT_FACT")
+            d_recov = _rfmod.relation_decay(sr2)
+            self._add("recently_reinforced_relation_recovers_weight",
+                      d_recov["decay_factor"] > d_stale["decay_factor"],
+                      f"reinforcement did not recover weight ({d_recov['decay_factor']} vs {d_stale['decay_factor']})",
+                      category="other")
+        else:
+            self._skip("trust_decay_reduces_stale_relation_weight", "decay", "no field handle")
+            self._skip("recently_reinforced_relation_recovers_weight", "decay", "no field handle")
+        byon_rels = (rf_get("neighborhood/BYON").get("neighborhood") or {}).get("relations", [])
+        canon = next((r for r in byon_rels if r.get("relation_type") == "has_component"), {})
+        self._add("canonical_relation_resists_decay", canon.get("decay_status") == "fresh",
+                  f"canonical relation decayed ({canon.get('decay_status')})", category="other")
+
+        # 6/7. path explanation has quotes + confidence + decay weight (canonical BYON->D_Cortex)
+        exp = rf_get("explain-path?source=BYON&target=D_Cortex&depth=2")
+        ehops = exp.get("hops") or [{}]
+        self._add("path_explanation_has_quotes_and_confidence",
+                  bool(exp.get("hops")) and ehops[0].get("evidence_quote")
+                  and isinstance(ehops[0].get("confidence"), (int, float)),
+                  f"path explanation missing quote/confidence ({exp.get('epistemic_status')})", category="other")
+        self._add("path_explanation_has_decay_weight",
+                  bool(exp.get("hops")) and "decayed_weight" in ehops[0],
+                  "path explanation missing decayed_weight", category="other")
+
+        # 8/9/10. disputed / weak / inverse path explanations (planted directly)
+        if fld is not None:
+            da, db = f"dpa{uid}", f"dpb{uid}"
+            fld.add_relation(da, "depends_on", db, relation_type="depends_on", source_id=f"dp_{uid}",
+                             source_class="SYSTEM_CANONICAL", status="committed", origin="canonical_schema")
+            fld.ingest_candidate_relation({"subject": da, "predicate": "does not depend on", "object": db,
+                                           "relation_type": "contradicts", "is_contradiction": True,
+                                           "source_id": f"dpc_{uid}", "source_class": "EXTRACTED_USER_CLAIM"})
+            dexp = rf_get(f"explain-path?source={da}&target={db}&depth=2")
+            self._add("disputed_path_answer_is_disputed", dexp.get("epistemic_status") == "DISPUTED",
+                      f"disputed path not disputed ({dexp.get('epistemic_status')})", category="other")
+            wa, wb = f"wpa{uid}", f"wpb{uid}"
+            fld.ingest_candidate_relation({"subject": wa, "predicate": "depends on", "object": wb,
+                                           "relation_type": "depends_on", "source_id": f"wp_{uid}",
+                                           "source_class": "VERIFIED_PROJECT_FACT", "evidence_quote": "q"})
+            wexp = rf_get(f"explain-path?source={wa}&target={wb}&depth=2")
+            self._add("weak_path_answer_is_provisional", wexp.get("epistemic_status") == "PROVISIONAL",
+                      f"weak path not provisional ({wexp.get('epistemic_status')})", category="other")
+            ia, ib = f"ipa{uid}", f"ipb{uid}"
+            fld.add_relation(ia, "broader_than", ib, relation_type="broader_than", source_id=f"ip_{uid}",
+                             source_class="SYSTEM_CANONICAL", status="committed", origin="canonical_schema")
+            iexp = rf_get(f"explain-path?source={ib}&target={ia}&depth=2&include_inverse=true")
+            self._add("inverse_path_has_warning",
+                      bool(iexp.get("inverse_rendered")) and "invers" in (iexp.get("answer") or "").lower(),
+                      "inverse path warning missing", category="other")
+        else:
+            for g in ("disputed_path_answer_is_disputed", "weak_path_answer_is_provisional",
+                      "inverse_path_has_warning"):
+                self._skip(g, "path explanation", "no field handle")
+
+        # 11/12/13. contradiction history + next action + resolution
+        if fld is not None:
+            fld.ingest_candidate_relation({"subject": f"BYONx{uid}", "predicate": "is", "object": "level 3",
+                                           "relation_type": "contradicts", "is_contradiction": True,
+                                           "source_id": f"cc_{uid}", "source_class": "EXTRACTED_USER_CLAIM"})
+            # a temporal conflict to resolve
+            tr = fld.add_relation(f"alphaT{uid}", "depends_on", f"betaT{uid}", relation_type="depends_on",
+                                  source_id=f"t1_{uid}", source_class="DOMAIN_VERIFIED")
+            fld.ingest_candidate_relation({"subject": f"alphaT{uid}", "predicate": "does not depend on",
+                                           "object": f"betaT{uid}", "relation_type": "contradicts",
+                                           "is_contradiction": True, "source_id": f"t2_{uid}",
+                                           "source_class": "DOMAIN_VERIFIED"})
+        hist = rf_get("contradiction-history").get("history", [])
+        self._add("contradiction_history_visible", bool(hist) and "first_seen" in (hist[0] if hist else {}),
+                  "contradiction history empty", category="other")
+        canon_c = next((c for c in hist if c.get("conflict_type") == "canonical_conflict"), {})
+        self._add("canonical_conflict_next_action_visible",
+                  canon_c.get("recommended_next_action") == "canonical_overrides",
+                  f"canonical next action missing ({canon_c.get('recommended_next_action')})", category="other")
+        # resolve one and see it
+        tcid = next((c["contradiction_id"] for c in hist
+                     if c.get("conflict_type") in ("temporal_conflict", "direct_contradiction", "source_scope_conflict")),
+                    None)
+        resolved_ok = False
+        if tcid:
+            try:
+                httpx.post(f"{base}/resolve-contradiction/{tcid}", json={"resolution_source": "verified:test"},
+                           timeout=30)
+                h2 = rf_get("contradiction-history").get("history", [])
+                resolved_ok = any(c["contradiction_id"] == tcid and c.get("current_status") == "resolved"
+                                  and c.get("resolution_source") for c in h2)
+            except Exception:
+                resolved_ok = False
+        self._add("temporal_conflict_resolution_visible", resolved_ok,
+                  "contradiction resolution not visible", category="other")
+
+        # 14/15. relation-gap tasks
+        gaps = rf_post("scan-gaps").get("gaps", [])
+        self._add("weak_relation_gap_creates_task", len(gaps) >= 1,
+                  f"no relation-gap tasks created ({len(gaps)})", category="other")
+        self._add("vault_only_objective_relation_requests_verified_source",
+                  any(g.get("gap_type") == "verify_with_project_source" for g in gaps),
+                  "no verify_with_project_source gap", category="other")
+
+        # 16/17. relation self-state reports decay + weak central nodes
+        st = rf_get("status")
+        self._add("relation_self_state_reports_decay",
+                  st.get("decay_enabled") is True and "decayed_relations" in st,
+                  "self-state missing decay", category="other")
+        self._add("weak_central_nodes_reported", isinstance(st.get("weak_central_nodes"), list),
+                  "weak central nodes not reported", category="other")
+
+        # 19/20/21/22/23. invariants
+        pu = f"c13pol_{uid}"
+        if self._plant_vault_note(pu, "BYON e Level 3."):
+            self._confirm_indexed(pu, "BYON e Level 3?", "level 3", tries=25, threshold=0.30)
+            pol = self.research("BYON e Level 3?", user=pu, session="c13")
+            self._add("source_policy_still_dominant",
+                      pol.get("epistemic_status") in ("DISPUTED", "REFUSED"),
+                      f"source policy not dominant ({pol.get('epistemic_status')})",
+                      category=CAT_CANONICAL_OVERRIDE, epistemic_status=pol.get("epistemic_status"))
+        else:
+            self._skip("source_policy_still_dominant", "source policy", "no note")
+        self._add("relation_field_still_not_truth_authority", st.get("is_truth_authority") is False,
+                  "relation field claims truth authority", category="other")
+        try:
+            lifecycle_ok = isinstance(httpx.get(f"{self.url}/v1/lifeloop/candidates", timeout=30)
+                                      .json().get("counts"), dict)
+        except Exception:
+            lifecycle_ok = False
+        self._add("candidate_lifecycle_still_passes", lifecycle_ok,
+                  "candidate lifecycle endpoint not healthy", category="other")
+        hits = []
+        try:
+            hits = self._consistent().search_facts("BYON has component D_Cortex", top_k=10,
+                                                   threshold=0.0, thread_id=None, scope="thread")
+        except Exception:
+            hits = []
+        self._add("restart_recall_still_passes", any(h.get("content") for h in hits),
+                  "committed self-knowledge not retrievable", category=CAT_RESTART)
         try:
             l3 = bool(httpx.get(f"{self.url}/v1/health", timeout=20).json().get("full_level3_not_declared"))
         except Exception:
