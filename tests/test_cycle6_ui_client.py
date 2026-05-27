@@ -1,4 +1,4 @@
-"""Cycle 6 target 7 — UI/Gateway client for the Life State panel.
+"""Cycle 6 target 7 - UI/Gateway client for the Life State panel.
 
 All LifeLoop UI actions go through the Gateway client (never memory-service directly), so we
 assert the client hits the /v1/lifeloop* Gateway paths.

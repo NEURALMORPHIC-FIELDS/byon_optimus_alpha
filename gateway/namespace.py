@@ -1,8 +1,10 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Per-user memory namespace.
 
 Every user gets an isolated directory tree. user_id is sanitised so it can never
 escape the users root (no path traversal), and one user's namespace can never
-resolve into another's. There is no shared/global namespace by default — that is
+resolve into another's. There is no shared/global namespace by default - that is
 the cross-user isolation guarantee the v10 milestone proved at the cortex level,
 carried up to the connector layer.
 """

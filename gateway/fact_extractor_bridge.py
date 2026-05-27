@@ -1,8 +1,10 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Bridge to the CANONICAL BYON FactExtractor (Node, LLM-driven).
 
 Learning from interaction goes through the real `fact-extractor.mjs` (extract → classify
 trust → store via memory-service), invoked through `scripts/byon_fact_extract.mjs`. The old
-Python `_parse_teach` heuristic is NOT the canonical authority — it is only an emergency
+Python `_parse_teach` heuristic is NOT the canonical authority - it is only an emergency
 fallback and anything it stores is tagged `non_canonical_fallback`.
 
 `available()` is true only when Node + the canonical extractor + an API key are all present.

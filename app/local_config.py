@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Local configuration for the BYON Alpha App, resolved from environment / .env."""
 from __future__ import annotations
 

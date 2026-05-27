@@ -1,6 +1,6 @@
 # BYON Optimus + D_Cortex
 
-**Cognitive agent with morphogenetic, addressable, persistent and chronodynamic memory — off-Colab, enterprise harness.**
+**Cognitive agent with morphogenetic, addressable, persistent and chronodynamic memory - off-Colab, enterprise harness.**
 
 This repository takes the v9.9 monolithic Google-Colab source and turns it into a
 maintainable, testable, locally-runnable product:
@@ -11,7 +11,7 @@ maintainable, testable, locally-runnable product:
   cortex, addressable persistent memory, real-text assimilation, semantic grounded QA,
   chronodynamic internal tempo).
 
-> **Status — v10.16-alpha (Active Memory Runtime + decaying, explainable relational reasoning, validated, real runs).** Progression:
+> **Status - v10.16-alpha (Active Memory Runtime + decaying, explainable relational reasoning, validated, real runs).** Progression:
 > **v9.9.0** off-Colab port (CPU 59/59) → **v9.9.1** contradiction-resistant memory →
 > **v9.9.2** Epistemic Memory Contract / UNKNOWN-when-ungrounded (**GPU 87/87**) →
 > **v9.9.3** real FCE-M v15.7a runtime proof (`fcem_runtime_proven=true`) →
@@ -25,30 +25,30 @@ maintainable, testable, locally-runnable product:
 > process guard; **full 843-note vault index complete, errors 0**) →
 > **v10.8** read-consistent access + tombstone/compaction (**4,419 duplicate vault facts retired
 > → 5,977 active**) →
-> **v10.9** **LifeLoop v2** — pressure model, internal research tasks, pressure-triggered
+> **v10.9** **LifeLoop v2** - pressure model, internal research tasks, pressure-triggered
 > consolidation, temporal self-state snapshots →
 > **v10.10** in-engine read/write consistency signal + **permissioned autonomous memory-only
 > task execution** (results stored as candidates, never truth) →
 > **v10.11** **candidate-to-commit lifecycle** (consolidation-only state machine; independent-evidence
 > merge; disputed challenger; commit per source class) →
-> **v10.12** **semantic contradiction + evidence quality** — candidates merge/dispute by semantic
+> **v10.12** **semantic contradiction + evidence quality** - candidates merge/dispute by semantic
 > relation (paraphrase merge, contradiction dispute, canonical conflict dominates), and commit
 > requires evidence COUNT **and** QUALITY ≥ threshold; disputes carry an explanation →
-> **v10.13** **relational memory field v1** — entities + typed relations over committed facts /
+> **v10.13** **relational memory field v1** - entities + typed relations over committed facts /
 > candidates / disputes / vault / tasks, with relation-aware retrieval, neighborhood / contradiction /
 > dependency / theme reports and temporal tracking; the field navigates structure but is **never a
 > truth authority** →
-> **v10.14** **relation inference + grounded relational reasoning** — relations are inferred from
+> **v10.14** **relation inference + grounded relational reasoning** - relations are inferred from
 > fact/chunk CONTENT (with evidence quotes + provenance), enter a relation-candidate lifecycle,
 > answer bounded multi-hop path queries, and the field PROPOSES candidates back to the lifecycle but
 > never commits →
-> **v10.15-alpha** **directed, evidence-weighted, policy-aware relational reasoning** — traversal
+> **v10.15-alpha** **directed, evidence-weighted, policy-aware relational reasoning** - traversal
 > respects per-type direction (inverse only rendered on request, never stored), relations are ranked
 > by an evidence/source weight, a relation-type source policy prevents source-class misuse, committed
 > relations feed NORMAL answers as gated context, and contradictions are classified by conflict type;
 > the relation field stays **non-authoritative** →
 > **v10.16-alpha** **objective relation answering + temporal trust decay + grounded path explanation**
-> — relations also inform general objective answers (policy-gated, secondary), old/weak relations
+> - relations also inform general objective answers (policy-gated, secondary), old/weak relations
 > DECAY in influence without being deleted (canonical resists), multi-hop paths get readable grounded
 > explanations with per-hop confidence, contradictions become temporal auditable objects with
 > next-actions, and relation gaps spawn controlled internal tasks; still **non-authoritative**
@@ -77,7 +77,7 @@ REAL full mode starts everything for you (BYON Gateway with the real in-repo D_C
 epistemic backend + real FCE-M v15.7a advisory) as a managed child process, then opens the
 web UI. **No separate terminals.** You type a message and get a BYON-audited answer with its
 epistemic status (`KNOWN` / `UNKNOWN` / `DISPUTED` / `REFUSED` / `ERROR`), grounded flag,
-audit trace id, and memory / FCE-M / D_Cortex status. If the backend fails you get `ERROR` —
+audit trace id, and memory / FCE-M / D_Cortex status. If the backend fails you get `ERROR` -
 never a fabricated answer. The UI never calls Claude or memory-service directly; everything
 goes through BYON's final audit.
 
@@ -95,9 +95,9 @@ python run_byon.py --demo          # canned responses, big "DEMO MODE" banner; n
 
 ## Required for REAL full mode
 
-- `FCEM_MEMORY_ENGINE_ROOT` — path to the real v15.7a `d_cortex` engine (auto-discovered if
+- `FCEM_MEMORY_ENGINE_ROOT` - path to the real v15.7a `d_cortex` engine (auto-discovered if
   present locally; REAL mode refuses to start with a shim).
-- `ANTHROPIC_API_KEY` — **optional**: enables Claude to phrase grounded answers. Without it,
+- `ANTHROPIC_API_KEY` - **optional**: enables Claude to phrase grounded answers. Without it,
   grounding still works and answers are returned verbatim from memory. Prompted securely at
   startup if missing; persist with `python run_byon.py --save-key` (writes gitignored `.env.local`).
 
@@ -112,17 +112,17 @@ BYON does not answer from prior as KNOWN, and it does not say UNKNOWN instantly.
 runs an **epistemic search loop** that honestly exhausts the available sources before any
 verdict, reusing the canonical BYON machinery (it does not rebuild it):
 
-1. **Internal / committed memory** — memory-service FAISS facts with committed trust tiers
+1. **Internal / committed memory** - memory-service FAISS facts with committed trust tiers
    (`VERIFIED_PROJECT_FACT` / `DOMAIN_VERIFIED` / `USER_PREFERENCE`). A committed hit → `KNOWN`.
-2. **Session / candidate memory** — thread-scoped recall + provisional candidates.
-3. **Claude hypothesis pass** — Claude proposes a hypothesis + search queries. Claude is the
+2. **Session / candidate memory** - thread-scoped recall + provisional candidates.
+3. **Claude hypothesis pass** - Claude proposes a hypothesis + search queries. Claude is the
    reasoning faculty, **not the authority**: a Claude-only answer is `PROVISIONAL_UNVERIFIED`,
    never `KNOWN`.
-4. **Web search** (opt-in, pluggable) — `BYON_WEB_SEARCH_ENABLED=true` +
+4. **Web search** (opt-in, pluggable) - `BYON_WEB_SEARCH_ENABLED=true` +
    `BYON_WEB_SEARCH_PROVIDER=duckduckgo|tavily|brave|serpapi`. Web results are **evidence
    candidates, never auto-committed truth**. Converged → `PROVISIONAL`; conflicting → `DISPUTED`.
-5. **Multi-perspective synthesis** — memory / Claude / web / conflict / epistemic views → verdict.
-6. **Research clock + stress** — a real-time budget (`BYON_RESEARCH_BUDGET_SECONDS`, default 300).
+5. **Multi-perspective synthesis** - memory / Claude / web / conflict / epistemic views → verdict.
+6. **Research clock + stress** - a real-time budget (`BYON_RESEARCH_BUDGET_SECONDS`, default 300).
    Stress rises with elapsed time + accelerators (conflict, web failure, high-certainty demand,
    unsafe topic). At the deadline BYON returns `NEEDS_MORE_TIME` and **asks permission** for
    another window (`Continue research 5 min` / `Conclude now` in the UI) instead of silently
@@ -146,30 +146,30 @@ Endpoint: `POST /v1/research` (`action: start|continue|conclude`). Knobs: `BYON_
 
 # Active Memory Runtime (v10.4 → v10.10)
 
-On top of the research loop, BYON runs an **active-memory runtime** — all over the canonical
+On top of the research loop, BYON runs an **active-memory runtime** - all over the canonical
 memory-service / FactExtractor / FCE-M / D_Cortex / Auditor, never a parallel store.
 
-- **Self-introspection** (`self_state_provider.py`) — "ce capacități ai?", "ce ai în memorie?",
+- **Self-introspection** (`self_state_provider.py`) - "ce capacități ai?", "ce ai în memorie?",
   "ce limitări ai?" are answered from **real runtime state** (memory-service stats, training
   reports, FCE-M/D_Cortex status, lifecycle counts), never from a vault note or a slogan.
   `→ SELF_STATE_GROUNDED`.
-- **Operational intents** (`operational_intents.py`) — "rulează o analiză a dinamicii tale
+- **Operational intents** (`operational_intents.py`) - "rulează o analiză a dinamicii tale
   interne", "dovedește că ești altfel" (live probes), "fă o listă cu ce am discutat",
-  "îmbunătățește-ți memoria" (runs the **real** FCE-M consolidation or says it must be run —
+  "îmbunătățește-ți memoria" (runs the **real** FCE-M consolidation or says it must be run -
   never fakes it), follow-ups, "cât din vault ai indexat?". `→ ACTION_DONE / ACTION_REQUIRED`.
-- **Expression / style learning** (`expression_learning.py`) — learns HOW you want answers
+- **Expression / style learning** (`expression_learning.py`) - learns HOW you want answers
   phrased ("răspunde direct în română, fără planuri abstracte") as a `USER_PREFERENCE` and
   re-phrases **delivery only**: it never changes the epistemic status, removes uncertainty,
   hides sources, or honours a request to fake/simulate.
-- **Per-session event stream** (`session_events.py`) — a literal
+- **Per-session event stream** (`session_events.py`) - a literal
   `runtime/users/{user}/sessions/{id}/events.jsonl`; follow-ups and chat summaries read it first.
-- **Self / vault training** — `--train-self` ingests the repo corpus + canonical relation facts
+- **Self / vault training** - `--train-self` ingests the repo corpus + canonical relation facts
   (`VERIFIED_PROJECT_FACT`, system-scope); `--vault <path> --train-vault` ingests an Obsidian
   vault as the user's `EXTRACTED_USER_CLAIM` memory. The vault report is atomic, **resumable**
   (`--max-files`, `--no-resume`) and **coherent** (`stale=false` only when the report agrees with
   the memory-service vault-fact count; `partial=false` only when complete).
 
-## Source disambiguation — a fact's origin decides what it may ground
+## Source disambiguation - a fact's origin decides what it may ground
 
 Every answer carries a **`query_class`** and a **`source_class`**; `ALLOWED_PRIMARY`
 (`source_policy.py`) prevents **source bleed in both directions**:
@@ -184,7 +184,7 @@ Every answer carries a **`query_class`** and a **`source_class`**; `ALLOWED_PRIM
 
 A vault note that contradicts a fixed canonical constraint ("BYON is Level 3", "FCE-M can
 approve actions", "the Auditor can be bypassed", "BYON is conscious") is surfaced but marked
-**`DISPUTED_OR_UNSAFE`** with the canonical correction — never echoed as truth.
+**`DISPUTED_OR_UNSAFE`** with the canonical correction - never echoed as truth.
 
 ## Live evaluation & restart persistence
 
@@ -201,28 +201,28 @@ restart-recall), report at `runtime/eval/live_byon_eval_report.json`.
 
 ## Hardened substrate (v10.7 → v10.8)
 
-- **Content-addressed dedup** (`vault_manifest.py`) — a re-index re-stores nothing; **single-writer
+- **Content-addressed dedup** (`vault_manifest.py`) - a re-index re-stores nothing; **single-writer
   lock** (`write_lock.py`) refuses a 2nd live writer and reclaims dead/stale; **process guard**
   (`scripts/byon_process_guard.py`) detects/stops only BYON vault-training writers (python.exe /
   python3.13.exe / py.exe), never unrelated Python.
-- **Error classes** (`vault_errors.py`) — encoding ladder (utf-8 → utf-8-sig → cp1252),
+- **Error classes** (`vault_errors.py`) - encoding ladder (utf-8 → utf-8-sig → cp1252),
   binary/oversized skip, per-file `errors.jsonl`; one bad note never aborts a run.
-- **Recent-write buffer** (`recent_write_buffer.py`) — a just-taught PERSONAL fact is recalled
+- **Recent-write buffer** (`recent_write_buffer.py`) - a just-taught PERSONAL fact is recalled
   immediately, honestly marked `source_class=RECENT_WRITE_BUFFER` (pending FAISS indexing).
 - **Read consistency + tombstones** (`consistent_client.py`, `tombstones.py`,
-  `engine_consistency.py`) — an engine read/write coordination lock (`read_consistency_mode=
+  `engine_consistency.py`) - an engine read/write coordination lock (`read_consistency_mode=
   in_engine_rw_lock`) so a reader never sees a partial write; tombstoned facts are excluded from
   search (`include_tombstoned` for audit), retired by `scripts/compact_vault_memory.py` (dry-run
   default, `--apply`, never canonical). Compaction retired **4,419** duplicate vault facts.
 
-## LifeLoop v2 — internal circulation (v10.9 → v10.10)
+## LifeLoop v2 - internal circulation (v10.9 → v10.10)
 
-A real internal loop over the hardened substrate — it **observes and proposes, never answers the
+A real internal loop over the hardened substrate - it **observes and proposes, never answers the
 user and never decides truth**:
 
 - ingests interaction / feedback / memory events → `runtime/lifeloop/events.jsonl` (secrets redacted);
 - keeps a per-topic **pressure** signal (`pressure.py` → `pressure_state.json`) with time decay;
-- files internal **research tasks** (`research_tasks.py`) for repeated unresolved topics —
+- files internal **research tasks** (`research_tasks.py`) for repeated unresolved topics -
   memory/vault/self-state run automatically on tick; **web needs user permission**; secrets never;
 - triggers the canonical **FCE-M consolidation** by pressure/disputed/correction;
 - runs safe **memory-only tasks autonomously**, storing each result as a **candidate** (never truth)
@@ -231,7 +231,7 @@ user and never decides truth**:
   ce contradicții? / ce sarcini interne?".
 
 `GET /v1/lifeloop` (v2 status) · `POST /v1/lifeloop/{tick,run-task/{id},approve-web/{id},
-cancel-task/{id},mark-resolved}` · `GET /v1/lifeloop/task/{id}` — plus a Gradio **Life State** panel.
+cancel-task/{id},mark-resolved}` · `GET /v1/lifeloop/task/{id}` - plus a Gradio **Life State** panel.
 
 ---
 
@@ -248,14 +248,14 @@ byon_optimus_alpha/
 │   ├── integrate.py           # local full-organism integration runner (Windows/Linux)
 │   ├── dcortex_v99_adapter.py # additive memory-organ adapter injected into memory-service
 │   └── byon-dcortex-v99-live-e2e.mjs  # live BYON+D_Cortex QA gating harness (Claude)
-├── gateway/                   # BYON Gateway (FastAPI) — controlled /v1 API + Active Memory Runtime
+├── gateway/                   # BYON Gateway (FastAPI) - controlled /v1 API + Active Memory Runtime
 │   ├── memory_service_backend.py  # canonical REAL backend (FAISS + FCE-M + trust tiers)
 │   ├── epistemic_search.py    # research loop + source-class answer-pool gate
 │   ├── source_policy.py       # query/source-class matrix + canonical-constraint guard (v10.6)
 │   ├── query_router.py        # intent router + trust-tier re-ranking
 │   ├── self_state_provider.py # self-introspection from runtime state (v10.4)
 │   ├── operational_intents.py # dynamics/proof/history/memory-action/follow-up (v10.4)
-│   ├── expression_learning.py # style learning, delivery only — never truth (v10.5)
+│   ├── expression_learning.py # style learning, delivery only - never truth (v10.5)
 │   ├── session_events.py      # literal per-session event stream (v10.5)
 │   ├── vault_manifest.py · write_lock.py · vault_errors.py # substrate hardening (v10.7)
 │   ├── recent_write_buffer.py # immediate recall before FAISS indexes (v10.7)
@@ -315,7 +315,7 @@ python dcortex/v99_source.py
 # 4. full-organism integration with live Claude E2E
 python orchestration/integrate.py --run-npm-test
 
-# 5. v10 milestone — Longitudinal Generalization & Isolation (real FCE-M mandatory)
+# 5. v10 milestone - Longitudinal Generalization & Isolation (real FCE-M mandatory)
 python -m dcortex.v10_milestone --fast
 # release validation: a missing real FCE-M engine FAILs (never skips)
 $env:BYON_VALIDATE_REAL_FCEM="true"; python -m pytest tests/test_v10_milestone.py -m slow -v
@@ -327,7 +327,7 @@ $env:BYON_VALIDATE_REAL_FCEM="true"; python -m pytest tests/test_v10_milestone.p
 
 ## UI-only launcher (`run_alpha_app.py`)
 
-`run_byon.py` (above) is the canonical one-command launcher — it starts the backend **and**
+`run_byon.py` (above) is the canonical one-command launcher - it starts the backend **and**
 the UI. `run_alpha_app.py` is the UI-only variant: it opens the Gradio UI and connects to a
 Gateway you already have running (or `BYON_ALPHA_DEMO_MODE=true` for demo). Use `run_byon.py`
 unless you specifically want UI-only.
@@ -347,8 +347,21 @@ gitignored. The live E2E receives the key only through the process environment.
 See [SECURITY.md](SECURITY.md) for the full policy and trust boundaries, and
 [CONTRIBUTING.md](CONTRIBUTING.md) for the development and validation profiles.
 
+## Ownership and attribution
+
+Copyright (c) 2024-2026 **Vasile Lucian Borbeleac** / **FRAGMERGENT TECHNOLOGY S.R.L.**,
+Cluj-Napoca, Romania. Published under the **NEURALMORPHIC-FIELDS** organization.
+
+- Author and rights holder: Vasile Lucian Borbeleac.
+- Entity: FRAGMERGENT TECHNOLOGY S.R.L., Cluj-Napoca, Romania.
+- Related IP reference (factual attribution, not a legal claim of coverage):
+  EP25216372.0, Omni-Qube-Vault.
+
+See [NOTICE](NOTICE) and [CITATION.cff](CITATION.cff) for the full attribution, and
+[docs/RUNTIME_DEPENDENCIES.md](docs/RUNTIME_DEPENDENCIES.md) for the external FCE-M runtime contract.
+
 ## License
 
-Licensed under the Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
-This is an advanced experimental research prototype (dev-sheet §8); `FULL_LEVEL3_NOT_DECLARED`
+Licensed under the Apache License 2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+This is an advanced experimental research prototype (dev-sheet section 8); `FULL_LEVEL3_NOT_DECLARED`
 is preserved and claims are bounded to what the progressive audits validate.

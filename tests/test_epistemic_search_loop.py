@@ -1,4 +1,4 @@
-"""Tests for the epistemic search loop — honest source exhaustion before UNKNOWN.
+"""Tests for the epistemic search loop - honest source exhaustion before UNKNOWN.
 
 All sources are mocked: no live memory-service, no live Claude, no live web.
 """

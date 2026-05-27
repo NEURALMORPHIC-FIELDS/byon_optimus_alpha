@@ -1,4 +1,4 @@
-"""Tests for BYONLifeLoop v1 — internal circulation, no memory authority."""
+"""Tests for BYONLifeLoop v1 - internal circulation, no memory authority."""
 from __future__ import annotations
 
 import importlib
@@ -74,7 +74,7 @@ def test_feedback_pressure_triggers_consolidation(tmp_path):
 
 
 def test_lifeloop_holds_no_memory_authority(tmp_path):
-    """LifeLoop must never write facts/truth — it only triggers the canonical consolidation."""
+    """LifeLoop must never write facts/truth - it only triggers the canonical consolidation."""
     L = _loop(tmp_path, consolidate_every=1)
     L.record_interaction(question="q", status="UNKNOWN")
     mem = FakeMem()
@@ -86,5 +86,5 @@ def test_lifeloop_holds_no_memory_authority(tmp_path):
 def test_tick_without_mem_is_safe(tmp_path):
     L = _loop(tmp_path, consolidate_every=1)
     L.record_interaction(question="q", status="KNOWN")
-    out = L.tick(None)  # no backend mem (e.g., local-dev) — must not crash
+    out = L.tick(None)  # no backend mem (e.g., local-dev) - must not crash
     assert out["consolidated"] is True and out["result"] is None

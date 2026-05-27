@@ -1,4 +1,4 @@
-"""Cycle 6 — LifeLoop v2: event ingestion, pressure, research tasks, consolidation, snapshots."""
+"""Cycle 6 - LifeLoop v2: event ingestion, pressure, research tasks, consolidation, snapshots."""
 from __future__ import annotations
 
 import importlib

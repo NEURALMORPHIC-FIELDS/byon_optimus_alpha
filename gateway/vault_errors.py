@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Vault read/chunk error classification (Cycle 4, target 5).
 
 One bad note must never crash a full training run, and errors must be classified and logged with

@@ -1,4 +1,6 @@
-"""Continuous learning as an interaction side-effect — over the canonical memory-service.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Continuous learning as an interaction side-effect - over the canonical memory-service.
 
 The authoritative semantic memory is the BYON memory-service (FAISS + FCE-M + trust tiers).
 This module does NOT duplicate it. It adds only the per-user *lifecycle / evidence* ledgers

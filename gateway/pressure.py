@@ -1,7 +1,9 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Memory pressure model (Cycle 6, target 2).
 
-LifeLoop v2 keeps a small per-topic "pressure" signal — how much an area of memory is unresolved
-or contested — so consolidation and internal research are driven by NEED, not only a fixed count.
+LifeLoop v2 keeps a small per-topic "pressure" signal - how much an area of memory is unresolved
+or contested - so consolidation and internal research are driven by NEED, not only a fixed count.
 This is an attention signal, NOT a truth authority: it never stores facts or decides answers.
 
 Rules (pressure delta):
@@ -97,7 +99,7 @@ class PressureModel:
         st = (status or "").upper()
         with self._lock:
             if is_secret or st == "REFUSED":
-                self.safety_counter += 1          # safety only — never a research signal
+                self.safety_counter += 1          # safety only - never a research signal
                 rec = self._rec(topic)
                 rec["recommended_action"] = IGNORE_SAFE_SECRET if is_secret else rec["recommended_action"]
                 self._persist()
@@ -175,7 +177,7 @@ class PressureModel:
         with self._lock:
             rec = self._rec(topic)
             if disputed:
-                rec["disputed_count"] += 1            # contested — keep pressure, mark disputed
+                rec["disputed_count"] += 1            # contested - keep pressure, mark disputed
             elif success:
                 rec["success_count"] += 1
                 rec["pressure"] = round(max(0.0, rec["pressure"] - 1.0), 3)

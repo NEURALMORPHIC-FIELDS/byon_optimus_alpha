@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Thin HTTP client for the canonical BYON memory-service.
 
 This is glue, not a new memory system. It speaks the existing memory-service action API

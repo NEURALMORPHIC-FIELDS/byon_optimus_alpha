@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Literal per-session event stream (Cycle 2, target 3).
 
     runtime/users/{user_slug}/sessions/{session_id}/events.jsonl
@@ -5,7 +7,7 @@
 An ADDITIONAL active-memory stream (the audit log is kept). Records every user message,
 assistant response, research result, feedback and consolidation event with status / intent /
 sources / audit_trace_id. FollowUpResolver and ChatHistorySummary prefer this stream and fall
-back to the audit log only when it is missing. Not a semantic memory — just the session log.
+back to the audit log only when it is missing. Not a semantic memory - just the session log.
 """
 from __future__ import annotations
 

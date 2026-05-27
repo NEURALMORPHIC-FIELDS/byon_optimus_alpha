@@ -1,4 +1,4 @@
-"""Cycle 10 — relational memory field v1.
+"""Cycle 10 - relational memory field v1.
 
 S1 model + store, S2 ingestion from existing memory, S3 relation-aware retrieval, S4 reports +
 intent, S5 temporal tracking, S6 API/UI. The field navigates structure over the memory BYON
@@ -54,7 +54,7 @@ def _cand(**kw):
     return base
 
 
-# ============================================================ S1 — model
+# ============================================================ S1 - model
 def test_entity_created_from_committed_fact(tmp_path):
     f = _field(tmp_path)
     f.add_relation("BYON", "has_component", "D_Cortex", source_class="VERIFIED_PROJECT_FACT",
@@ -101,7 +101,7 @@ def test_relation_field_not_truth_authority(tmp_path):
     assert f.status()["is_truth_authority"] is False and f.status()["answers_user_directly"] is False
 
 
-# ============================================================ S2 — ingestion
+# ============================================================ S2 - ingestion
 def test_rebuild_from_candidates(tmp_path):
     f = _field(tmp_path)
     lc = FakeLC([_cand(candidate_id="c1", topic="memory consistency", status="committed",
@@ -143,7 +143,7 @@ def test_duplicate_relation_not_recreated(tmp_path):
     assert f.counts()["relations"] == n1 == 1
 
 
-# ============================================================ S3 — relation-aware retrieval
+# ============================================================ S3 - relation-aware retrieval
 def _built(tmp_path):
     f = _field(tmp_path)
     rf.RelationFieldBuilder(f, lifeloop_dir=tmp_path).rebuild()
@@ -182,7 +182,7 @@ def test_relation_answer_passes_source_policy(tmp_path):
     assert out["source_class"] in sp.ALLOWED_PRIMARY[sp.Q_OPERATIONAL]
 
 
-# ============================================================ S4 — reports + intent
+# ============================================================ S4 - reports + intent
 def test_relation_field_query_detected():
     assert qr.classify_intent("care este relatia dintre BYON si D_Cortex?") == qr.RELATION_FIELD_QUERY
     assert qr.classify_intent("ce depinde de BYON?") == qr.RELATION_FIELD_QUERY
@@ -209,7 +209,7 @@ def test_source_breakdown_report(tmp_path):
     assert "VERIFIED_PROJECT_FACT" in rep["by_source_class"]
 
 
-# ============================================================ S5 — temporal tracking
+# ============================================================ S5 - temporal tracking
 def test_relation_temporal_history_written(tmp_path):
     f = _field(tmp_path)
     r = f.add_relation("A", "depends_on", "B", source_id="s1", source_class="VERIFIED_PROJECT_FACT")
@@ -238,7 +238,7 @@ def test_disputed_relation_records_contradicted_at(tmp_path):
     assert r["contradicted_at"] == "2026-03-03T00:00:00Z"
 
 
-# ============================================================ S6 — API / UI
+# ============================================================ S6 - API / UI
 @pytest.fixture(scope="module")
 def client(tmp_path_factory):
     from fastapi.testclient import TestClient
@@ -280,6 +280,6 @@ def test_ui_calls_gateway_only():
     # the relation panel handlers must go through the gateway client only
     assert "client.relation_field_status" in src and "client.relation_field_rebuild" in src
     assert "client.relation_field_neighborhood" in src and "client.relation_field_contradictions" in src
-    # the UI never talks to memory-service / the network directly — only via the gateway client
+    # the UI never talks to memory-service / the network directly - only via the gateway client
     assert "import httpx" not in src and "import requests" not in src
     assert "/v1/lifeloop/relation-field" not in src    # no hand-rolled gateway paths in the UI

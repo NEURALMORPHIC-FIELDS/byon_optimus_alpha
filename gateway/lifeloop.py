@@ -1,4 +1,6 @@
-"""BYONLifeLoop v2 — real internal circulation over the hardened memory substrate.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""BYONLifeLoop v2 - real internal circulation over the hardened memory substrate.
 
 NOT a mind, NOT a new truth authority, and it NEVER answers the user. It only:
   - ingests interaction / feedback / memory / consolidation / tombstone / vault events,
@@ -155,7 +157,7 @@ class BYONLifeLoop:
         with self._lock:
             self.state["feedback_pressure"] = round(self.state["feedback_pressure"] + max(0.0, delta * 0.0), 3)
         # a REPEATED UNRESOLVED answer (unknown / unverified / needs-source) files an internal
-        # research task — never on secrets, memory-first (web needs user permission).
+        # research task - never on secrets, memory-first (web needs user permission).
         unresolved = st in ("UNKNOWN", "PROVISIONAL_UNVERIFIED", "ASK_USER_FOR_SOURCE", "NEEDS_MORE_TIME")
         if not secret and unresolved:
             rec = self.pressure.get(stored_topic) or {}
@@ -321,7 +323,7 @@ class BYONLifeLoop:
                 rec = self.pressure.get(task.get("topic", "")) or {}
                 if rec.get("fail_count", 0) >= 2:
                     self.tasks.set_status(tid, BLOCKED_NEEDS_PERMISSION,
-                                          result={"reason": "repeated failure — needs user input"})
+                                          result={"reason": "repeated failure - needs user input"})
                 else:
                     self.tasks.set_status(tid, FAILED, result=result)
             else:

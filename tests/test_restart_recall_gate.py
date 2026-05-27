@@ -1,4 +1,4 @@
-"""Cycle 3 Pillar 2 — two-phase restart-recall gate (unit-portable).
+"""Cycle 3 Pillar 2 - two-phase restart-recall gate (unit-portable).
 
 The HTTP call is injected, so prepare()/verify() are tested without a live gateway or a real
 restart. The actual cross-restart run is exercised live by scripts/live_restart_recall_eval.py.

@@ -1,4 +1,6 @@
-"""MemoryServiceBackend — the canonical BYON backend for the epistemic search runtime.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""MemoryServiceBackend - the canonical BYON backend for the epistemic search runtime.
 
 Routes everything through the real memory-service (FAISS + FCE-M + trust tiers) via the
 EpistemicSearch loop. Per-user isolation maps BYON user_id → memory-service thread_id, so a
@@ -138,7 +140,7 @@ class MemoryServiceBackend:
         # real FactExtractor before the search loop (Phase 2).
         is_question = question.strip().endswith("?")
         # Gate 10: a pure style/expression instruction is learned as USER_PREFERENCE (not a world
-        # fact) and acknowledged — it tunes delivery, never truth.
+        # fact) and acknowledged - it tunes delivery, never truth.
         if action == "start":
             pref = expr.store_preference(user_id, question)
             if pref and not is_question:
@@ -176,7 +178,7 @@ class MemoryServiceBackend:
                               web_provider=self.web, claude_provider=self.claude,
                               allow_web=aw, allow_claude=allow_claude, action=action,
                               research_trace_id=research_trace_id, recent_buffer=self.recent_buffer)
-        # Gate 10: re-phrase the DELIVERY per learned style — status & sources are left untouched.
+        # Gate 10: re-phrase the DELIVERY per learned style - status & sources are left untouched.
         try:
             syn = out.get("synthesis") or {}
             srcs = syn.get("sources") or out.get("sources_searched") or []
@@ -218,7 +220,7 @@ class MemoryServiceBackend:
                 **self.status()}
 
     def substrate_status(self, *, report_dir: str = "runtime/training") -> Dict[str, Any]:
-        """Cycle 4: substrate health — vault report coherence, write-lock / indexing-in-progress,
+        """Cycle 4: substrate health - vault report coherence, write-lock / indexing-in-progress,
         recent-write buffer size, and an orphan-writer warning."""
         from pathlib import Path as _P
         import json as _json

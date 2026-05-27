@@ -9,7 +9,11 @@ description = "BYON Optimus + D_Cortex — cognitive agent with morphogenetic, a
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "NEURALMORPHIC-FIELDS" }]
+authors = [
+    { name = "Vasile Lucian Borbeleac" },
+    { name = "FRAGMERGENT TECHNOLOGY S.R.L." },
+    { name = "NEURALMORPHIC-FIELDS" },
+]
 keywords = ["morphogenetic-memory", "addressable-memory", "epistemic-memory-contract", "cognitive-agent"]
 classifiers = [
     "Development Status :: 4 - Beta",

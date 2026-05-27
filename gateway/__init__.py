@@ -1,4 +1,6 @@
-"""BYON World Connector — Gateway (v10.1 alpha).
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""BYON World Connector - Gateway (v10.1 alpha).
 
 A stable, controlled API port between the outside world (web UIs, messaging
 channels, automation) and the BYON Optimus organism. The Gateway never decides

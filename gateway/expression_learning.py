@@ -1,7 +1,9 @@
-"""Expression / style learning (Cycle 2, Target 1 — Gate 10).
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Expression / style learning (Cycle 2, Target 1 - Gate 10).
 
 BYON may learn HOW the user wants answers phrased (language, directness, no abstract plans,
-length) and apply that to the *delivery* of an answer — WITHOUT ever changing what is true.
+length) and apply that to the *delivery* of an answer - WITHOUT ever changing what is true.
 
 Hard contract (enforced here):
   * style is stored as a USER_PREFERENCE fact via the canonical memory-service (never a world fact);
@@ -12,7 +14,7 @@ Hard contract (enforced here):
       - hide the sources / grounding lines,
       - invent content that was not in the draft;
   * a request to fake / simulate / pretend / lie is REFUSED as a style preference (never stored,
-    never applied) — truth is not a stylistic choice.
+    never applied) - truth is not a stylistic choice.
 """
 from __future__ import annotations
 
@@ -30,7 +32,7 @@ _DIRECT = ["direct", "concis", "scurt", "pe scurt", "fără introduceri", "fara 
 _NO_PLAN = ["fără planuri", "fara planuri", "fără plan", "fara plan", "fără planuri abstracte",
             "fara planuri abstracte", "no abstract plan", "no plans", "fără pași abstracți",
             "nu plan abstract", "without abstract plan"]
-# a request that would force a falsehood — NEVER a legitimate style preference
+# a request that would force a falsehood - NEVER a legitimate style preference
 _FAKE = ["pretend", "prefă-te", "prefate", "fă-te că", "fa-te ca", "simulate that you",
          "simuleaza ca", "simulează că", "lie", "minte", "spune că ai", "spune ca ai",
          "fake that", "act as if you ran", "pretend you ran", "say it is done even if",
@@ -76,7 +78,7 @@ class ExpressionLearning:
             return None
         low = message.lower()
         if any(m in low for m in _FAKE):
-            return None  # truth is not a style choice — refuse
+            return None  # truth is not a style choice - refuse
         kinds: List[str] = []
         if any(m in low for m in _RO):
             kinds.append("language_ro")

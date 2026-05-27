@@ -1,4 +1,4 @@
-"""Tests for Cycle 2 Target 2 — Obsidian vault training report (atomic, resume, stale).
+"""Tests for Cycle 2 Target 2 - Obsidian vault training report (atomic, resume, stale).
 
 Uses a fake memory-service client so no FAISS / model / network is needed. Verifies the
 persisted report is atomic and accurate, that resume skips unchanged notes and re-indexes

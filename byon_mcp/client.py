@@ -1,7 +1,9 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """HTTP client onto the BYON Gateway used by the MCP tools.
 
 Every MCP tool goes through this client, i.e. through the Gateway's controlled v1
-surface — never the raw memory-service. Tests bind it to the FastAPI app via an
+surface - never the raw memory-service. Tests bind it to the FastAPI app via an
 ASGI transport so the full MCP→Gateway path is exercised without a network port.
 """
 from __future__ import annotations

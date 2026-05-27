@@ -1,4 +1,6 @@
-"""ServiceSupervisor — start/track/stop child services for the one-command launcher.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""ServiceSupervisor - start/track/stop child services for the one-command launcher.
 
 Starts subprocesses, captures their logs, waits for HTTP health, and guarantees the
 children are terminated on exit / Ctrl+C / exception. The user never manages terminals.
@@ -17,7 +19,7 @@ from typing import Dict, List, Optional
 
 def is_port_free(host: str, port: int) -> bool:
     """True if a server could bind here. Uses bind (not connect) so a listening socket's
-    backlog is never consumed — connect-based probing is flaky on Windows."""
+    backlog is never consumed - connect-based probing is flaky on Windows."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.bind((host, port))

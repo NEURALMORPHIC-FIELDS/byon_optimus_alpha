@@ -1,8 +1,10 @@
-"""SelfStateProvider — answers BYON self-introspection from REAL runtime state.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""SelfStateProvider - answers BYON self-introspection from REAL runtime state.
 
 Capability / memory-state / limitation / recent-learning questions are answered from actual
 runtime signals (memory-service stats, persisted training reports, FCE-M/D_Cortex status,
-flags, consolidation log) — NOT from generic vault retrieval, NOT from Claude prior, NOT from
+flags, consolidation log) - NOT from generic vault retrieval, NOT from Claude prior, NOT from
 hardcoded canned answers. Every line is derived from collected state; absent capabilities are
 simply omitted, and only validated/available things are claimed.
 """
@@ -191,7 +193,7 @@ class SelfStateProvider:
         return caps
 
     def limitations(self, st: Dict[str, Any]) -> List[str]:
-        lims = ["Operates at Level 2 of 4 — FULL_LEVEL3_NOT_DECLARED (no Level 3 claim)",
+        lims = ["Operates at Level 2 of 4 - FULL_LEVEL3_NOT_DECLARED (no Level 3 claim)",
                 "Not a general LLM, not consciousness, not a finished product",
                 "No vision and no voice",
                 "Claude prior is never accepted as truth without grounding",
@@ -271,7 +273,7 @@ class SelfStateProvider:
         elif intent == qr.SELF_RECENT_LEARNING_QUERY:
             text = "Invatare recenta (din loguri/rapoarte + snapshot-uri LifeLoop):\n- " + "\n- ".join(self.recent_learning(st))
         elif intent == qr.SELF_INTERNAL_STATE_QUERY:
-            text = ("Stare interna LifeLoop v2 (presiuni, contradictii, sarcini — observatii, nu raspuns):\n- "
+            text = ("Stare interna LifeLoop v2 (presiuni, contradictii, sarcini - observatii, nu raspuns):\n- "
                     + "\n- ".join(self.internal_state_summary()))
             sources = ["runtime:lifeloop:pressure", "runtime:lifeloop:tasks", "runtime:lifeloop:snapshots"]
         else:  # SELF_MEMORY_STATE_QUERY

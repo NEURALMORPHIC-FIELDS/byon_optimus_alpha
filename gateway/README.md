@@ -1,7 +1,7 @@
-# BYON Gateway (v10.10 alpha — Active Memory Runtime + LifeLoop v2)
+# BYON Gateway (v10.10 alpha - Active Memory Runtime + LifeLoop v2)
 
 A stable, controlled API port between the world and BYON, **and** the active-memory runtime.
-The Gateway **never decides truth** — it routes every request through BYON (the sole epistemic
+The Gateway **never decides truth** - it routes every request through BYON (the sole epistemic
 authority) and returns BYON's verdict (`KNOWN` / `PROVISIONAL` / `DISPUTED` / `UNKNOWN` /
 `REFUSED` / `ERROR` / `SELF_STATE_GROUNDED` / `ACTION_DONE` / `ACTION_REQUIRED`), with the answer's
 `query_class` and `source_class`.
@@ -24,7 +24,7 @@ authority) and returns BYON's verdict (`KNOWN` / `PROVISIONAL` / `DISPUTED` / `U
 | GET  | `/v1/admin/metrics` | aggregate alpha counters |
 
 Raw memory-service / D_Cortex / FCE-M / FAISS endpoints are **never** exposed. LifeLoop observes
-and proposes — it **never answers the user and is never a truth authority**.
+and proposes - it **never answers the user and is never a truth authority**.
 
 ## Active Memory Runtime modules
 
@@ -52,7 +52,7 @@ python -m gateway.server            # binds BYON_GATEWAY_PORT (default 8090)
 ```
 
 Production uses `HttpBYONBackend` (→ `BYON_ORCHESTRATOR_URL`). If BYON is unreachable,
-chat comes back as `ERROR` with **no answer** — the Gateway fabricates nothing
+chat comes back as `ERROR` with **no answer** - the Gateway fabricates nothing
 (dev-sheet §7.3). See `.env.example` for configuration.
 
 ## Invariants (enforced in code, not just docs)
@@ -71,7 +71,7 @@ python scripts/live_byon_eval.py                          # behaves-like-a-user 
 ```
 World-connector report → `runtime/v10_1_out/v10_1_world_connector_alpha_report.json`,
 verdict `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED`. Active-memory live report →
-`runtime/eval/live_byon_eval_report.json` (**76/76 graded, 0 fail** — Cycle 1–7 gates: source
+`runtime/eval/live_byon_eval_report.json` (**76/76 graded, 0 fail** - Cycle 1–7 gates: source
 disambiguation, secret guard, dedup/lock, read-consistency, tombstone-excluded, LifeLoop,
 restart-recall). Live connector gates (LibreChat / OpenClaw / n8n / live orchestrator) are
 deferred, never faked.

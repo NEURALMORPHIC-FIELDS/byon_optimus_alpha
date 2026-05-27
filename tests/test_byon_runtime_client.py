@@ -1,4 +1,4 @@
-"""Tests for BYONRuntimeClient and the DEMO client — fully mocked, no live BYON/Claude."""
+"""Tests for BYONRuntimeClient and the DEMO client - fully mocked, no live BYON/Claude."""
 from __future__ import annotations
 
 import importlib
@@ -123,7 +123,7 @@ def test_audit_failure_does_not_crash():
 
 def test_demo_mode_is_marked_demo():
     demo = brc.DemoBYONClient()
-    assert demo.BANNER == "DEMO MODE — NOT REAL BYON RUNTIME"
+    assert demo.BANNER == "DEMO MODE - NOT REAL BYON RUNTIME"
     r = demo.chat("lucian", "s1", "what level?")
     assert r.raw.get("demo") is True
     pw = demo.chat("lucian", "s1", "what is my password?")

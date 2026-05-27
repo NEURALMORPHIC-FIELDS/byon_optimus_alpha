@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Per-user/session UI logs as JSONL. Never logs secrets or the API key."""
 from __future__ import annotations
 

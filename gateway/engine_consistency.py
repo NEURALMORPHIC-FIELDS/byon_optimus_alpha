@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Engine-level read/write consistency coordination (Cycle 7, target 1).
 
-Every memory-service access — writer (vault indexing / batch store) and reader (search) — passes
+Every memory-service access - writer (vault indexing / batch store) and reader (search) - passes
 through this shared cross-process coordinator. A writer marks a write batch in progress; a reader
 WAITS (bounded, explicit timeout) for the batch to commit before reading, so no reader ever
 observes a partial FAISS/metadata state. This is a real shared/exclusive coordination (stronger
@@ -87,7 +89,7 @@ class EngineConsistency:
                 break
             consistent = False
             if time.time() >= deadline:
-                break                                    # explicit timeout — caller may fall back
+                break                                    # explicit timeout - caller may fall back
             time.sleep(poll)
         with self._lock:
             st = self._read()

@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """MCP tool handlers.
 
 Each handler is a plain function so it can be unit-tested without an MCP transport
@@ -5,7 +7,7 @@ or the `mcp` SDK installed. `server.py` registers these as MCP tools.
 
 Policy enforced here:
 - Only `byon_chat` returns a final user-facing answer.
-- Every handler calls the BYON Gateway (via GatewayClient) — none touches D_Cortex
+- Every handler calls the BYON Gateway (via GatewayClient) - none touches D_Cortex
   or FCE-M directly, and none can bypass BYON's final audit (the Gateway enforces
   that on the way out).
 - The handler echoes BYON's `epistemic_status` and `audit_trace_id` unchanged; it
@@ -26,7 +28,7 @@ def byon_chat(client: GatewayClient, *, user_id: str, session_id: str,
               message: str, channel: str = "api") -> Dict[str, Any]:
     resp = client.chat({"user_id": user_id, "session_id": session_id,
                          "channel": channel, "message": message})
-    # Pass BYON's verdict through verbatim — never rewrite the epistemic status.
+    # Pass BYON's verdict through verbatim - never rewrite the epistemic status.
     return {
         "answer": resp.get("answer", ""),
         "epistemic_status": resp.get("epistemic_status", "ERROR"),

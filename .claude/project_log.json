@@ -1,0 +1,29 @@
+{
+  "version": "10.16.0-alpha",
+  "note": "Tests/harness counts are as reported by the cycle that introduced them; later cycles re-run all prior gates green. Live harness is graded against a running REAL stack.",
+  "cycles": [
+    {"cycle": 1, "summary": "Active-memory runtime accepted; live harness 15/15", "commit": null},
+    {"cycle": 2, "summary": "Harden active-memory runtime (expression learning, session events, harder harness)", "commit": "640ac66", "live": "25/25 graded"},
+    {"cycle": 3, "summary": "Close memory substrate loop (source_policy, two-phase restart-recall, vault coherence)", "commit": "7f2fa94", "non_live": 196, "live": "35/35"},
+    {"cycle": 4, "summary": "Substrate hardening (dedup, write-lock, error classes, recent-write buffer, process guard)", "commit": "57e5104", "non_live": 228, "live": "40/40"},
+    {"cycle": 5, "summary": "Read-consistent access + tombstone/compaction", "commit": "9913191", "non_live": 250, "live": "49/49"},
+    {"cycle": 6, "summary": "LifeLoop v2 (pressure, research tasks, consolidation, self-state)", "commit": "f5eb108", "non_live": 282, "live": "63/63"},
+    {"cycle": 7, "summary": "Engine consistency + permissioned autonomous memory-only tasks", "commit": "6bc5606", "non_live": 307, "live": "76/76"},
+    {"cycle": 8, "summary": "Candidate-to-commit lifecycle (Track A in-engine snapshot deferred honestly)", "commit": "395eaed", "non_live": 338, "live": "93/93"},
+    {"cycle": 9, "summary": "Semantic contradiction + evidence quality", "commit": "f516280", "non_live": 361, "live": "106/106"},
+    {"cycle": 10, "summary": "Relational memory field v1 (entities + typed relations, non-authoritative)", "commit": "767cdc0", "non_live": 393, "live": "121/121"},
+    {"cycle": 11, "summary": "Relation inference + grounded relational reasoning (content, not filenames)", "commit": "27f5926", "non_live": 424, "live": "137/137"},
+    {"cycle": 12, "summary": "Directed, evidence-weighted, policy-aware relational reasoning", "commit": "c918e5e", "non_live": 459, "live": "155/155"},
+    {"cycle": 13, "summary": "Objective relation answering + trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state", "commit": "496f1fd", "non_live": 514, "live": "178/178"},
+    {"cycle": "13.1", "summary": "Release hygiene: ownership attribution, copyright headers, verify_integration.py, .claude memory, em-dash cleanup + style contract, FCE-M runtime docs. No new cognitive features.", "commit": null}
+  ],
+  "deferred_items": [
+    "Track A: true in-engine FAISS snapshot/atomic-swap inside the sealed memory-service (MEMORY_SERVICE_ENGINE_PATCH_PLAN.md)",
+    "scheduled background decay recompute (decay is computed on read)",
+    "LLM relation mining remains opt-in/advisory (BYON_RELATION_INFERENCE_CLAUDE, default off)",
+    "live connector gates (LibreChat/openclaw/n8n) deferred, never faked"
+  ],
+  "tests_claimed_vs_verified": "Each cycle's non-live count and live graded count are produced by a real pytest run and a real graded live-harness run on a running REAL stack; counts above are the verified figures at that cycle.",
+  "current_state": "Cycle 13 accepted; Cycle 13.1 (release hygiene) in progress/complete.",
+  "next_cycle": "Cycle 14 PENDING after hygiene (Cycle 13.1) is accepted. Do not start Cycle 14 until hygiene passes external audit."
+}

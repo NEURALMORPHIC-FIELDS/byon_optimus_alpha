@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Stop the running BYON app and relaunch it detached, then wait for gateway health.
 
 Used by the restart-recall gate's `--phase auto`. Best-effort and platform-aware (Windows /

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Two-phase restart-recall gate (Cycle 3, Pillar 2).
 
 Makes "memory survives a restart" a REAL pass/fail gate instead of a manual note.
@@ -77,7 +79,7 @@ def prepare(url: str = "", *, post: Optional[Callable] = None, marker_path: Path
 def verify(url: str = "", *, post: Optional[Callable] = None, marker_path: Path = MARKER,
            report_path: Path = REPORT) -> Dict[str, Any]:
     if not marker_path.exists():
-        return {"phase": "verify", "error": "no restart_marker.json — run --phase prepare first",
+        return {"phase": "verify", "error": "no restart_marker.json - run --phase prepare first",
                 "passed": False, "skipped": True}
     post = post or _http_post(url)
     same = _research(post, USER, "rr_verify_same", RECALL_Q)

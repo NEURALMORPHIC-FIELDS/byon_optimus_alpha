@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Minimal per-user fixed-window rate limiter (in-process, alpha scope).
 
-Not a distributed limiter — it bounds a single misbehaving alpha user per Gateway
+Not a distributed limiter - it bounds a single misbehaving alpha user per Gateway
 process. A real deployment would back this with Redis; the interface stays the same.
 """
 from __future__ import annotations

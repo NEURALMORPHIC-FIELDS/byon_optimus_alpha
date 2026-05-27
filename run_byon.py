@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-"""BYON — one-command local runtime launcher.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""BYON - one-command local runtime launcher.
 
     python run_byon.py            # REAL FULL mode: starts everything + opens the UI
     python run_byon.py --connect  # connect to an already-running Gateway, UI only
@@ -102,7 +104,7 @@ def main() -> int:
     os.environ["FCEM_MEMORY_ENGINE_ROOT"] = disc.fcem_root
     os.environ["FSOAT_REQUIRE_EXTERNAL_FCEM_RUNTIME"] = "true"
     _print(f"  Real FCE-M engine: {disc.fcem_root}")
-    _print(f"  Memory-service server: {disc.memory_service_server or '(not found — using in-repo D_Cortex backend)'}")
+    _print(f"  Memory-service server: {disc.memory_service_server or '(not found - using in-repo D_Cortex backend)'}")
 
     # Secret: Claude is optional (language only). Prompt if missing unless suppressed.
     key = ensure_api_key(interactive=not args.no_prompt, save=args.save_key)
@@ -114,11 +116,11 @@ def main() -> int:
     if not is_port_free(host, gw_port):
         existing = gateway_health(f"http://{host}:{gw_port}")
         if existing.get("_reachable"):
-            _print(f"  Gateway already healthy on :{gw_port} — reusing it.")
+            _print(f"  Gateway already healthy on :{gw_port} - reusing it.")
             os.environ["BYON_GATEWAY_URL"] = f"http://{host}:{gw_port}"
             return _launch_ui_only(AlphaConfig.from_env(), demo=False)
         gw_port = find_free_port(host, gw_port + 1)
-        _print(f"  Port busy — using gateway port :{gw_port} instead.")
+        _print(f"  Port busy - using gateway port :{gw_port} instead.")
 
     sup = ServiceSupervisor()
     child_env = dict(os.environ)
@@ -127,7 +129,7 @@ def main() -> int:
 
     # --- start the canonical memory-service (FAISS + FCE-M + trust tiers) ----
     # REAL mode is CANONICAL ONLY: memory-service is mandatory. LocalBYONBackend is
-    # forbidden here — it exists solely for --demo / --local-dev. No silent fallback.
+    # forbidden here - it exists solely for --demo / --local-dev. No silent fallback.
     memory_url = "http://127.0.0.1:8000"
     if disc.memory_service_server is None:
         _print("-" * 60)
@@ -147,7 +149,7 @@ def main() -> int:
     if not sup.wait_http("memory-service", f"{memory_url}/health", timeout=90):
         _print("-" * 60)
         _print("memory-service failed to become healthy. REAL mode does NOT fall back to a")
-        _print("fake/local backend — exiting. Last log lines:")
+        _print("fake/local backend - exiting. Last log lines:")
         _print(sup.tail_log("memory-service"))
         _print("-" * 60)
         if args.local_dev:

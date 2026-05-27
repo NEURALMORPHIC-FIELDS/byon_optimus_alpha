@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Vault memory compaction (Cycle 5, target 4).
 
-Retire pre-Cycle-4 DUPLICATE vault facts safely — by TOMBSTONE, never physical delete. Groups the
+Retire pre-Cycle-4 DUPLICATE vault facts safely - by TOMBSTONE, never physical delete. Groups the
 owner's vault facts by content, keeps the newest active copy, and tombstones the older duplicates.
 Canonical / system facts are never tombstoned; verified-project facts only with --allow-verified.
 

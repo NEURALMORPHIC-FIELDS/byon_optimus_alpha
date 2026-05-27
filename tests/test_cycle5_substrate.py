@@ -1,4 +1,4 @@
-"""Cycle 5 — read consistency, batch writes, tombstones, compaction (unit-portable)."""
+"""Cycle 5 - read consistency, batch writes, tombstones, compaction (unit-portable)."""
 from __future__ import annotations
 
 import importlib

@@ -41,5 +41,11 @@ jobs:
           python -m py_compile orchestration/integrate.py
           python -m py_compile orchestration/dcortex_v99_adapter.py
 
+      - name: Integration verification (wiring + safety boundary)
+        run: python verify_integration.py
+
+      - name: Style contract (em-dash / copyright header / Level-3 marker)
+        run: python scripts/check_style_contract.py
+
       - name: Fast CPU tests
         run: python -m pytest tests/ -m "not slow and not live" -v

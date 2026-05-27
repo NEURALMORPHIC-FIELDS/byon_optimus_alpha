@@ -24,7 +24,7 @@ Sees: the chat, an answer status badge (KNOWN / UNKNOWN / DISPUTED / REFUSED), a
 Does **not** see: FAISS hits, FCE-M vectors, D_Cortex internals, pressure/register
 state. The Gateway never exposes those.
 
-## Live validation (deferred — needs LibreChat running)
+## Live validation (deferred - needs LibreChat running)
 
 `G17_LIBRECHAT_CONNECTS_TO_BYON_MCP`, `G18_USER_CAN_CHAT_FROM_BROWSER`,
 `G19_UNKNOWN_DISPLAYED_CLEANLY`, `G20_FEEDBACK_BUTTON_WRITES_LOG`,

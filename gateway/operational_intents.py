@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """BYON Operational Intent Layer (minimal; no new cognitive architecture).
 
-Handles natural operational / self-referential commands from RUNTIME STATE and real actions —
+Handles natural operational / self-referential commands from RUNTIME STATE and real actions -
 never generic vault retrieval, never hardcoded slogans, never faking an action that did not run.
 Reuses the canonical pieces: memory-service (stats / fce_consolidate / search), SelfStateProvider,
 the per-session audit log, and the persisted training reports.

@@ -1,4 +1,4 @@
-"""Tests for Cycle 2 Target 1 — expression / style learning (Gate 10).
+"""Tests for Cycle 2 Target 1 - expression / style learning (Gate 10).
 
 Style is learned as USER_PREFERENCE and applied to DELIVERY only: it may shorten / reorder /
 rephrase, but must never change the epistemic status, remove uncertainty, hide sources, invent,

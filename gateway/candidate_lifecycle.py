@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Candidate-to-commit lifecycle (Cycle 8, Track B).
 
 Closes the learning loop: a LifeLoop task result becomes a CANDIDATE, accumulates INDEPENDENT
@@ -12,7 +14,7 @@ Hard rules (enforced here):
   * a web-only candidate cannot commit without verification (>= MIN_WEB_SOURCES independent);
   * SYSTEM_CANONICAL is never overridden and never re-committed by a challenger;
   * secret content never becomes a candidate;
-  * FCE-M state may raise priority/attention only — never flips commit/dispute by itself.
+  * FCE-M state may raise priority/attention only - never flips commit/dispute by itself.
 """
 from __future__ import annotations
 
@@ -81,7 +83,7 @@ def _claim_key(claim: str) -> str:
 def _commit_trust(source_class: Optional[str]) -> Optional[str]:
     """Trust tier a candidate would COMMIT as, per its source class (None = not committable)."""
     if source_class in USER_CLASSES:
-        return "USER_PREFERENCE"          # the user's own confirmed memory — not objective truth
+        return "USER_PREFERENCE"          # the user's own confirmed memory - not objective truth
     if source_class == "DOMAIN_VERIFIED":
         return "DOMAIN_VERIFIED"
     if source_class == "PROVISIONAL_WEB":
@@ -93,7 +95,7 @@ def evaluate_candidate(candidate: Dict[str, Any], *, fce_state: Optional[Dict[st
                        commit_evidence: int = 2, dispute_contradictions: int = 1,
                        stale_days: int = 14, commit_quality: float = 0.70,
                        now_ts: Optional[float] = None) -> Dict[str, Any]:
-    """Pure consolidation decision. FCE-M state may set priority only — never the action.
+    """Pure consolidation decision. FCE-M state may set priority only - never the action.
     Commit requires evidence_count AND evidence_quality AND no contradiction AND committable."""
     now_ts = now_ts if now_ts is not None else time.time()
     ev = candidate.get("evidence_count", 0)

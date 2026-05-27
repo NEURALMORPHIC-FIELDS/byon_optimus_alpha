@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """BYON process guard (Cycle 4, target 4).
 
 Orphaned vault-training processes once kept writing to the FAISS index and churned live
-retrieval — and because the interpreter is named `python3.13` (not `python.exe`), naive
+retrieval - and because the interpreter is named `python3.13` (not `python.exe`), naive
 `python.exe` kills missed them. This guard detects ONLY BYON vault-training writers (by command
 line), across `python.exe` / `python3.13.exe` / `py.exe`, and never touches unrelated Python.
 
@@ -39,7 +41,7 @@ def is_python(name: str, cmdline: str) -> bool:
 
 
 def is_vault_trainer(name: str, cmdline: str) -> bool:
-    """A BYON vault-training writer — python interpreter + the trainer in its command line.
+    """A BYON vault-training writer - python interpreter + the trainer in its command line.
     Deliberately NARROW so unrelated python processes are never matched."""
     return is_python(name, cmdline) and bool(VAULT_TRAINER_RE.search(cmdline or ""))
 

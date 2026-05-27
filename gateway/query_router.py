@@ -1,8 +1,10 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Query intent router + trust-tier retrieval re-ranking.
 
 Fixes ranking: a memory hit's final rank is its semantic similarity PLUS a trust-tier boost
 PLUS an intent boost, so a canonical VERIFIED_PROJECT_FACT / relation fact can no longer be
-out-ranked by a higher-cosine vault EXTRACTED_USER_CLAIM for an architecture question — while
+out-ranked by a higher-cosine vault EXTRACTED_USER_CLAIM for an architecture question - while
 vault notes still dominate for "what did I write…" questions.
 
 Trust order (high→low):
@@ -30,7 +32,7 @@ VAULT_TRIGGERS = ["ce am scris", "ce-am scris", "in notele mele", "în notele me
                   "din notele"]
 CONTRADICTION_TRIGGERS = ["contradic", "conflicting", "in conflict", "în conflict", "disput",
                           "gresit", "greșit", "wrong fact", "contradiction"]
-# self-introspection — answered from RUNTIME STATE, not vault retrieval
+# self-introspection - answered from RUNTIME STATE, not vault retrieval
 CAPABILITY_TRIGGERS = ["ce capacitati ai", "ce capacități ai", "ce poti face", "ce poți face",
                        "ce poti sa faci", "ce poți să faci", "what can you do",
                        "what are your capabilities", "your capabilities", "ce module ai",
@@ -42,7 +44,7 @@ LIMITATION_TRIGGERS = ["ce nu poti face", "ce nu poți face", "ce limitari ai", 
 RECENT_LEARNING_TRIGGERS = ["ce ai invatat recent", "ce ai învățat recent", "ce ai consolidat recent",
                             "ce s-a schimbat in memoria ta", "ce s-a schimbat în memoria ta",
                             "recent learning", "what did you learn recently", "ce ai invatat ultima"]
-# LifeLoop v2 internal state — pressures, contradictions noticed, pending internal tasks
+# LifeLoop v2 internal state - pressures, contradictions noticed, pending internal tasks
 INTERNAL_STATE_TRIGGERS = ["ce te preocupa", "ce te preocupă", "ce presiuni ai", "ce presiuni active",
                            "presiuni interne", "ce contradictii ai observat", "ce contradicții ai observat",
                            "ce sarcini interne", "sarcini in asteptare", "sarcini în așteptare",
@@ -72,7 +74,7 @@ MEMORY_ACTION_TRIGGERS = ["imbunatateste-ti memoria", "îmbunătățește-ți me
                           "antreneaza-te pe", "antrenează-te pe", "consolideaza memoria",
                           "consolidează memoria", "consolideaza-ti memoria", "reindexeaza vault",
                           "reindexează vault", "train vault", "consolidate memory", "antreneaza-te pe vault"]
-# relation-field navigation (Cycle 10) — "how are things related / what depends on what /
+# relation-field navigation (Cycle 10) - "how are things related / what depends on what /
 # where are the contradictions / which themes recur / what changed". Specific phrases so a plain
 # "cine este BYON" stays SELF_ARCHITECTURE and "ce contradictii ai observat" stays internal-state.
 RELATION_FIELD_TRIGGERS = ["relatie intre", "relatie între", "relatia intre", "relatia dintre",
@@ -154,7 +156,7 @@ def classify_intent(question: str) -> str:
     # vault wins for "what did *I* write / in my notes" (am scris / notele mele)
     if any(t in q for t in VAULT_TRIGGERS):
         return USER_VAULT_QUERY
-    # relation-field navigation (Cycle 10) — before contradiction/self-architecture so
+    # relation-field navigation (Cycle 10) - before contradiction/self-architecture so
     # "ce contradictii exista in jurul FCE-M" / "concepte legate de BYON" reach the relation field.
     if any(t in q for t in RELATION_FIELD_TRIGGERS):
         return RELATION_FIELD_QUERY
@@ -169,7 +171,7 @@ def classify_intent(question: str) -> str:
         return SELF_PROOF_QUERY
     if any(t in q for t in CHAT_SUMMARY_TRIGGERS):
         return CHAT_HISTORY_SUMMARY_QUERY
-    # self-introspection about *you* (BYON) — runtime state
+    # self-introspection about *you* (BYON) - runtime state
     if any(t in q for t in CAPABILITY_TRIGGERS):
         return SELF_CAPABILITY_QUERY
     if any(t in q for t in LIMITATION_TRIGGERS):
@@ -180,7 +182,7 @@ def classify_intent(question: str) -> str:
         return SELF_INTERNAL_STATE_QUERY
     if any(t in q for t in MEMORY_STATE_TRIGGERS):
         return SELF_MEMORY_STATE_QUERY
-    # short follow-ups (exact or specific phrases) — late so specific intents win
+    # short follow-ups (exact or specific phrases) - late so specific intents win
     if qn in FOLLOWUP_EXACT or any(t in q for t in FOLLOWUP_TRIGGERS):
         return FOLLOWUP_QUERY
     if any(t in q for t in CONTRADICTION_TRIGGERS):
@@ -192,7 +194,7 @@ def classify_intent(question: str) -> str:
 
 def is_stale_limitation(text: str) -> bool:
     """True if a retrieved note states an OLD limitation that the current version contradicts
-    (e.g. 'provisional entries never promoted' — superseded by v9.9.1 arbitration + v10.3)."""
+    (e.g. 'provisional entries never promoted' - superseded by v9.9.1 arbitration + v10.3)."""
     return bool(_STALE_LIMITATION.search(text or ""))
 
 

@@ -1,9 +1,11 @@
-"""Gradio UI for BYON — epistemic research interface.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Gradio UI for BYON - epistemic research interface.
 
 The user sees WHY BYON answered, not just the answer: epistemic status, confidence, the
 research clock (elapsed / stress% / phase / sources searched), the multi-perspective
 synthesis, web sources, and the per-user memory (candidates / committed / disputed). The UI
-only displays BYON output — it never decides truth, never rewrites UNKNOWN, never calls Claude
+only displays BYON output - it never decides truth, never rewrites UNKNOWN, never calls Claude
 or the web directly. The 5-minute permission gate surfaces as Continue / Conclude buttons.
 """
 from __future__ import annotations
@@ -31,9 +33,9 @@ def _assistant_text(out: Dict[str, Any]) -> str:
     if st == "KNOWN":
         return ans or "(grounded, no text)"
     if st == "UNKNOWN":
-        return "❓ UNKNOWN — BYON searched the available sources and has no grounded answer (it will not guess)."
+        return "❓ UNKNOWN - BYON searched the available sources and has no grounded answer (it will not guess)."
     prefix = _BADGE.get(st, st)
-    return f"{prefix} — {ans}" if ans else prefix
+    return f"{prefix} - {ans}" if ans else prefix
 
 
 def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
@@ -41,8 +43,8 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
     logs = UILogStore(config.logs_dir)
     demo_mode = status.mode == "DEMO"
 
-    banner = ("### 🟣 BYON — Epistemic Research"
-              + ("\n\n> **DEMO MODE — NOT REAL BYON** (canned, UI testing only)" if demo_mode else ""))
+    banner = ("### 🟣 BYON - Epistemic Research"
+              + ("\n\n> **DEMO MODE - NOT REAL BYON** (canned, UI testing only)" if demo_mode else ""))
 
     with gr.Blocks(title="BYON Epistemic Research") as demo:
         gr.Markdown(banner)
@@ -85,7 +87,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             web_json = gr.JSON(label="Web sources (evidence candidates, not committed truth)")
             claude_json = gr.JSON(label="Claude hypothesis (not authority)")
 
-        with gr.Accordion("🧠 Memory (per-user) — candidates / committed / disputed", open=False):
+        with gr.Accordion("🧠 Memory (per-user) - candidates / committed / disputed", open=False):
             with gr.Row():
                 cand_json = gr.JSON(label="Candidates (provisional + evidence)")
                 committed_json = gr.JSON(label="Committed")
@@ -106,7 +108,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             export_btn = gr.Button("Export logs")
         info_box = gr.Textbox(label="Info / audit", interactive=False, lines=8)
 
-        with gr.Accordion("🫀 Life State (LifeLoop v2 — internal circulation, never answers you)", open=False):
+        with gr.Accordion("🫀 Life State (LifeLoop v2 - internal circulation, never answers you)", open=False):
             life_summary = gr.Markdown("LifeLoop state not loaded yet.")
             life_tasks = gr.JSON(label="Pending internal research tasks")
             life_json = gr.JSON(label="Full LifeLoop status")
@@ -142,7 +144,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                 archive_cand_btn = gr.Button("Archive candidate")
             cand_action_info = gr.Textbox(label="Candidate action result", interactive=False, lines=4)
 
-        with gr.Accordion("🕸️ Relation Field (structure/navigation over memory — never truth authority)", open=False):
+        with gr.Accordion("🕸️ Relation Field (structure/navigation over memory - never truth authority)", open=False):
             rel_status = gr.JSON(label="Relation field status (entities / relations / committed / disputed)")
             with gr.Row():
                 refresh_rel_btn = gr.Button("Refresh relation field")
@@ -171,7 +173,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                     _BADGE.get(out.get("epistemic_status"), out.get("epistemic_status", "")),
                     "true" if out.get("grounded") else "false",
                     str(out.get("confidence", "")),
-                    out.get("audit_trace_id", "") or "—",
+                    out.get("audit_trace_id", "") or "-",
                     str(out.get("stress_percent", clock.get("stress_percent", ""))),
                     str(clock.get("elapsed_seconds", "")),
                     out.get("phase", clock.get("phase", "")),

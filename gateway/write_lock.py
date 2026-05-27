@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Single-writer lock for vault indexing (Cycle 4, target 3).
 
 A file lock (runtime/locks/vault_training.lock) makes sure only ONE vault trainer writes to the

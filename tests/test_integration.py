@@ -20,7 +20,7 @@ V10 = PROJECT_ROOT / "runtime" / "v10_out" / "v10_developmental_loop_report.json
 def test_memory_service_boot_and_organ_injected():
     report = INTEG / "integration_report.json"
     if not report.exists():
-        pytest.skip("no integration_report.json — run orchestration/integrate.py")
+        pytest.skip("no integration_report.json - run orchestration/integrate.py")
     r = json.loads(report.read_text(encoding="utf-8"))
     assert r.get("success") is True
     assert r["memory_health"]["status"] == "healthy"
@@ -32,7 +32,7 @@ def test_memory_service_boot_and_organ_injected():
 @pytest.mark.live
 def test_live_e2e_three_gated_probes_pass():
     if not E2E.exists():
-        pytest.skip("no live E2E artifact — run integrate.py with a live ANTHROPIC_API_KEY")
+        pytest.skip("no live E2E artifact - run integrate.py with a live ANTHROPIC_API_KEY")
     s = json.loads(E2E.read_text(encoding="utf-8"))
     assert s["model"].startswith("claude")
     assert s["probe_count"] == 3
@@ -46,7 +46,7 @@ def test_live_e2e_three_gated_probes_pass():
 @pytest.mark.slow
 def test_v10_developmental_loop_mechanisms():
     if not V10.exists():
-        pytest.skip("no v10 report — run dcortex.v10_developmental_loop")
+        pytest.skip("no v10 report - run dcortex.v10_developmental_loop")
     r = json.loads(V10.read_text(encoding="utf-8"))
     c = r["criteria"]
     # the core mechanisms must hold (capacity/interference is reported, not gated here)

@@ -1,16 +1,18 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Relational memory field (Cycle 10, v1).
 
-A navigation/structure layer OVER the memory BYON already has — committed facts, candidates,
+A navigation/structure layer OVER the memory BYON already has - committed facts, candidates,
 disputes, vault chunks, session events, LifeLoop task results and semantic evidence. It lets BYON
 answer not only "what do I know?" but "how are these related?", "what depends on what?", "where
 are the contradictions?", "which themes recur?", "what changed over time?".
 
 It is explicitly NOT a truth authority and NOT another vector store:
-  * it stores entities + typed relations with PROVENANCE and a trust/source class — never raw text
+  * it stores entities + typed relations with PROVENANCE and a trust/source class - never raw text
     re-embedded into a parallel index;
   * canonical/system relations outrank vault/user relations;
   * disputed relations stay visible AS disputed (never silently dropped or merged into truth);
-  * answers built from it still pass source policy + the Auditor — the field never commits a
+  * answers built from it still pass source policy + the Auditor - the field never commits a
     relation as objective truth on its own and never overrides source policy.
 
 The store is two append-only JSONL ledgers (entities, edges) with last-record-wins per id, kept in
@@ -150,7 +152,7 @@ def relation_decay(r: Dict[str, Any], *, now_ts: Optional[float] = None) -> Dict
     """Temporal trust decay (Cycle 13). Returns {decay_factor, decayed_weight, decay_status,
     decay_reason, age_days, base_weight}. Old/weak/unreinforced/disputed relations LOSE ranking
     weight; canonical resists (multiplier 0); committed decays slower than candidate; reinforcement
-    recovers weight. Decay NEVER deletes or archives — it only lowers influence and stays auditable."""
+    recovers weight. Decay NEVER deletes or archives - it only lowers influence and stays auditable."""
     now_ts = now_ts if now_ts is not None else time.time()
     cfg = _decay_cfg()
     tomb = bool(r.get("tombstoned"))
@@ -208,7 +210,7 @@ _PRED_MAP = {
     "candidate_challenger_of": CANDIDATE_CHALLENGER_OF,
 }
 
-# trust rank per source class — canonical/system relations outrank vault/user relations.
+# trust rank per source class - canonical/system relations outrank vault/user relations.
 _SRC_RANK = {"SYSTEM_CANONICAL": 6, "VERIFIED_PROJECT_FACT": 5, "DOMAIN_VERIFIED": 4,
              "USER_PREFERENCE": 3, "USER_MEMORY_GROUNDED": 3, "EXTRACTED_USER_CLAIM": 2,
              "PROVISIONAL_WEB": 1, "RECENT_WRITE_BUFFER": 1, "UNKNOWN": 1, None: 1, "": 1,
@@ -483,7 +485,7 @@ class RelationField:
 
     def _priority(self, r: Dict[str, Any]):
         # Cycle 12/13: rank by DECAYED evidence/source weight (committed/canonical/quality up;
-        # disputed/candidate-only/vault-objective/stale/decayed down) — disputed & decayed relations
+        # disputed/candidate-only/vault-objective/stale/decayed down) - disputed & decayed relations
         # stay VISIBLE, just lower influence.
         return (relation_decay(r)["decayed_weight"], r.get("updated_at", ""))
 
@@ -580,7 +582,7 @@ class RelationField:
         return sorted(rows, key=self._priority, reverse=True)[:limit]
 
     def decayed_relations(self, *, limit: int = 12, threshold: float = 0.45) -> List[Dict[str, Any]]:
-        """Relations whose decay factor has fallen (weakened over time) — auditable, not deleted."""
+        """Relations whose decay factor has fallen (weakened over time) - auditable, not deleted."""
         rows = []
         for r in self._rel.values():
             d = relation_decay(r)
@@ -604,7 +606,7 @@ class RelationField:
         return rows[:limit]
 
     def weak_central_nodes(self, *, top_n: int = 10) -> List[Dict[str, Any]]:
-        """Central concepts whose supporting relations are weak/candidate/decayed — need sources."""
+        """Central concepts whose supporting relations are weak/candidate/decayed - need sources."""
         deg: Dict[str, int] = {}
         weak: Dict[str, int] = {}
         for r in self._rel.values():
@@ -717,7 +719,7 @@ class RelationField:
     def ingest_candidate_relation(self, rc: Dict[str, Any]) -> Dict[str, Any]:
         """Add one inferred RelationCandidate. A contradiction edge ALSO disputes any existing
         relation between the same two entities (so a negated claim makes the prior relation
-        visibly disputed). Inferred relations start as candidates — they never commit on ingest."""
+        visibly disputed). Inferred relations start as candidates - they never commit on ingest."""
         subj, obj = rc.get("subject", ""), rc.get("object", "")
         if rc.get("is_contradiction") or rc.get("relation_type") == CONTRADICTS:
             r = self.add_relation(subj, rc.get("predicate") or "contradicts", obj,
@@ -819,7 +821,7 @@ class RelationField:
         """Bounded DIRECTED traversal (default depth 2). Each stored edge is traversed per its
         directionality: forward edges subject→object only; bidirectional (contradicts) both ways;
         inverse_renderable (broader/narrower_than) forward by default and BACKWARD only when
-        include_inverse=True — and such a backward hop is RENDERED, never stored, and flagged
+        include_inverse=True - and such a backward hop is RENDERED, never stored, and flagged
         inverse_rendered. A disputed hop marks the path disputed; an all-committed canonical path
         is ranked first (then by edge weight)."""
         max_depth = max(1, min(int(max_depth or 2), 4))
@@ -904,7 +906,7 @@ def lifeloop_field(users_root: str | Path) -> RelationField:
 
 
 class RelationFieldBuilder:
-    """Builds the relation field FROM existing memory — never re-embeds, never creates a parallel
+    """Builds the relation field FROM existing memory - never re-embeds, never creates a parallel
     truth store. Reuses the canonical relation seed, the candidate lifecycle, dispute records,
     vault manifest, LifeLoop task results and session events, attaching provenance + source class
     to every edge and de-duplicating by stable relation id."""
@@ -922,7 +924,7 @@ class RelationFieldBuilder:
 
     # -- per-source ingestion ----------------------------------------------
     def _seed_canonical(self) -> int:
-        """The canonical project relations (same seed self-training stores) — VERIFIED_PROJECT_FACT,
+        """The canonical project relations (same seed self-training stores) - VERIFIED_PROJECT_FACT,
         committed. Deterministic so the field always knows BYON's components/roles."""
         from .self_training import _RELATIONS
         n = 0
@@ -961,7 +963,7 @@ class RelationFieldBuilder:
 
     def infer_from_memory(self, queries: Optional[List[str]] = None, *, cap: int = 80) -> int:
         """Cycle 11: infer relation candidates from stored fact/chunk CONTENT (not filenames). Reuses
-        memory-service retrieval — no new vector store, no re-embedding. System scope + each owner's
+        memory-service retrieval - no new vector store, no re-embedding. System scope + each owner's
         vault thread so vault CHUNK CONTENT is mined too. Secret content yields nothing."""
         if self.mem is None:
             return 0
@@ -1247,7 +1249,7 @@ class RelationGapScanner:
     """LifeLoop-side: turn weak / disputed / vault-only-objective / decayed-central relation GAPS
     into controlled internal research tasks. Memory-only tasks may run automatically; web tasks need
     permission; secret-derived gaps produce no task; task results become candidates, never truth.
-    The relation field PROPOSES — it never commits."""
+    The relation field PROPOSES - it never commits."""
 
     def __init__(self, field: "RelationField", *, tasks: Optional[Any] = None) -> None:
         self.f = field

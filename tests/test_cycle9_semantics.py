@@ -1,4 +1,4 @@
-"""Cycle 9 — semantic contradiction & evidence quality.
+"""Cycle 9 - semantic contradiction & evidence quality.
 
 T1 classifier relations, T2 semantic merge/dispute in the lifecycle, T3 evidence-quality commit
 gate, T4 dispute explanation records. The classifier is deterministic-first (lexical + canonical +
@@ -18,7 +18,7 @@ cl = importlib.import_module("gateway.candidate_lifecycle")
 
 
 # ----------------------------------------------------------------------------
-# T1 — classifier
+# T1 - classifier
 # ----------------------------------------------------------------------------
 def test_same_claim_paraphrase_detected():
     r = es.classify_evidence_relation("The capital of France is Paris",
@@ -97,7 +97,7 @@ def _ingest(lc, task_id, claim, source_class="EXTRACTED_USER_CLAIM", topic="t", 
 
 
 # ----------------------------------------------------------------------------
-# T2 — semantic merge / dispute in the lifecycle
+# T2 - semantic merge / dispute in the lifecycle
 # ----------------------------------------------------------------------------
 def test_paraphrased_same_claim_merges():
     lc = _lc_tmp()
@@ -142,7 +142,7 @@ def test_broad_claim_requires_more_evidence():
 
 
 # ----------------------------------------------------------------------------
-# T3 — evidence quality gate
+# T3 - evidence quality gate
 # ----------------------------------------------------------------------------
 def _cand(**kw):
     base = {"evidence_count": 1, "contradiction_count": 0, "source_class": "EXTRACTED_USER_CLAIM",
@@ -198,7 +198,7 @@ def test_vault_objective_claim_cannot_commit():
 
 
 # ----------------------------------------------------------------------------
-# T4 — dispute explanation
+# T4 - dispute explanation
 # ----------------------------------------------------------------------------
 def test_dispute_record_written():
     lc = _lc_tmp()

@@ -1,9 +1,11 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Source-class disambiguation policy (Cycle 3).
 
 A retrieved fact is not equal to truth: WHERE it came from decides what it may ground. This
 module makes that explicit. It classifies the QUERY (system / user-vault / objective / personal
 / secret) and each HIT's SOURCE CLASS, says which source classes may *primarily* ground an
-answer for that query, and — critically — flags a personal vault note that contradicts a fixed
+answer for that query, and - critically - flags a personal vault note that contradicts a fixed
 canonical constraint (e.g. "BYON is Level 3", "FCE-M can approve actions") as DISPUTED_OR_UNSAFE
 so it can never override system truth under paraphrase.
 

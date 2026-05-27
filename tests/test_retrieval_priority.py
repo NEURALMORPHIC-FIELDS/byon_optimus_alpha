@@ -44,7 +44,7 @@ def test_vault_query_boosts_vault_sources():
 
 
 def test_extracted_user_claim_cannot_outrank_verified_for_architecture_query():
-    # vault SME has FAR higher cosine (0.92) than the repo fact (0.45) — trust boost must win
+    # vault SME has FAR higher cosine (0.92) than the repo fact (0.45) - trust boost must win
     intent = qr.classify_intent("descrie acest model BYON ce componente are")
     ranked = qr.rerank([VAULT_SME, REPO], intent)
     assert ranked[0]["metadata"]["trust"] == "VERIFIED_PROJECT_FACT"

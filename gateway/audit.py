@@ -1,9 +1,11 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Audit trace store.
 
 Every message that enters the Gateway gets a trace_id and an audit record, written
 both to a global audit dir (retrievable by trace_id) and to the user's namespace.
 The record captures the request, the BYON verdict, and the grounding/memory summary
-— enough to answer 'why did the user get this answer / refusal?' after the fact.
+- enough to answer 'why did the user get this answer / refusal?' after the fact.
 """
 from __future__ import annotations
 

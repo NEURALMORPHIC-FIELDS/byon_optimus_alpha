@@ -1,13 +1,13 @@
-# Milestone tag — `v10.0-longitudinal-generalization-isolation`
+# Milestone tag - `v10.0-longitudinal-generalization-isolation`
 
 **Status:** `V10_LONGITUDINAL_VALIDATED` · **8/8** · `FULL_LEVEL3_NOT_DECLARED`
 
-v10.0 — Longitudinal Generalization & Isolation validates the integrated BYON + D_Cortex +
+v10.0 - Longitudinal Generalization & Isolation validates the integrated BYON + D_Cortex +
 real FCE-M organism against eight standing gates designed to falsify audit-overfitting:
 mandatory real FCE-M, unseen-domain transfer, real OOV UNKNOWN behaviour, delayed recall after
 restart/interference, cross-user isolation, real-document contradiction streams, measurable
 FCE-M advisory effect, and zero false assertions on ungrounded queries. The milestone passes
-**8/8** on local CPU. It is a **controlled validation milestone — not a Level-3 claim and not
+**8/8** on local CPU. It is a **controlled validation milestone - not a Level-3 claim and not
 production-deployment proof.**
 
 ## Verified invariants (the architecturally decisive results)
@@ -29,19 +29,19 @@ production-deployment proof.**
 ## Reproduce / validate
 ```powershell
 python -m dcortex.v10_milestone --fast                       # produce the report
-# release validation — a missing real FCE-M engine FAILs (never skips):
+# release validation - a missing real FCE-M engine FAILs (never skips):
 $env:BYON_VALIDATE_REAL_FCEM="true"; python -m pytest tests/test_v10_milestone.py -m slow -v
 ```
 
 ## Git tag (optional)
 This product directory is not yet a git repository. To make this a real, signed tag:
 ```powershell
-git init; git add -A; git commit -m "v10.0 — Longitudinal Generalization & Isolation (8/8)"
+git init; git add -A; git commit -m "v10.0 - Longitudinal Generalization & Isolation (8/8)"
 git tag -a v10.0-longitudinal-generalization-isolation -m "V10_LONGITUDINAL_VALIDATED 8/8, false_assertions=0, FULL_LEVEL3_NOT_DECLARED"
 ```
 
 ---
 
-**Closed. Do not modify this milestone.** Next: **v10.1 — External Longitudinal Challenge**
+**Closed. Do not modify this milestone.** Next: **v10.1 - External Longitudinal Challenge**
 (external document streams, real temporal gaps, larger namespace, adversarial paraphrase,
 FCE-M decision influence on ranking/routing, provider-agnostic, signed memory ledger).

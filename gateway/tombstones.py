@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Tombstone overlay (Cycle 5, target 3/5).
 
 Old pre-Cycle-4 duplicate vault facts must be retired WITHOUT physical deletion (the canonical
@@ -58,8 +60,8 @@ class TombstoneStore:
         return f"sha:{csha}"
 
     def maybe_reload(self) -> None:
-        """Re-read the tombstone ledger if it changed on disk (another process — the harness or
-        compaction — may have written tombstones since this store was loaded)."""
+        """Re-read the tombstone ledger if it changed on disk (another process - the harness or
+        compaction - may have written tombstones since this store was loaded)."""
         try:
             mt = self.path.stat().st_mtime if self.path.exists() else 0.0
         except OSError:

@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Multi-perspective synthesis → epistemic verdict.
 
 Combines five views (memory / Claude / web / conflict / epistemic) into a single decision.
@@ -93,7 +95,7 @@ def synthesize(*, question: str, memory_hits: List[Dict[str, Any]],
         answer = _hit_text(grounded_hit)
         status, confidence = "PROVISIONAL", 0.55
         sources = [(grounded_hit.get("metadata") or {}).get("source") or "memory:candidate"]
-    elif hypo_val:  # Claude prior only — never KNOWN
+    elif hypo_val:  # Claude prior only - never KNOWN
         answer = (f"Claude's unverified hypothesis is: {hypo_val}. I cannot mark it KNOWN "
                   f"without source confirmation"
                   + (" (web search is disabled)." if not web_enabled else "."))

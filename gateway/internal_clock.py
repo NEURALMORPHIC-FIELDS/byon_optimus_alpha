@@ -1,4 +1,6 @@
-"""InternalResearchClock — chronodynamic research budget + stress engine.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""InternalResearchClock - chronodynamic research budget + stress engine.
 
 BYON does not search forever and does not give up instantly. A research turn runs against
 a real-time budget (default 300s). Stress rises with elapsed time and with pressure

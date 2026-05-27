@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Internal research task queue (Cycle 6, target 3).
 
-When LifeLoop v2 sees a repeated unknown / unresolved topic, it files an internal ResearchTask —
+When LifeLoop v2 sees a repeated unknown / unresolved topic, it files an internal ResearchTask -
 a NOTE TO SELF to look harder, not an answer. Memory / vault / self-state research can be
 scheduled automatically; WEB research requires user permission unless BYON_ALLOW_AUTONOMOUS_WEB
 is set. Tasks never run on secrets and are idempotent by topic. The queue holds no truth.

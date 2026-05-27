@@ -1,4 +1,6 @@
-"""Epistemic Search Loop — BYON's honest exhaustion of available sources before UNKNOWN.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Epistemic Search Loop - BYON's honest exhaustion of available sources before UNKNOWN.
 
 Composes the CANONICAL pieces (it does not reimplement them):
   internal/committed memory + session/candidates  ← memory-service (FAISS + trust tiers)
@@ -95,7 +97,7 @@ class EpistemicSearch:
             return clk
         return _REGISTRY[trace_id]
 
-    # Canonical retrieval probes — English, so they reliably match the English relation/repo
+    # Canonical retrieval probes - English, so they reliably match the English relation/repo
     # facts regardless of the user's query language (fixes cross-lingual self-knowledge recall).
     _CANON_QUERIES = [
         "BYON architecture components D_Cortex FCE-M memory-service Claude role",
@@ -224,7 +226,7 @@ class EpistemicSearch:
                                 synthesis={"epistemic_verdict": "UNKNOWN", "intent": qr.SECRET_QUERY,
                                            "query_class": sp.Q_SECRET, "source_class": sp.DISPUTED_OR_UNSAFE,
                                            "vault_primary": False,
-                                           "note": "secret/credential — not searched (no Claude/web)"})
+                                           "note": "secret/credential - not searched (no Claude/web)"})
 
         intent = qr.classify_intent(question)
         qclass = sp.query_class(intent, question)
@@ -292,7 +294,7 @@ class EpistemicSearch:
         rel_bundle = None
         if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
             canon = self._gather_canonical(mem_client, user_id) if mem_client else []
-            # Cycle 12: relation-aware normal answering — committed relations contribute CONTEXT
+            # Cycle 12: relation-aware normal answering - committed relations contribute CONTEXT
             # (source 'relation:...', policy-gated; vault-only objective relations excluded). They
             # rerank WITH memory facts and never outrank a real committed memory fact, and are never
             # gathered for a secret query (is_secret_query already returned above).
@@ -315,7 +317,7 @@ class EpistemicSearch:
         # A personal vault note must NEVER override a fixed canonical constraint under paraphrase
         # ("BYON is Level 3", "FCE-M can approve actions", "the Auditor can be bypassed"). If such
         # a note is retrieved for a system question, surface it but mark it DISPUTED_OR_UNSAFE and
-        # assert the canonical truth — never echo the note as fact.
+        # assert the canonical truth - never echo the note as fact.
         unsafe = []
         if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY):
             unsafe = sp.detect_unsafe_vault_claims(question, raw_hits)
@@ -361,7 +363,7 @@ class EpistemicSearch:
 
         # recent-write buffer (Cycle 4): a fact just taught is not yet searchable in FAISS
         # (~8-11s lag). If FAISS already returned it, drop it from the buffer; otherwise, for a
-        # personal recall with no committed grounding, recall it from the buffer — marked
+        # personal recall with no committed grounding, recall it from the buffer - marked
         # honestly as RECENT_WRITE_BUFFER (pending indexing), never faked as stable FAISS.
         if recent_buffer is not None:
             for h in memory_hits:
@@ -388,7 +390,7 @@ class EpistemicSearch:
         # NOT for USER_VAULT: a vault question must be answered from the user's notes and framed
         # as such, never short-circuited by a canonical/committed system fact.
         # Source-class gate (Cycle 3): the committed fact must be an ALLOWED PRIMARY source for
-        # this query class — e.g. a system/project fact may not answer a personal "my X" question
+        # this query class - e.g. a system/project fact may not answer a personal "my X" question
         # (that would be source bleed). Otherwise fall through to honest UNKNOWN/PROVISIONAL.
         fast_ok = bool(committed) and intent != qr.USER_VAULT_QUERY
         if fast_ok:
@@ -515,7 +517,7 @@ class EpistemicSearch:
             "answer": answer,
             "confidence": confidence,
             "grounded": status == "KNOWN",
-            # source-disambiguation surface (Cycle 3) — easy to read from the API/harness
+            # source-disambiguation surface (Cycle 3) - easy to read from the API/harness
             "query_class": syn.get("query_class"),
             "source_class": syn.get("source_class"),
             "vault_primary": syn.get("vault_primary"),

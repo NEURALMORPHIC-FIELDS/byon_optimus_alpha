@@ -1,7 +1,9 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Grounded relation inference (Cycle 11).
 
 Turns committed facts / candidate claims / dispute explanations / vault-chunk CONTENT / self-training
-docs / task summaries into RELATION CANDIDATES — never truth. Every candidate carries the evidence
+docs / task summaries into RELATION CANDIDATES - never truth. Every candidate carries the evidence
 quote it came from, its source id and source class, and the inference method. Candidates enter the
 relation-candidate lifecycle (they do not become committed relations on inference).
 
@@ -10,7 +12,7 @@ Methods, in order of authority:
   * canonical schema rules (a recognised project triple → VERIFIED_PROJECT_FACT);
   * candidate-lifecycle records (a committed/disputed candidate → relation candidate);
   * OPTIONAL Claude extraction as a language faculty only (opt-in BYON_RELATION_INFERENCE_CLAUDE),
-    bounded snippet in, proposed candidates out — advisory, never truth, never source-policy override.
+    bounded snippet in, proposed candidates out - advisory, never truth, never source-policy override.
 
 Hard rules: secret content is never inferred from and never sent to Claude; a vault/user relation
 stays user-memory-grounded (never silently promoted to objective truth); source policy + the Auditor
@@ -136,7 +138,7 @@ def infer_relations_from_text(text: str, source: str, source_class: Optional[str
 
 
 def _claude_relations(text, source, source_class, provenance, advisor) -> List[Dict[str, Any]]:
-    """Advisory Claude extraction — opt-in, bounded snippet, proposed candidates only, never truth."""
+    """Advisory Claude extraction - opt-in, bounded snippet, proposed candidates only, never truth."""
     if advisor is None or os.environ.get("BYON_RELATION_INFERENCE_CLAUDE", "false").strip().lower() \
             not in ("1", "true", "yes", "on"):
         return []

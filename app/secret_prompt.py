@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Secure secret handling for the launcher.
 
 Prompts for ANTHROPIC_API_KEY with getpass (never echoed). Prints only a masked prefix.
@@ -50,7 +52,7 @@ def ensure_api_key(*, interactive: bool = True, save: bool = False) -> Optional[
         return None
     try:
         entered = getpass.getpass(
-            "ANTHROPIC_API_KEY (optional — press Enter to run without Claude language): ").strip()
+            "ANTHROPIC_API_KEY (optional - press Enter to run without Claude language): ").strip()
     except (EOFError, KeyboardInterrupt):
         return None
     if not entered:

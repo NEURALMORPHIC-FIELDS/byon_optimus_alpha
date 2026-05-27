@@ -1,5 +1,5 @@
 """Tests for the BYON Alpha App wiring: log store, runtime manager, demo labelling,
-and end-to-end UI-log writes — all without live BYON or Claude."""
+and end-to-end UI-log writes - all without live BYON or Claude."""
 from __future__ import annotations
 
 import importlib
@@ -41,7 +41,7 @@ def test_demo_mode_runtime_is_marked(monkeypatch):
     assert status.mode == "DEMO"
     launch, message = rm.should_launch(cfg, status)
     assert launch is True
-    assert "DEMO MODE — NOT REAL BYON RUNTIME" in message
+    assert "DEMO MODE - NOT REAL BYON RUNTIME" in message
 
 
 def test_real_mode_refuses_launch_when_gateway_down(monkeypatch):

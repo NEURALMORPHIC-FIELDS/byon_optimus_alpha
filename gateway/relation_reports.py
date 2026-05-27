@@ -1,9 +1,11 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Relation-field reports + the RELATION_FIELD_QUERY answer builder (Cycle 10).
 
 Turns the structural relation field into the operator-facing reports (entity neighborhood,
 contradiction map, dependency map, recurrent themes, source-class breakdown, recent changes) and
 into a grounded natural answer for relation queries. Every answer carries PROVENANCE (the relation
-source ids) and a source class, so it still passes source policy + the Auditor — the relation field
+source ids) and a source class, so it still passes source policy + the Auditor - the relation field
 describes structure, it never asserts objective truth and never overrides source policy.
 """
 from __future__ import annotations
@@ -95,7 +97,7 @@ def relation_context_for(field: rf.RelationField, question: str, *,
     """Cycle 12: committed/reinforced relations the relation field can contribute as CONTEXT to a
     normal answer. Never for secrets; source-policy gated (a vault-only OBJECTIVE relation is
     blocked from being presented as objective structure); ordered by evidence weight. This is
-    CONTEXT only — it never overrides a memory fact and cannot answer alone."""
+    CONTEXT only - it never overrides a memory fact and cannot answer alone."""
     from . import relation_policy as rp
     if is_secret:
         return {"focus": None, "relations": [], "sources": [], "blocked": True, "reason": "secret"}
@@ -129,7 +131,7 @@ def relation_context_bundle(field: rf.RelationField, question: str, *, is_secret
     safety metadata the answer must carry. Empty for secrets. Never primary unless it is the only
     grounding and the source class allows it (the search still ranks memory facts first)."""
     if is_secret:
-        return {"used": False, "blocked": True, "reason": "secret query — relation field skipped",
+        return {"used": False, "blocked": True, "reason": "secret query - relation field skipped",
                 "hits": [], "relation_ids": [], "source_classes": [], "any_disputed": False,
                 "any_candidate": False, "any_decayed": False, "primary": False}
     q = (question or "").lower()
@@ -157,7 +159,7 @@ def relation_context_hits(field: rf.RelationField, question: str, *,
                           is_secret: bool = False, limit: int = 6) -> list:
     """The same committed relation context as memory-service-style hits (source 'relation:...',
     trust per relation_policy) so the normal epistemic search can rerank them WITH memory facts and
-    source policy — they never outrank a real committed memory fact."""
+    source policy - they never outrank a real committed memory fact."""
     from . import relation_policy as rp
     ctx = relation_context_for(field, question, is_secret=is_secret, limit=limit)
     hits = []
@@ -221,7 +223,7 @@ def render_path_explanation(field: rf.RelationField, start: str, target: Optiona
         qt = (h["evidence_quote"] or "")[:80]
         lines.append(f"  • {h['subject']} {h['relation_type']} {h['object']} "
                      f"[{tag}, {','.join(h['source_classes']) or 'necunoscut'}, w={h['weight']}, "
-                     f"dir={h['direction']}]{inv}" + (f" — \"{qt}\"" if qt else ""))
+                     f"dir={h['direction']}]{inv}" + (f" - \"{qt}\"" if qt else ""))
     return {"found": True, "epistemic_status": epi, "why": why, "start": start, "target": target,
             "path_status": best["path_status"], "canonical": best["canonical"],
             "inverse_rendered": any_inverse, "hops": hops, "sources": sources[:12],
@@ -297,7 +299,7 @@ def _frame(r: Dict[str, Any]) -> str:
     vault = any(sc in _VAULT_CLASSES for sc in scs) and not (set(scs) & set(rf.CANONICAL_SOURCE_CLASSES))
     frame = "in memoria ta (vault, nu adevăr obiectiv)" if vault else (",".join(scs) or "necunoscut")
     q = (r.get("evidence_quote") or "").strip()
-    quote = f" — citat: \"{q[:120]}\"" if q else ""
+    quote = f" - citat: \"{q[:120]}\"" if q else ""
     return (f"- {r['subject']} {r['relation_type']} {r['object']} "
             f"[{r.get('status')}, sursă: {frame}]{quote}")
 
@@ -351,7 +353,7 @@ def render_answer(field: rf.RelationField, question: str) -> Dict[str, Any]:
             qt = (h.get("evidence_quote") or "")[:90]
             inv = " [INVERS RANDAT, nu stocat ca adevăr]" if h.get("inverse_rendered") else ""
             lines.append(f"  • {h['subject']} {h['relation_type']} {h['object']} "
-                         f"[{tag}, {scs}, dir={h.get('direction')}]{inv}" + (f" — \"{qt}\"" if qt else ""))
+                         f"[{tag}, {scs}, dir={h.get('direction')}]{inv}" + (f" - \"{qt}\"" if qt else ""))
             for sid in (h.get("source_ids") or [])[:2]:
                 if sid and sid not in srcs:
                     srcs.append(sid)

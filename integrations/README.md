@@ -1,6 +1,6 @@
 # BYON World Connectors (v10.1 alpha)
 
-These let real, non-technical users reach BYON — **without** any of them becoming the
+These let real, non-technical users reach BYON - **without** any of them becoming the
 epistemic authority. The trust order never changes:
 
 ```

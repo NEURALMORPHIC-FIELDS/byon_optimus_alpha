@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Locate the BYON runtime pieces the launcher needs.
 
 Searches env vars and known repo locations. Returns what was found and a list of

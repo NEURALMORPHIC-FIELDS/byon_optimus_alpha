@@ -1,4 +1,4 @@
-# Delivery status — BYON Optimus + D_Cortex
+# Delivery status - BYON Optimus + D_Cortex
 
 Last update: 2026-05-26 · Targets: local Windows (CPU torch, Node 24) + Colab GPU (T4) ·
 Live model: `claude-sonnet-4-6` · Official orchestrator: `byon_optimus@main` (`3b94773`),
@@ -12,33 +12,33 @@ This file states only what was **run and verified**, organised by the version pr
 
 | Version | What it established | Verdict |
 |---|---|---|
-| **v9.9.0** | Off-Colab port + local full-organism harness | PASS — CPU **59/59** exercised; live E2E 3/3 |
-| **v9.9.1** | Contradiction-resistant addressable memory (sleep-gated arbitration) | PASS — contradiction retention 0→1; v10 **7/7** |
-| **v9.9.2** | Epistemic Memory Contract (UNKNOWN-when-ungrounded) + coexistence reframe | PASS — GPU **87/87**; no_answer 0.567→1.0; v10 **8/8** |
-| **v9.9.3** | **Real FCE-M v15.7a runtime proof** (no shim, strict mode) | **PASS** — `fcem_runtime_proven=true` |
-| **v10.0** | **Longitudinal Generalization & Isolation** (8 standing gates, real FCE-M mandatory) | **PASS** — `V10_LONGITUDINAL_VALIDATED` 8/8, `false_assertions=0` |
-| **v10.1-alpha** | **BYON World Connector Alpha** (Gateway + MCP + per-user namespace + connectors) | **PASS** — `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline; live connector gates deferred |
-| **v10.2–10.3-alpha** | Epistemic Search + Continuous Learning + **Active Memory Core** (canonical-only; retrieval re-ranking by trust tier + intent) | **PASS** — 113/113 non-live; live re-verified on the restarted stack |
-| **v10.4-alpha** | Self-introspection (`SelfStateProvider`) + operational intents + self/vault training + **BYONLifeLoop v1** | **PASS** — answered from runtime state, never vault/slogan |
-| **v10.5-alpha** | Expression/style learning + per-session event stream + **live evaluation harness** | **PASS** — 178 non-live; live harness 25/25 graded (restart-recall documented skip) |
-| **v10.6-alpha** | **Source-class disambiguation + two-phase restart-recall + vault-report coherence** | **PASS** — **196 non-live; live harness 35/35 graded, 0 fail, 0 skip; restart recall passes** |
-| **v10.7-alpha** | **Substrate hardening** (chunk dedup, single-writer lock, error classes, recent-write buffer, process guard) | **PASS** — 228 non-live; live 40/40; **full 843-note vault index complete, errors 0** |
-| **v10.8-alpha** | **Read-consistent access + tombstone/compaction** | **PASS** — 250 non-live; live 49/49; **4,419 duplicate vault facts retired → 5,977 active** |
-| **v10.9-alpha** | **LifeLoop v2** (pressure model, internal research tasks, pressure-triggered consolidation, self-state snapshots) | **PASS** — 282 non-live; live 63/63; LifeLoop never answers / never truth authority |
-| **v10.10-alpha** | **In-engine read/write consistency signal + permissioned autonomous memory-only tasks** (results = candidates) | **PASS** — **307 non-live; live harness 76/76 graded, 0 fail; restart recall passes** |
-| **v10.11-alpha** | **Candidate-to-commit lifecycle** (states + pure consolidation decision; independent-evidence merge; disputed challenger; commit per source class; Track A in-engine snapshot deferred honestly) | **PASS** — 338 non-live; live harness 93/93 graded, 0 fail; restart recall passes |
-| **v10.12-alpha** | **Semantic contradiction + evidence quality** (semantic relation classifier; paraphrase merge / contradiction dispute; evidence-quality commit gate; dispute explanation records; Claude/NLI advisory-only) | **PASS** — **361 non-live; live harness 106/106 graded, 0 fail; restart recall passes** |
-| **v10.13-alpha** | **Relational memory field v1** (entities + typed relations over committed facts / candidates / disputes / vault / tasks; relation-aware retrieval; neighborhood / contradiction / dependency / theme reports; temporal tracking; never a truth authority) | **PASS** — **393 non-live; live harness 121/121 graded, 0 fail; restart recall passes** |
-| **v10.14-alpha** | **Relation inference + relational reasoning** (grounded extractor over fact/chunk CONTENT with quotes+provenance; relation-candidate lifecycle; bounded multi-hop paths; relation field proposes candidates back to the lifecycle; Claude advisory-only) | **PASS** — **424 non-live; live harness 137/137 graded, 0 fail; restart recall passes** |
-| **v10.15-alpha** | **Directed, evidence-weighted, policy-aware relational reasoning** (per-type direction + inverse-rendering; relation_weight_score; relation_policy source rules; relation-aware normal answering; contradiction-type classification; relation-aware self-state metrics) | **PASS** — **459 non-live; live harness 155/155 graded, 0 fail; restart recall passes** |
-| **v10.16-alpha** | **General objective relation answering + temporal trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state** | **PASS** — **514 non-live; live harness 178/178 graded, 0 fail; restart recall passes** |
+| **v9.9.0** | Off-Colab port + local full-organism harness | PASS - CPU **59/59** exercised; live E2E 3/3 |
+| **v9.9.1** | Contradiction-resistant addressable memory (sleep-gated arbitration) | PASS - contradiction retention 0→1; v10 **7/7** |
+| **v9.9.2** | Epistemic Memory Contract (UNKNOWN-when-ungrounded) + coexistence reframe | PASS - GPU **87/87**; no_answer 0.567→1.0; v10 **8/8** |
+| **v9.9.3** | **Real FCE-M v15.7a runtime proof** (no shim, strict mode) | **PASS** - `fcem_runtime_proven=true` |
+| **v10.0** | **Longitudinal Generalization & Isolation** (8 standing gates, real FCE-M mandatory) | **PASS** - `V10_LONGITUDINAL_VALIDATED` 8/8, `false_assertions=0` |
+| **v10.1-alpha** | **BYON World Connector Alpha** (Gateway + MCP + per-user namespace + connectors) | **PASS** - `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED` 21/21 offline; live connector gates deferred |
+| **v10.2–10.3-alpha** | Epistemic Search + Continuous Learning + **Active Memory Core** (canonical-only; retrieval re-ranking by trust tier + intent) | **PASS** - 113/113 non-live; live re-verified on the restarted stack |
+| **v10.4-alpha** | Self-introspection (`SelfStateProvider`) + operational intents + self/vault training + **BYONLifeLoop v1** | **PASS** - answered from runtime state, never vault/slogan |
+| **v10.5-alpha** | Expression/style learning + per-session event stream + **live evaluation harness** | **PASS** - 178 non-live; live harness 25/25 graded (restart-recall documented skip) |
+| **v10.6-alpha** | **Source-class disambiguation + two-phase restart-recall + vault-report coherence** | **PASS** - **196 non-live; live harness 35/35 graded, 0 fail, 0 skip; restart recall passes** |
+| **v10.7-alpha** | **Substrate hardening** (chunk dedup, single-writer lock, error classes, recent-write buffer, process guard) | **PASS** - 228 non-live; live 40/40; **full 843-note vault index complete, errors 0** |
+| **v10.8-alpha** | **Read-consistent access + tombstone/compaction** | **PASS** - 250 non-live; live 49/49; **4,419 duplicate vault facts retired → 5,977 active** |
+| **v10.9-alpha** | **LifeLoop v2** (pressure model, internal research tasks, pressure-triggered consolidation, self-state snapshots) | **PASS** - 282 non-live; live 63/63; LifeLoop never answers / never truth authority |
+| **v10.10-alpha** | **In-engine read/write consistency signal + permissioned autonomous memory-only tasks** (results = candidates) | **PASS** - **307 non-live; live harness 76/76 graded, 0 fail; restart recall passes** |
+| **v10.11-alpha** | **Candidate-to-commit lifecycle** (states + pure consolidation decision; independent-evidence merge; disputed challenger; commit per source class; Track A in-engine snapshot deferred honestly) | **PASS** - 338 non-live; live harness 93/93 graded, 0 fail; restart recall passes |
+| **v10.12-alpha** | **Semantic contradiction + evidence quality** (semantic relation classifier; paraphrase merge / contradiction dispute; evidence-quality commit gate; dispute explanation records; Claude/NLI advisory-only) | **PASS** - **361 non-live; live harness 106/106 graded, 0 fail; restart recall passes** |
+| **v10.13-alpha** | **Relational memory field v1** (entities + typed relations over committed facts / candidates / disputes / vault / tasks; relation-aware retrieval; neighborhood / contradiction / dependency / theme reports; temporal tracking; never a truth authority) | **PASS** - **393 non-live; live harness 121/121 graded, 0 fail; restart recall passes** |
+| **v10.14-alpha** | **Relation inference + relational reasoning** (grounded extractor over fact/chunk CONTENT with quotes+provenance; relation-candidate lifecycle; bounded multi-hop paths; relation field proposes candidates back to the lifecycle; Claude advisory-only) | **PASS** - **424 non-live; live harness 137/137 graded, 0 fail; restart recall passes** |
+| **v10.15-alpha** | **Directed, evidence-weighted, policy-aware relational reasoning** (per-type direction + inverse-rendering; relation_weight_score; relation_policy source rules; relation-aware normal answering; contradiction-type classification; relation-aware self-state metrics) | **PASS** - **459 non-live; live harness 155/155 graded, 0 fail; restart recall passes** |
+| **v10.16-alpha** | **General objective relation answering + temporal trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state** | **PASS** - **514 non-live; live harness 178/178 graded, 0 fail; restart recall passes** |
 
 ---
 
 ## Final validated state
 
-### Colab GPU (full organism, live, run 3) — comprehensive
-- **D_Cortex audit**: `CHRONODYNAMIC_SEMANTIC_GROUNDED_CORTEX_VALIDATED_WEAK` — **87/87**, 0 fails.
+### Colab GPU (full organism, live, run 3) - comprehensive
+- **D_Cortex audit**: `CHRONODYNAMIC_SEMANTIC_GROUNDED_CORTEX_VALIDATED_WEAK` - **87/87**, 0 fails.
   Real corpus (AG News + WikiText, 48 docs), tokenizer **50000/50000**, reader loss 9.76→1.58,
   closed-book QA **1.0**, no_answer **1.0**. ~64 min on T4.
 - **FCE-M runtime**: `source=external_v15_7a, shim_used=false, adapter=DCortexAdapter`;
@@ -58,8 +58,8 @@ This file states only what was **run and verified**, organised by the version pr
 
 ### Bounded claims (dev-sheet §8)
 Advanced experimental prototype. Not a general LLM, not consciousness, not a finished consumer
-product, **`FULL_LEVEL3_NOT_DECLARED`** preserved. The combination — BYON as epistemic auditor +
-D_Cortex as additive morphogenetic memory organ + **real FCE-M v15.7a** + live Claude — is
+product, **`FULL_LEVEL3_NOT_DECLARED`** preserved. The combination - BYON as epistemic auditor +
+D_Cortex as additive morphogenetic memory organ + **real FCE-M v15.7a** + live Claude - is
 validated end-to-end.
 
 ---
@@ -70,32 +70,32 @@ validated end-to-end.
 - ~~Cortex last-write-wins contradiction~~ → **closed (v9.9.1, sleep-gated arbitration)**.
 - ~~FCE-M ran as vendored minimal shim in FSOAT~~ → **closed (v9.9.3, external_v15_7a proven)**.
 
-## v10 milestone — Longitudinal Generalization & Isolation · **VALIDATED (8/8)**
+## v10 milestone - Longitudinal Generalization & Isolation · **VALIDATED (8/8)**
 Not more FSOAT fixes. This milestone tests robustness against audit-overfitting (dev-sheet
 §10.1), with **real FCE-M mandatory**. Run: `python -m dcortex.v10_milestone --fast`
 → `runtime/v10_milestone_out/v10_milestone_report.json`, `verdict=V10_LONGITUDINAL_VALIDATED`.
 
 | Gate | Must demonstrate | Result |
 |---|---|---|
-| `REAL_FCEM_REQUIRED` | fail-hard if a shim appears (strict external v15.7a) | **PASS** — `DCortexAdapter`, sealed `__version__`, pipeline ran; bogus root raises |
-| `UNSEEN_DOMAIN_TRANSFER` | new domains, not AG News / WikiText (23/29/31) | **PASS** — mean post-accuracy 1.0 |
-| `REAL_OOV_UNKNOWN` | real never-taught keys → UNKNOWN | **PASS** — untaught keys 100% UNKNOWN |
-| `DELAYED_RECALL_RESTART` | recall after restart + interference + elapsed time | **PASS** — retention 1.0 |
-| `CROSS_USER_ISOLATION` | user A does not contaminate user B | **PASS** — cross-contamination 0 |
-| `REAL_CONTRADICTION_STREAM` | contradictions parsed from real documents | **PASS** — transient resisted, verified correction wins |
-| `FCEM_ADVISORY_EFFECT` | FCE-M measurably changes priority/attention | **PASS** — contested pressure 0.60 > aligned 0.0 |
-| `FALSE_ASSERTION_RATE_ZERO` | ungrounded assertions = 0 | **PASS** — 0 / 12 ungrounded queries |
+| `REAL_FCEM_REQUIRED` | fail-hard if a shim appears (strict external v15.7a) | **PASS** - `DCortexAdapter`, sealed `__version__`, pipeline ran; bogus root raises |
+| `UNSEEN_DOMAIN_TRANSFER` | new domains, not AG News / WikiText (23/29/31) | **PASS** - mean post-accuracy 1.0 |
+| `REAL_OOV_UNKNOWN` | real never-taught keys → UNKNOWN | **PASS** - untaught keys 100% UNKNOWN |
+| `DELAYED_RECALL_RESTART` | recall after restart + interference + elapsed time | **PASS** - retention 1.0 |
+| `CROSS_USER_ISOLATION` | user A does not contaminate user B | **PASS** - cross-contamination 0 |
+| `REAL_CONTRADICTION_STREAM` | contradictions parsed from real documents | **PASS** - transient resisted, verified correction wins |
+| `FCEM_ADVISORY_EFFECT` | FCE-M measurably changes priority/attention | **PASS** - contested pressure 0.60 > aligned 0.0 |
+| `FALSE_ASSERTION_RATE_ZERO` | ungrounded assertions = 0 | **PASS** - 0 / 12 ungrounded queries |
 
 **Validation profiles (dev-sheet §7.3).** Real FCE-M is skippable *only* in the unit-portable
-profile (fast suite stays green offline). Release validation —
-`BYON_VALIDATE_REAL_FCEM=true python -m pytest tests/test_v10_milestone.py -m slow -v` — makes a
+profile (fast suite stays green offline). Release validation -
+`BYON_VALIDATE_REAL_FCEM=true python -m pytest tests/test_v10_milestone.py -m slow -v` - makes a
 missing real engine a **hard FAIL, never a skip**. Tag manifest: `MILESTONE_v10.0.md`.
 
-**v10.0 is closed — do not modify it.** The architecturally decisive results are the invariants
+**v10.0 is closed - do not modify it.** The architecturally decisive results are the invariants
 (0 false assertions, cross-user contamination 0, real FCE-M mandatory, UNKNOWN on real OOV,
 delayed recall survives restart/interference), not the 8/8 tally itself.
 
-## v10.1 — BYON World Connector Alpha · **VALIDATED (21/21 offline)**
+## v10.1 - BYON World Connector Alpha · **VALIDATED (21/21 offline)**
 The external access layer that lets real people reach BYON, without any connector becoming
 the authority. BYON stays the only epistemic judge; connectors forward and relay the verdict.
 Run: `python -m gateway.alpha_validation` → `runtime/v10_1_out/v10_1_world_connector_alpha_report.json`,
@@ -108,15 +108,15 @@ verdict `V10_1_WORLD_CONNECTOR_ALPHA_VALIDATED`. Code: `gateway/`, `byon_mcp/`, 
 | **MCP** | 5 tools route through the Gateway, cannot bypass final audit, preserve UNKNOWN + audit trace, only `byon.chat` user-facing |
 | **Connectors** | OpenClaw forward-only adapter, n8n feedback intake + workflows, LibreChat config present |
 
-Deferred (need a live external service — reported, **never faked**): live LibreChat browser chat,
+Deferred (need a live external service - reported, **never faked**): live LibreChat browser chat,
 live OpenClaw channel, live n8n daily report, live BYON orchestrator routing (`HttpBYONBackend`),
 admin dashboard UI. BYON core untouched (`dcortex==10.0.0`, v10 gates unchanged);
 `FULL_LEVEL3_NOT_DECLARED` preserved.
 
-## v10.4–v10.6 — Active Memory Runtime · **VALIDATED (live harness 35/35)**
+## v10.4–v10.6 - Active Memory Runtime · **VALIDATED (live harness 35/35)**
 The one-command app (`python run_byon.py`, UI http://localhost:7860) turned the connector into a
 working active-memory runtime, entirely over the canonical components (memory-service / FAISS /
-FCE-M / D_Cortex / FactExtractor / Auditor — never a parallel store, never `LocalBYONBackend` in
+FCE-M / D_Cortex / FactExtractor / Auditor - never a parallel store, never `LocalBYONBackend` in
 REAL). Validation: **196 non-live pytest** + **live harness `scripts/live_byon_eval.py`**.
 
 | Area | Validated live |
@@ -136,7 +136,7 @@ Bugs the harder harness found and fixed (run, not claimed): English-only secret 
 canonical fact answering a personal "my X" question, USER_VAULT short-circuiting on a canonical
 fact. `FULL_LEVEL3_NOT_DECLARED` preserved; BYON core (`dcortex==10.0.0`, v10 gates) untouched.
 
-## v10.7–v10.10 — Hardened substrate + LifeLoop v2 · **VALIDATED (live harness 76/76)**
+## v10.7–v10.10 - Hardened substrate + LifeLoop v2 · **VALIDATED (live harness 76/76)**
 Built the internal organism on a hardened, consistent, deduplicated memory. Validation:
 **307 non-live pytest** + **live harness 76/76 graded PASS, 0 fail** (all Cycle 1–7 gates).
 
@@ -145,7 +145,7 @@ Built the internal organism on a hardened, consistent, deduplicated memory. Vali
 | **Full vault index** | 843/843 notes, errors 0, `complete=true`, `stale=false` (content-addressed dedup; a re-run stores 0) |
 | **Single-writer lock + process guard** | second writer refused; dead/stale lock reclaimed; only BYON vault-trainers stopped (never unrelated Python) |
 | **Error handling** | encoding ladder + binary/oversized skip; one bad note never aborts; per-file `errors.jsonl` |
-| **Read consistency** | engine read/write coordination (`in_engine_rw_lock`) — reader waits for a write batch to commit; no false-zero; snapshot+retry fallback |
+| **Read consistency** | engine read/write coordination (`in_engine_rw_lock`) - reader waits for a write batch to commit; no false-zero; snapshot+retry fallback |
 | **Tombstone / compaction** | **4,419 duplicate vault facts retired → 5,977 active** (tombstone, not delete; audited, reversible; excluded from search, `include_tombstoned` for audit) |
 | **Recent-write buffer** | a just-taught personal fact is recalled immediately, marked `RECENT_WRITE_BUFFER` |
 | **LifeLoop v2** | per-topic pressure (with decay), internal research tasks, pressure-triggered FCE-M consolidation, temporal self-state snapshots |
@@ -156,7 +156,7 @@ Built the internal organism on a hardened, consistent, deduplicated memory. Vali
 > readers), not inside the sealed FAISS engine; a true in-engine snapshot/atomic-swap is the next
 > substrate step. `dcortex==10.0.0` and the v10 milestone gates remain untouched.
 
-## Later track — v10.2 (External Longitudinal Challenge)
+## Later track - v10.2 (External Longitudinal Challenge)
 Raises the v10 longitudinal bar with inputs the harness did not create (distinct from the v10.1
 connector work):
 

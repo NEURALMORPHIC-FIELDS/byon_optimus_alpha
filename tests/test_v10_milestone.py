@@ -1,8 +1,8 @@
-"""Tests for the v10 — Longitudinal Generalization & Isolation milestone.
+"""Tests for the v10 - Longitudinal Generalization & Isolation milestone.
 
 Fast unit tests (document parser, fail-hard FCE-M gate) always run. The full
 eight-gate run is marked `slow` and skips when the real v15.7a engine is not
-locally resolvable — REAL_FCEM_REQUIRED is mandatory, never silently faked.
+locally resolvable - REAL_FCEM_REQUIRED is mandatory, never silently faked.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _engine_available() -> bool:
 
 def _strict_real_fcem() -> bool:
     """Release-validation profile. With BYON_VALIDATE_REAL_FCEM=true a missing real
-    v15.7a engine is a HARD FAILURE, never a skip — REAL_FCEM_REQUIRED is mandatory
+    v15.7a engine is a HARD FAILURE, never a skip - REAL_FCEM_REQUIRED is mandatory
     in validation, only skippable in the unit-portable profile (dev-sheet §7.3)."""
     return os.environ.get("BYON_VALIDATE_REAL_FCEM", "").strip().lower() in (
         "1", "true", "yes", "on")
@@ -34,7 +34,7 @@ def _require_engine() -> None:
     if _strict_real_fcem():
         pytest.fail(
             "BYON_VALIDATE_REAL_FCEM=true but the real v15.7a d_cortex engine is not "
-            "resolvable — REAL_FCEM_REQUIRED fails hard in release validation (no skip).")
+            "resolvable - REAL_FCEM_REQUIRED fails hard in release validation (no skip).")
     pytest.skip("real v15.7a d_cortex engine not resolvable locally (unit-portable profile)")
 
 

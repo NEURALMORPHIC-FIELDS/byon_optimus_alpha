@@ -1,4 +1,4 @@
-"""Cycle 3 Pillar 1 — vault report coherence (stale detection vs memory-service, resume).
+"""Cycle 3 Pillar 1 - vault report coherence (stale detection vs memory-service, resume).
 
 A fake memory-service records stored vault facts and returns them on search, so the report's
 "agreement" check (stale=false only when report and memory-service agree) is exercised for real.

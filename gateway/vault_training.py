@@ -1,4 +1,6 @@
-"""Phase 4 — Obsidian vault training (the user's living corpus).
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Phase 4 - Obsidian vault training (the user's living corpus).
 
 Reads markdown notes (frontmatter, tags, wikilinks, backlinks, headings, path, mtime, sha256),
 heading-aware chunks → canonical memory-service store (FAISS) → FCE-M consolidate. Vault notes

@@ -1,0 +1,41 @@
+{
+  "canonical_modules": {
+    "run_byon.py": "REAL-mode launcher: starts memory-service child + Gateway + UI; LocalBYONBackend forbidden in REAL",
+    "gateway/app.py": "FastAPI Gateway: the only public surface; no raw memory/engine exposure; final audit enforced",
+    "gateway/epistemic_search.py": "epistemic search loop (memory -> candidates -> Claude hypothesis -> web); relation context injection",
+    "gateway/source_policy.py": "query_class + source_class gating; canonical constraints; the source-bleed boundary",
+    "gateway/memory_service_backend.py": "canonical memory-service backend (real D_Cortex/FAISS + FCE-M)",
+    "gateway/consistent_client.py": "read-consistent client wrapper over the memory-service (tombstone-filtered)",
+    "gateway/tombstones.py": "tombstone store; excluded-from-search lifecycle",
+    "gateway/candidate_lifecycle.py": "candidate-to-commit lifecycle; consolidation is the only state-mover",
+    "gateway/lifeloop.py": "LifeLoop v2: internal circulation; never answers the user; never a truth authority",
+    "gateway/relation_field.py": "relational memory field: entities + typed relations; decay; never a truth authority",
+    "gateway/relation_policy.py": "relation-type source policy (objective relations need verified sources)",
+    "gateway/relation_inference.py": "grounded relation inference (deterministic + canonical + opt-in Claude advisory)",
+    "gateway/relation_reports.py": "relation reports + grounded path explanation + relation-aware answer context",
+    "gateway/vault_training.py": "vault indexing into the canonical memory-service (single-writer, dedup, coherent report)",
+    "scripts/live_byon_eval.py": "live evaluation harness (178 graded gates across cycles 1-13)"
+  },
+  "runtime_entrypoints": ["run_byon.py", "scripts/live_byon_eval.py", "verify_integration.py",
+                          "scripts/check_style_contract.py", "scripts/restart_app.py"],
+  "external_dependencies": {
+    "byon_optimus_orchestrator": "github.com/NEURALMORPHIC-FIELDS/byon_optimus, consumed at runtime under external/ (not vendored)",
+    "fcem_v15_7a": "sealed FCE-M consolidator resolved via FCEM_MEMORY_ENGINE_ROOT; not bundled; mandatory for release validation",
+    "memory_service": "canonical FastAPI + FAISS + trust tiers + FCE-M; the ONLY store; never bypassed"
+  },
+  "boundaries": {
+    "memory_service_FCEM_DCortex": "accessed only through the canonical client/backend; no raw FAISS/FCE-M/D_Cortex endpoints are exposed",
+    "gateway_only_public_surface": "all external access goes through gateway/app.py /v1/* with mandatory user_id+session_id, per-user namespace, audit trace, and final audit",
+    "ui": "the UI calls the Gateway client only, never memory-service or Claude directly"
+  },
+  "forbidden_duplicates": [
+    "no second epistemic_search / source_policy / memory_service_backend / candidate_lifecycle / relation_field",
+    "no parallel vector store besides the canonical memory-service",
+    "no copy of a canonical module (verify_integration.py flags byte-identical copies as DUPLICATE)"
+  ],
+  "sealed_or_closed": {
+    "dcortex/": "v10.0 milestone code, CLOSED; not modified by hygiene/cycle work",
+    "external/": "sealed/vendored at runtime; not scanned or modified"
+  },
+  "verification": "python verify_integration.py (all critical modules WIRED, no boundary violation) + python scripts/check_style_contract.py"
+}

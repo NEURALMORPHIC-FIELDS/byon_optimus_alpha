@@ -1,4 +1,4 @@
-"""Tests for Cycle 2 Target 3 — the literal per-session event stream.
+"""Tests for Cycle 2 Target 3 - the literal per-session event stream.
 
 events.jsonl is an additional active-memory log (the audit log is retained). The follow-up
 resolver and chat-history summary must prefer this stream and fall back to the audit log only

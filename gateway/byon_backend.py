@@ -1,16 +1,18 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """The boundary to the BYON Optimus organism.
 
 The Gateway delegates the *decision* to BYON through a `BYONBackend`. The Gateway
 itself never produces an answer. Two rules make this safe:
 
 1. **Fail-hard, never fabricate.** If BYON is unreachable or errors, the backend
-   returns an ERROR result with an empty answer — it does not invent a reply, fall
+   returns an ERROR result with an empty answer - it does not invent a reply, fall
    back to a stub, or answer from any other source (dev-sheet §7.3).
 2. **The organism owns the verdict.** answer + epistemic_status + grounding +
    dcortex/fcem summaries come from BYON. The Gateway only normalises and labels.
 
 `HttpBYONBackend` is the production backend (calls the orchestrator). Tests inject
-a deterministic in-memory backend via FastAPI dependency override — that is a test
+a deterministic in-memory backend via FastAPI dependency override - that is a test
 double, not a production fallback; production wiring uses the HTTP backend only.
 """
 from __future__ import annotations
@@ -48,7 +50,7 @@ class BYONBackend(Protocol):
 
 class HttpBYONBackend:
     """Calls the real BYON Optimus orchestrator over HTTP. On any failure it returns
-    an ERROR result (no answer) — the Gateway then refuses, it never fabricates."""
+    an ERROR result (no answer) - the Gateway then refuses, it never fabricates."""
 
     def __init__(self, orchestrator_url: str, timeout_s: float = 60.0) -> None:
         self.base = orchestrator_url.rstrip("/")

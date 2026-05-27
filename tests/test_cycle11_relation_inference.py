@@ -1,4 +1,4 @@
-"""Cycle 11 — grounded relation inference + relational reasoning.
+"""Cycle 11 - grounded relation inference + relational reasoning.
 
 S1 extractor, S2 content ingestion, S3 multi-hop, S4 relation-candidate lifecycle, S5 proposals,
 S6 rendering. Inference produces CANDIDATES with provenance, never truth; Claude is advisory-only;
@@ -50,7 +50,7 @@ class FakeLC:
         return None
 
 
-# ============================================================ S1 — extractor
+# ============================================================ S1 - extractor
 def test_deterministic_relation_extracted_from_committed_fact():
     cs = ri.infer_relations_from_text("BYON gateway depends on memory-service.",
                                       "committed:f1", "VERIFIED_PROJECT_FACT", {})
@@ -106,7 +106,7 @@ def test_canonical_relation_outranks_inferred_vault_relation(tmp_path):
     assert top["status"] == rf.COMMITTED and "VERIFIED_PROJECT_FACT" in top["source_classes"]
 
 
-# ============================================================ S2 — content ingestion
+# ============================================================ S2 - content ingestion
 def test_relation_inference_uses_fact_content(tmp_path):
     mem = FakeMem(system=[_hit("BYON gateway depends on memory-service", "repo:arch.md", "VERIFIED_PROJECT_FACT")])
     f = _field(tmp_path)
@@ -138,7 +138,7 @@ def test_task_result_relation_inferred(tmp_path):
     assert any(r["relation_type"] == rf.DEPENDS_ON for r in f._rel.values())
 
 
-# ============================================================ S3 — multi-hop
+# ============================================================ S3 - multi-hop
 def _chain(tmp_path, sc="VERIFIED_PROJECT_FACT", extra=None):
     f = _field(tmp_path)
     f.add_relation("A", "depends_on", "B", relation_type=rf.DEPENDS_ON, source_id="s1", source_class=sc)
@@ -189,7 +189,7 @@ def test_canonical_path_outprioritizes_vault_path(tmp_path):
     assert res["paths"][0]["canonical"] is True
 
 
-# ============================================================ S4 — relation lifecycle
+# ============================================================ S4 - relation lifecycle
 def _ingest(f, subj, obj, src, sc="VERIFIED_PROJECT_FACT"):
     return f.ingest_candidate_relation({"subject": subj, "predicate": "depends on", "object": obj,
                                         "relation_type": rf.DEPENDS_ON, "source_id": src,
@@ -242,7 +242,7 @@ def test_system_canonical_relation_can_commit_directly_if_policy_allows(tmp_path
     assert r["status"] == rf.COMMITTED
 
 
-# ============================================================ S5 — proposals
+# ============================================================ S5 - proposals
 def _disputed_field(tmp_path, canonical=False):
     f = _field(tmp_path)
     sc = "SYSTEM_CANONICAL" if canonical else "EXTRACTED_USER_CLAIM"
@@ -279,7 +279,7 @@ def test_canonical_conflict_proposal_marked_disputed(tmp_path):
     assert contra and contra[0]["status"] == rf.DISPUTED
 
 
-# ============================================================ S6 — rendering
+# ============================================================ S6 - rendering
 def _render_field(tmp_path):
     f = _field(tmp_path)
     f.add_relation("BYON", "has_component", "D_Cortex", source_id="relation:seed",

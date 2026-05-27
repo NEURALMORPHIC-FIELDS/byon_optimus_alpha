@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Helpers to render BYON output for the UI (audit trace + compact summaries)."""
 from __future__ import annotations
 
@@ -16,9 +18,9 @@ def render_audit(client, trace_id: str) -> str:
 
 def compact(obj: Any) -> str:
     if obj is None:
-        return "—"
+        return "-"
     if isinstance(obj, dict) and not obj:
-        return "—"
+        return "-"
     try:
         return json.dumps(obj, ensure_ascii=False)
     except Exception:

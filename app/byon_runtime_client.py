@@ -1,4 +1,6 @@
-"""BYONRuntimeClient — the app's only path to BYON.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""BYONRuntimeClient - the app's only path to BYON.
 
 The app NEVER answers epistemically. It calls the BYON Gateway and displays BYON's
 verdict. Hard rules (enforced here, not just documented):
@@ -273,7 +275,7 @@ class BYONRuntimeClient:
 class DemoBYONClient:
     """Opt-in DEMO client. Canned responses only, clearly labelled. NOT real BYON."""
 
-    BANNER = "DEMO MODE — NOT REAL BYON RUNTIME"
+    BANNER = "DEMO MODE - NOT REAL BYON RUNTIME"
 
     def health(self) -> Dict[str, Any]:
         return {"_reachable": True, "status": "demo", "demo": True}

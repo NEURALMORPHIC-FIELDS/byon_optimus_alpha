@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Content-addressed vault dedup manifest (Cycle 4, target 2).
 
 Re-indexing a vault must NOT re-store unchanged chunks. This manifest is content-addressed at
@@ -6,7 +8,7 @@ skip a chunk whose sha is already active. When a file changes, its old chunks ar
 `superseded` (the memory-service has no delete API, so we track lifecycle here and simply avoid
 duplicate writes).
 
-Append-only JSONL at runtime/vaults/{vault_hash}/manifest.jsonl — crash-safe; on load, the last
+Append-only JSONL at runtime/vaults/{vault_hash}/manifest.jsonl - crash-safe; on load, the last
 record per chunk_id wins. Records: file_path, file_sha256, chunk_id, chunk_sha256,
 memory_ctx_id, indexed_at, status (active | superseded | tombstoned | error).
 """
@@ -172,7 +174,7 @@ class VaultManifest:
                     if r.get("status") == STATUS_ACTIVE})
 
     def active_sha_count(self) -> int:
-        """Distinct active CONTENT shas (deduped) — the true count of unique indexed chunks,
+        """Distinct active CONTENT shas (deduped) - the true count of unique indexed chunks,
         which is what the memory-service vault-fact count should agree with. Counting records
         instead would double-count a sha recorded under both a bootstrap and a real index."""
         return len(self._active_shas)

@@ -1,4 +1,6 @@
-"""BYON MCP Server — the universal port onto BYON.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""BYON MCP Server - the universal port onto BYON.
 
 LibreChat, OpenClaw, n8n, or any MCP-speaking client call the same five tools, and
 every one of them routes through the BYON Gateway. No MCP tool queries D_Cortex or

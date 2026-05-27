@@ -1,4 +1,4 @@
-"""Cycle 3 Pillar 3 — source-disambiguation matrix.
+"""Cycle 3 Pillar 3 - source-disambiguation matrix.
 
 A retrieved fact's SOURCE CLASS decides what it may ground. A personal vault note can answer
 "what did I write" but must never override canonical system truth, and must never ground an
@@ -62,7 +62,7 @@ def test_unsafe_vault_claim_marked_disputed(tmp_path):
 
 def test_vault_claim_cannot_override_system_canonical(tmp_path):
     out = _run(tmp_path, CfgMem(_VAULT_FCEM), "FCE-M are voie sa aprobe actiuni?")
-    # the note says "can approve" — system truth is the opposite, and it is asserted, not echoed
+    # the note says "can approve" - system truth is the opposite, and it is asserted, not echoed
     assert out["epistemic_status"] == "DISPUTED"
     assert "nu aproba" in out["answer"].lower() or "advisory" in out["answer"].lower()
     assert out["vault_primary"] is False

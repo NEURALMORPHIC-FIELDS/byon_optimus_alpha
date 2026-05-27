@@ -1,4 +1,4 @@
-"""Cycle 7 — autonomous memory-only task execution, result ingestion, pressure decay/priority."""
+"""Cycle 7 - autonomous memory-only task execution, result ingestion, pressure decay/priority."""
 from __future__ import annotations
 
 import importlib

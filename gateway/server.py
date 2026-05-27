@@ -1,9 +1,11 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Uvicorn entrypoint for the BYON Gateway.
 
     python -m gateway.server         # binds BYON_GATEWAY_PORT (default 8090)
 
 Production uses the HTTP backend (BYON_ORCHESTRATOR_URL). If BYON is unreachable,
-chat responses come back as ERROR with no answer — the Gateway never fabricates.
+chat responses come back as ERROR with no answer - the Gateway never fabricates.
 """
 from __future__ import annotations
 

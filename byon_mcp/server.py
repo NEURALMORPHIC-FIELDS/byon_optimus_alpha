@@ -1,9 +1,11 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """MCP server wiring for BYON.
 
 Run:  python -m byon_mcp.server     (requires `pip install mcp` and a running Gateway)
 
-The `mcp` SDK is imported lazily inside main() so this module — and the handlers it
-registers — stay importable and testable without the SDK installed.
+The `mcp` SDK is imported lazily inside main() so this module - and the handlers it
+registers - stay importable and testable without the SDK installed.
 """
 from __future__ import annotations
 

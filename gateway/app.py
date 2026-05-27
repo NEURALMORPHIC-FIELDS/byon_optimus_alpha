@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """BYON Gateway FastAPI application.
 
-Exposes ONLY the controlled v1 surface — never the raw memory-service, D_Cortex,
+Exposes ONLY the controlled v1 surface - never the raw memory-service, D_Cortex,
 FCE-M, FAISS, or internal auditor endpoints:
 
     POST /v1/chat
@@ -9,7 +11,7 @@ FCE-M, FAISS, or internal auditor endpoints:
     GET  /v1/memory/status
     GET  /v1/audit/{trace_id}
     GET  /v1/health
-    GET  /v1/admin/metrics      (alpha admin — aggregate counters only)
+    GET  /v1/admin/metrics      (alpha admin - aggregate counters only)
 
 Build the app with `create_app(...)`. Tests inject a deterministic BYON backend via
 `app.dependency_overrides[get_backend]`; production uses the HTTP backend.
@@ -77,7 +79,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     }
     resolved_backend = backend or _resolve_backend(cfg)
 
-    # BYONLifeLoop v1 — internal circulation (no memory authority). Holds self_state and
+    # BYONLifeLoop v1 - internal circulation (no memory authority). Holds self_state and
     # triggers the canonical fce_consolidate; truth/storage stay in the memory-service.
     from .lifeloop import BYONLifeLoop
     lifeloop = BYONLifeLoop()
@@ -146,7 +148,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     lifeloop.set_candidate_hooks(consolidator=_candidate_consolidator,
                                  status_provider=_candidate_status_provider)
 
-    app = FastAPI(title="BYON World Connector — Gateway", version=__version__)
+    app = FastAPI(title="BYON World Connector - Gateway", version=__version__)
     app.state.config = cfg
     app.state.audit = audit
     app.state.metrics = metrics
@@ -214,7 +216,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         ns = _namespace(req.user_id)
 
         # The Gateway never answers; it asks BYON. On backend failure this is an
-        # ERROR result with no answer — never a fabricated reply.
+        # ERROR result with no answer - never a fabricated reply.
         try:
             result = backend.chat(user_id=req.user_id, session_id=req.session_id,
                                   channel=req.channel, message=req.message,
@@ -395,7 +397,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             raise HTTPException(status_code=404, detail="task not found")
         if t["status"] == BLOCKED_NEEDS_PERMISSION:
             return {"ok": False, "status": t["status"],
-                    "message": "web research blocked — approve first via /v1/lifeloop/approve-web"}
+                    "message": "web research blocked - approve first via /v1/lifeloop/approve-web"}
         # internal (memory/vault/self_state) research runs through the canonical backend research
         # loop; it never bypasses memory-service/audit and never invents truth.
         lifeloop.tasks.set_status(task_id, RUNNING)
@@ -467,7 +469,7 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     @app.get("/v1/lifeloop/disputes")
     def lifeloop_disputes() -> Dict[str, Any]:
-        """Cycle 9: why a candidate is disputed — relation, both sides, source classes, next step.
+        """Cycle 9: why a candidate is disputed - relation, both sides, source classes, next step.
         Read-only explanation surface; LifeLoop still never answers the user or decides truth."""
         d = _candidate_lc().list_disputes()
         return {"count": len(d), "disputes": d}
@@ -536,7 +538,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     @app.post("/v1/lifeloop/relation-field/infer")
     def relation_field_infer(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         """Grounded relation inference over a bounded text (operator/test surface). Adds CANDIDATE
-        relations only — never commits; secret text yields nothing."""
+        relations only - never commits; secret text yields nothing."""
         from .relation_field import lifeloop_field, RelationFieldBuilder
         field = lifeloop_field(cfg.users_root)
         # explicit relation (operator surface): add one typed edge directly as a CANDIDATE

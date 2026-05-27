@@ -1,6 +1,8 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Public request/response contract for the BYON Gateway.
 
-The response ALWAYS carries an `epistemic_status` and an `audit_trace_id` — these
+The response ALWAYS carries an `epistemic_status` and an `audit_trace_id` - these
 are non-optional by construction, so a caller can never receive an answer that is
 not labelled with BYON's epistemic verdict and traceable to an audit record.
 """

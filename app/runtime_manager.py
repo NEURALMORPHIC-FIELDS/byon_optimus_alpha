@@ -1,8 +1,10 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Resolve runtime mode, build the right client, and check BYON Gateway health.
 
 REAL mode is the default and calls the BYON Gateway. DEMO mode is opt-in and returns
 canned, clearly-labelled responses (UI testing only). If the Gateway is unreachable in
-REAL mode, startup refuses unless BYON_ALPHA_ALLOW_ERROR_UI=true — it never silently
+REAL mode, startup refuses unless BYON_ALPHA_ALLOW_ERROR_UI=true - it never silently
 pretends BYON is up.
 """
 from __future__ import annotations
@@ -48,9 +50,9 @@ def startup_banner(config: AlphaConfig, status: RuntimeStatus) -> str:
 def should_launch(config: AlphaConfig, status: RuntimeStatus) -> tuple[bool, str]:
     """Decide whether to launch the UI and return (launch, message)."""
     if status.mode == "DEMO":
-        return True, "DEMO MODE — NOT REAL BYON RUNTIME (UI testing only)."
+        return True, "DEMO MODE - NOT REAL BYON RUNTIME (UI testing only)."
     if status.gateway_reachable:
-        return True, "BYON Gateway reachable — REAL mode."
+        return True, "BYON Gateway reachable - REAL mode."
     msg = ("BYON Gateway not reachable.\n"
            "Start BYON runtime first (memory-service + orchestrator + Gateway),\n"
            "or enable BYON_ALPHA_DEMO_MODE=true for a UI-only demo.")

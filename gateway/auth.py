@@ -1,7 +1,9 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Auth context (alpha scope).
 
 In alpha, access is by a small allowlist of private user_ids and an optional shared
-bearer token. The point of this module is not strong auth yet — it is to make
+bearer token. The point of this module is not strong auth yet - it is to make
 `user_id` a first-class, mandatory, isolating identity. Production would swap this
 for real per-user credentials without changing the Gateway contract.
 """

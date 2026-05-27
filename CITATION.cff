@@ -14,7 +14,18 @@ version: "10.16.0"
 license: Apache-2.0
 repository-code: "https://github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha"
 authors:
+  - family-names: "Borbeleac"
+    given-names: "Vasile Lucian"
+    affiliation: "FRAGMERGENT TECHNOLOGY S.R.L., Cluj-Napoca, Romania"
+  - name: "FRAGMERGENT TECHNOLOGY S.R.L."
+    address: "Cluj-Napoca, Romania"
   - name: "NEURALMORPHIC-FIELDS"
+copyright: "Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L."
+references:
+  - type: patent
+    title: "Omni-Qube-Vault"
+    number: "EP25216372.0"
+    notes: "Related IP reference (factual attribution, not a claim of coverage)."
 keywords:
   - morphogenetic memory
   - addressable persistent memory

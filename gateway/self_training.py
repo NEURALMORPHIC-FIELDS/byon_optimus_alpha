@@ -1,4 +1,6 @@
-"""Phase 3 — self-training on BYON's own canonical corpus (no presets, no hardcoded answers).
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Phase 3 - self-training on BYON's own canonical corpus (no presets, no hardcoded answers).
 
 Ingests the repo's docs + key module docstrings through the CANONICAL pipeline:
 corpus → heading-aware chunks → memory-service store (FAISS) → trust tier → FCE-M consolidate.
@@ -109,7 +111,7 @@ def train_self(memory_url: str, *, repo_root, mem_client=None,
             used_files.append(rel)
             store(f"Module {rel}: {ds[:1100]}", rel=rel, heading="module docstring")
 
-    # relation seed (Phase 8) — canonical facts in memory-service, no parallel graph
+    # relation seed (Phase 8) - canonical facts in memory-service, no parallel graph
     relations_stored = 0
     if files is None:
         for subj, rel, tgt in _RELATIONS:

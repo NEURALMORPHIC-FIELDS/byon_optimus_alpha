@@ -1,12 +1,14 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Semantic evidence classifier (Cycle 9, target 1).
 
-Decides how two claims relate — same / supports / contradicts / unrelated / narrows / broadens /
-canonical_conflict — so the candidate lifecycle merges paraphrases, disputes real contradictions,
+Decides how two claims relate - same / supports / contradicts / unrelated / narrows / broadens /
+canonical_conflict - so the candidate lifecycle merges paraphrases, disputes real contradictions,
 and keeps unrelated claims separate. It is NOT a truth oracle:
 
   * deterministic rules (canonical constraints, exact/lexical match, negation & antonym polarity)
     are primary and testable;
-  * a Claude/NLI pass is ADVISORY only (opt-in BYON_EVIDENCE_NLI) — it may suggest a relation but
+  * a Claude/NLI pass is ADVISORY only (opt-in BYON_EVIDENCE_NLI) - it may suggest a relation but
     never overrides the source policy and never decides truth;
   * a SYSTEM_CANONICAL conflict always dominates the semantic similarity;
   * secret content is never classified into candidate memory.
@@ -98,7 +100,7 @@ def classify_evidence_relation(claim_a: str, claim_b: str, *, context: Optional[
         return {"relation": UNRELATED, "confidence": 0.0, "reason": "secret content not classified",
                 "method": "secret_guard"}
 
-    # 1) deterministic canonical override — always dominates
+    # 1) deterministic canonical override - always dominates
     cc = _canonical_conflict(claim_a, claim_b)
     if cc or "SYSTEM_CANONICAL" in (ctx.get("source_class_a"), ctx.get("source_class_b")) and \
             _polarity_conflict(claim_a, claim_b):
@@ -135,7 +137,7 @@ def classify_evidence_relation(claim_a: str, claim_b: str, *, context: Optional[
         return {"relation": SUPPORTS, "confidence": round(jac, 3),
                 "reason": "corroborating claim, same polarity", "method": "lexical_similarity"}
     if jac < 0.25:
-        # optional advisory NLI only as a tie-breaker for the low-overlap zone — never authority
+        # optional advisory NLI only as a tie-breaker for the low-overlap zone - never authority
         adv = _claude_advice(claim_a, claim_b, claude_advisor)
         if adv:
             return adv
@@ -159,7 +161,7 @@ def _polarity_conflict(a: str, b: str) -> bool:
 
 
 def _claude_advice(a: str, b: str, advisor) -> Optional[Dict[str, Any]]:
-    """Advisory NLI via Claude — opt-in, suggestion only, never authority/truth."""
+    """Advisory NLI via Claude - opt-in, suggestion only, never authority/truth."""
     if advisor is None or os.environ.get("BYON_EVIDENCE_NLI", "false").strip().lower() not in (
             "1", "true", "yes", "on"):
         return None

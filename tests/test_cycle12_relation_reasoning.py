@@ -1,4 +1,4 @@
-"""Cycle 12 — directed, evidence-weighted, source-policy-aware relational reasoning.
+"""Cycle 12 - directed, evidence-weighted, source-policy-aware relational reasoning.
 
 S1 directed semantics, S2 evidence-weighted ranking, S3 relation-type source policy, S4 relation-
 aware normal answering, S5 contradiction classification, S6 relation-aware self-state. The relation
@@ -28,7 +28,7 @@ def _add(f, s, p, o, *, sc="VERIFIED_PROJECT_FACT", rtype=None, sid=None, status
                           source_class=sc, status=status, origin=origin, is_contradiction=contra)
 
 
-# ============================================================ S1 — directed semantics
+# ============================================================ S1 - directed semantics
 def test_has_component_direction_forward_only(tmp_path):
     f = _f(tmp_path)
     _add(f, "A", "has_component", "B", rtype=rf.HAS_COMPONENT, sc="SYSTEM_CANONICAL")
@@ -75,7 +75,7 @@ def test_include_inverse_allows_rendered_inverse_with_warning(tmp_path):
     assert res and res[0]["inverse_rendered"] and "inverse" in (res[0]["note"] or "").lower()
 
 
-# ============================================================ S2 — evidence-weighted ranking
+# ============================================================ S2 - evidence-weighted ranking
 def _rel(**kw):
     base = {"relation_type": rf.DEPENDS_ON, "status": rf.CANDIDATE, "source_classes": ["DOMAIN_VERIFIED"],
             "source_ids": ["s1"], "confidence": 0.7, "origin": "inferred",
@@ -129,7 +129,7 @@ def test_path_ranking_uses_edge_weights(tmp_path):
     assert paths[0]["canonical"] is True and paths[0]["weight"] >= paths[-1]["weight"]
 
 
-# ============================================================ S3 — relation-type source policy
+# ============================================================ S3 - relation-type source policy
 def test_architecture_has_component_requires_project_source():
     assert rp.commit_allowed(rf.HAS_COMPONENT, ["EXTRACTED_USER_CLAIM"], subject="BYON")[0] is False
     assert rp.commit_allowed(rf.HAS_COMPONENT, ["VERIFIED_PROJECT_FACT"], subject="BYON")[0] is True
@@ -162,7 +162,7 @@ def test_relation_policy_blocks_unsafe_commit():
     assert rp.commit_allowed(rf.DEPENDS_ON, ["DISPUTED_OR_UNSAFE"])[0] is False
 
 
-# ============================================================ S4 — relation-aware normal answering
+# ============================================================ S4 - relation-aware normal answering
 def _arch_field(tmp_path):
     f = _f(tmp_path)
     _add(f, "BYON", "has_component", "D_Cortex", rtype=rf.HAS_COMPONENT, sc="SYSTEM_CANONICAL",
@@ -208,7 +208,7 @@ def test_relation_context_improves_architecture_answer(tmp_path):
     assert any(b["relation_type"] == rf.HAS_COMPONENT for b in ctx["relations"])
 
 
-# ============================================================ S5 — contradiction classification
+# ============================================================ S5 - contradiction classification
 def test_canonical_conflict_classified(tmp_path):
     f = _f(tmp_path)
     r = _add(f, "BYON", "is", "level 3", rtype=rf.CONTRADICTS, sc="EXTRACTED_USER_CLAIM", contra=True)
@@ -247,7 +247,7 @@ def test_older_vault_note_does_not_override_newer_canonical(tmp_path):
     assert rf.relation_weight_score(canon) > rf.relation_weight_score(vault)
 
 
-# ============================================================ S6 — relation-aware self-state
+# ============================================================ S6 - relation-aware self-state
 def _metric_field(tmp_path):
     f = _f(tmp_path)
     _add(f, "BYON", "has_component", "D_Cortex", rtype=rf.HAS_COMPONENT, sc="SYSTEM_CANONICAL",

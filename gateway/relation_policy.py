@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Relation-type source policy (Cycle 12).
 
 Per-relation-type commit/source rules so a relation cannot misuse a source class:
@@ -7,7 +9,7 @@ Per-relation-type commit/source rules so a relation cannot misuse a source class
     requires a verified source (SYSTEM_CANONICAL / VERIFIED_PROJECT_FACT / DOMAIN_VERIFIED);
   * `user_prefers` may commit from USER_PREFERENCE; `mentioned_in` from user/vault memory;
   * `supports` / `contradicts` stay candidate/disputed until an evidence threshold (≥2) or canonical;
-  * a vault-only objective relation can NEVER become objective truth — it stays user-memory-grounded.
+  * a vault-only objective relation can NEVER become objective truth - it stays user-memory-grounded.
 
 This is the relation analogue of source_policy for facts. It NEVER overrides source_policy or the
 Auditor; it only decides whether an inferred relation may be promoted, and as which trust tier.

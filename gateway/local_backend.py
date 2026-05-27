@@ -1,7 +1,9 @@
-"""LocalBYONBackend — a self-contained, runnable, BYON-faithful backend.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""LocalBYONBackend - a self-contained, runnable, BYON-faithful backend.
 
 This is the real backend the one-command launcher uses. It is NOT the Node orchestrator
-and it does NOT rewrite the cognitive core — it *composes* the in-repo, already-validated
+and it does NOT rewrite the cognitive core - it *composes* the in-repo, already-validated
 pieces and enforces BYON's invariants in the gateway process:
 
 - **Grounded per-user memory** (provenance-tagged facts in the user's namespace) is the
@@ -27,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .byon_backend import BYONResult
 
 # Canonical, system-provenanced BYON facts (true, bounded). Seeded so the organism answers
-# its own operating envelope out of the box — and refuses to overstep it.
+# its own operating envelope out of the box - and refuses to overstep it.
 _CANONICAL_FACTS: List[Dict[str, str]] = [
     {"entity": "byon operational level", "value": "Level 2 (FULL_LEVEL3_NOT_DECLARED)",
      "text": "BYON is allowed to claim Level 2; Level 3 is explicitly not declared.",

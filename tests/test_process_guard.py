@@ -1,4 +1,4 @@
-"""Cycle 4 target 4 — orphan / single-writer process guard (pure detection, no real kills)."""
+"""Cycle 4 target 4 - orphan / single-writer process guard (pure detection, no real kills)."""
 from __future__ import annotations
 
 import importlib

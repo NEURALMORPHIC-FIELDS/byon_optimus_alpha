@@ -1,4 +1,4 @@
-"""Cycle 7 target 1 — engine-level read/write consistency coordination."""
+"""Cycle 7 target 1 - engine-level read/write consistency coordination."""
 from __future__ import annotations
 
 import importlib
@@ -15,7 +15,7 @@ tomb_mod = importlib.import_module("gateway.tombstones")
 
 
 class EngineAwareBase:
-    """A reader that would return a partial (empty) result WHILE a write batch is in progress —
+    """A reader that would return a partial (empty) result WHILE a write batch is in progress -
     the engine coordination must make the reader wait for commit before reading."""
     def __init__(self, engine, data):
         self.engine = engine

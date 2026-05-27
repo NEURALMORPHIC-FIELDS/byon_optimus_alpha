@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Gateway configuration, resolved from environment with safe alpha defaults.
 
 Every flag has a conservative default: external connectors are OFF, the final

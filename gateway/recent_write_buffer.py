@@ -1,8 +1,10 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Recent-write buffer (Cycle 4, target 6).
 
 A fact stored in the memory-service takes ~8–11s to become searchable in FAISS. Rather than
 fake immediate retrieval, BYON keeps a small per-user buffer of just-written facts so they can be
-recalled right away — but the answer is honestly marked as coming from the RECENT_WRITE_BUFFER
+recalled right away - but the answer is honestly marked as coming from the RECENT_WRITE_BUFFER
 (not yet stable indexed FAISS). An entry expires after a TTL or once FAISS confirms it is
 searchable, after which the normal memory-service source is used.
 """
@@ -64,7 +66,7 @@ class RecentWriteBuffer:
         return out
 
     def confirm_indexed(self, user_id: str, content: str, *, overlap: float = 0.6) -> None:
-        """Drop a buffered entry once FAISS has it — matched by token overlap (the stored fact may
+        """Drop a buffered entry once FAISS has it - matched by token overlap (the stored fact may
         be re-phrased, e.g. 'my favorite editor is vim' → 'user favorite editor is vim')."""
         entries = self._by_user.get(user_id)
         if not entries:

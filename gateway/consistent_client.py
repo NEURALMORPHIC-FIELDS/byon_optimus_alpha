@@ -1,15 +1,17 @@
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
 """Read-consistent, tombstone-aware memory-service client wrapper (Cycle 5, targets 1/2/5).
 
 The canonical memory-service is sealed (not rewritten); read-consistency and the tombstone
 overlay are enforced at the client/gateway access boundary instead. This wrapper:
 
-  * READ CONSISTENCY — a reader never observes a false zero/empty caused by an in-flight write
+  * READ CONSISTENCY - a reader never observes a false zero/empty caused by an in-flight write
     burst: it detects an active writer (the vault_training write-lock), retries an empty result
     within an explicit timeout, and falls back to the last STABLE snapshot for a query if the
     burst keeps returning empty. `read_consistency_mode` is exposed for status.
-  * TOMBSTONES — search excludes tombstoned facts by default (include_tombstoned=True for audit);
+  * TOMBSTONES - search excludes tombstoned facts by default (include_tombstoned=True for audit);
     rerank / source_policy / self-state therefore never see retired duplicates.
-  * BATCH WRITES — store_facts_batch holds the write intent once per batch (not per chunk),
+  * BATCH WRITES - store_facts_batch holds the write intent once per batch (not per chunk),
     preserves per-item source_id / source / trust / tags, and reports per-item ids and failures.
 
 Everything else passes through to the base MemoryServiceClient unchanged.

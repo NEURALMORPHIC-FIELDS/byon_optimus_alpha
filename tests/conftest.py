@@ -13,7 +13,7 @@ LEVEL3_REPO = PROJECT_ROOT / "runtime" / "dcortex_run" / "byon_optimus_level3_re
 # make the package importable without installation
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Pin the fast, off-Colab configuration at conftest IMPORT time — before any test module
+# Pin the fast, off-Colab configuration at conftest IMPORT time - before any test module
 # is collected. dcortex.v99_source reads D_CORTEX_FAST_RUN_REQUESTED at import time to build
 # its module-level config `C`, so a test that imports it (directly or via v10_milestone) at
 # collection time must already see fast_run=true. The autouse fixture below keeps parity for

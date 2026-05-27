@@ -1,4 +1,4 @@
-"""Cycle 4 — substrate hardening: write-lock, content dedup, error classification.
+"""Cycle 4 - substrate hardening: write-lock, content dedup, error classification.
 
 Unit-portable (fake memory-service, isolated dirs). The live behaviours (indexing_in_progress in
 the status endpoint, restart recall during indexing) are exercised by the live harness.

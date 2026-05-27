@@ -1,20 +1,30 @@
 BYON Optimus + D_Cortex (byon_optimus_alpha)
-Copyright 2026 NEURALMORPHIC-FIELDS
 
-This product includes software developed by NEURALMORPHIC-FIELDS.
+Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+Cluj-Napoca, Romania.
+
+Published under the organization NEURALMORPHIC-FIELDS
+(github.com/NEURALMORPHIC-FIELDS/byon_optimus_alpha).
 
 Licensed under the Apache License, Version 2.0 (see LICENSE).
 
-This is an advanced experimental research prototype (per development sheet §8):
+Author and rights holder: Vasile Lucian Borbeleac.
+Entity: FRAGMERGENT TECHNOLOGY S.R.L., Cluj-Napoca, Romania.
+
+Related IP reference (factual, not a legal claim of coverage): EP25216372.0,
+Omni-Qube-Vault.
+
+This is an advanced experimental research prototype (per development sheet section 8):
 not a general LLM, not consciousness, not a finished consumer product. The marker
 FULL_LEVEL3_NOT_DECLARED is preserved across all validation milestones; claims are
 bounded to what the progressive audits actually validate.
 
 Components and provenance:
-- BYON Optimus orchestrator / epistemic auditor — official checkout consumed at
+- BYON Optimus orchestrator / epistemic auditor: official checkout consumed at
   runtime from github.com/NEURALMORPHIC-FIELDS/byon_optimus (not vendored here).
-- D_Cortex morphogenetic / addressable / persistent / chronodynamic memory organ —
+- D_Cortex morphogenetic / addressable / persistent / chronodynamic memory organ:
   ported off-Colab in this repository.
-- FCE-M v15.7a consolidator — sealed external runtime resolved at runtime via
+- FCE-M v15.7a consolidator: sealed external runtime resolved at runtime via
   FCEM_MEMORY_ENGINE_ROOT; not bundled. Real FCE-M is mandatory in release
-  validation (no diluted fallback, development sheet §7.3).
+  validation (no diluted fallback, development sheet section 7.3). See
+  docs/RUNTIME_DEPENDENCIES.md.

@@ -1,4 +1,4 @@
-"""Cycle 8 — candidate-to-commit lifecycle (decision engine, evidence merge, commit/dispute/archive)."""
+"""Cycle 8 - candidate-to-commit lifecycle (decision engine, evidence merge, commit/dispute/archive)."""
 from __future__ import annotations
 
 import importlib

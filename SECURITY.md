@@ -20,14 +20,14 @@ open a public issue for anything that could expose a credential or a usable expl
 
 - **BYON Optimus is the canonical epistemic auditor.** Answers are gated by the Epistemic
   Memory Contract: a value may be asserted only if it is anchored in valid, committed
-  memory with provenance — otherwise the answer is `UNKNOWN`. Ungrounded reconstruction
+  memory with provenance - otherwise the answer is `UNKNOWN`. Ungrounded reconstruction
   from prior is treated as a defect (the v10 milestone gates `FALSE_ASSERTION_RATE_ZERO`).
 - The Executor runs air-gapped against signed `ExecutionOrder`s (Ed25519); the D_Cortex
   organ is **additive** and never overrides the trust hierarchy.
 - The memory-trust boundary (FAISS / FCE-M / D_Cortex writes) is where provenance is
   enforced; treat any unsigned or unprovenanced write as untrusted input.
 
-## Failure discipline (no diluted fallback — development sheet §7.3)
+## Failure discipline (no diluted fallback - development sheet §7.3)
 
 Missing real components must **fail hard** with a clear message, never silently degrade to
 a stub or mock. Real FCE-M v15.7a is mandatory in release validation

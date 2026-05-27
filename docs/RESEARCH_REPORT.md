@@ -1,6 +1,6 @@
-# BYON Optimus + D_Cortex v10.0 — Epistemically-Gated Morphogenetic Memory Organ with Real FCE-M Runtime
+# BYON Optimus + D_Cortex v10.0 - Epistemically-Gated Morphogenetic Memory Organ with Real FCE-M Runtime
 
-**Final validation report (v10.0) — off-Colab reproduction + real-FCE-M full-organism validation
+**Final validation report (v10.0) - off-Colab reproduction + real-FCE-M full-organism validation
 + longitudinal generalization & isolation**
 Version 10.0 (progression v9.9.0 → v9.9.1 → v9.9.2 → v9.9.3 → v10.0) · Platforms: local CPU
 (Windows, torch 2.9.1+cpu), Node 24, and Colab GPU (T4) · Live model: `claude-sonnet-4-6`
@@ -71,7 +71,7 @@ BYON final-answer audit ──► User
 
 ### 2.1 Register organology
 
-The cortex is not a flat hidden vector. It maintains seven typed register organs. Each is a gated recurrent cell with four lenses — a local event lens, a morphogenetic-pressure lens, a plastic cross-register lens, and a structural-adapter lens. The claim that these registers are *functionally specialised* is tested directly by ablation (§5.2), not asserted.
+The cortex is not a flat hidden vector. It maintains seven typed register organs. Each is a gated recurrent cell with four lenses - a local event lens, a morphogenetic-pressure lens, a plastic cross-register lens, and a structural-adapter lens. The claim that these registers are *functionally specialised* is tested directly by ablation (§5.2), not asserted.
 
 ### 2.2 Morphogenetic Z-metabolism
 
@@ -79,7 +79,7 @@ Each register carries a four-component tension vector **z = (total, active, reso
 
 ### 2.3 Addressable persistent memory
 
-Persistent state is held in registered buffers (`persistent_current`, `persistent_archive`, `persistent_relation`, `persistent_trust`, `persistent_z`, …). Crucially these buffers travel with the model's `state_dict`, so a *process restart* (fresh model object + checkpoint load) faithfully restores recall — the mechanism we exploit in the v10 developmental loop (§4.3).
+Persistent state is held in registered buffers (`persistent_current`, `persistent_archive`, `persistent_relation`, `persistent_trust`, `persistent_z`, …). Crucially these buffers travel with the model's `state_dict`, so a *process restart* (fresh model object + checkpoint load) faithfully restores recall - the mechanism we exploit in the v10 developmental loop (§4.3).
 
 ### 2.4 Chronodynamic internal tempo
 
@@ -101,7 +101,7 @@ A cross-ablation matrix removes each register/mechanism in turn and measures per
 
 ### 3.3 Fresh-init / no-carryover
 
-All models are fingerprinted at initialisation; the audit verifies distinct init hashes and no shared parameter storage, so reported behaviour is not weight carryover. Notably, the forward-bound morphogenetic ledger is *algorithmic*, so a freshly-initialised cortex already performs well — recorded separately to distinguish algorithmic competence from learned carryover.
+All models are fingerprinted at initialisation; the audit verifies distinct init hashes and no shared parameter storage, so reported behaviour is not weight carryover. Notably, the forward-bound morphogenetic ledger is *algorithmic*, so a freshly-initialised cortex already performs well - recorded separately to distinguish algorithmic competence from learned carryover.
 
 ### 3.4 Off-Colab reproduction
 
@@ -133,11 +133,11 @@ The results combine three run classes: **local CPU audits**, **Colab GPU real-te
 
 | Audit | Result |
 |---|---|
-| D_Cortex progressive audit — **full GPU (Colab T4, v9.9.2)** | **`VALIDATED_WEAK — 87 / 87`** (zero fails); real corpus, tokenizer 50000/50000, closed-book QA 1.0, no_answer 1.0 |
-| D_Cortex progressive audit — local CPU (real-text skipped) | **59 / 59 exercised**; 28 skipped (real-text/QA) → `59/87` *by design* (closed on GPU above) |
+| D_Cortex progressive audit - **full GPU (Colab T4, v9.9.2)** | **`VALIDATED_WEAK - 87 / 87`** (zero fails); real corpus, tokenizer 50000/50000, closed-book QA 1.0, no_answer 1.0 |
+| D_Cortex progressive audit - local CPU (real-text skipped) | **59 / 59 exercised**; 28 skipped (real-text/QA) → `59/87` *by design* (closed on GPU above) |
 | **Real FCE-M v15.7a runtime proof (v9.9.3)** | **`fcem_runtime_proven=true`**, `source=external_v15_7a, shim_used=false`, strict mode (`FSOAT_REQUIRE_EXTERNAL_FCEM_RUNTIME=true`) |
 | FCE-M sealed v15.7a consolidator (standalone) | 10 / 10 gates; 59 / 59 adapter assertions |
-| FSOAT full-source organism activation (GPU, live Claude, **real FCE-M v15.7a**) | **11 / 11 organs**, `FSOAT_ACTIVATION_VERIFIED \| FULL_LEVEL3_NOT_DECLARED` — with `fcem_runtime_proven=true` (not shim) |
+| FSOAT full-source organism activation (GPU, live Claude, **real FCE-M v15.7a**) | **11 / 11 organs**, `FSOAT_ACTIVATION_VERIFIED \| FULL_LEVEL3_NOT_DECLARED` - with `fcem_runtime_proven=true` (not shim) |
 | Full-organism live E2E (BYON + D_Cortex + Claude Sonnet 4.6) | **3 / 3 gated probes pass** |
 | Orchestrator test suite (vitest, Colab) | **697 / 697** (31 files) |
 | v10.0 developmental loop (local) | **VALIDATED_WEAK, 8 / 8** (incl. contradiction_resisted) |
@@ -157,7 +157,7 @@ Ablation removes behaviour selectively:
 | disable decision-read | 0.664 | 0.884 | **0.327** |
 | disable consolidation | 0.933 | 0.844 | 0.954 *(near-neutral, expected)* |
 
-The double dissociation — metabolism/register ablations collapse functional and decision accuracy, while consolidation is near-neutral on a single session — supports the claim that the seven registers carry differentiated function and that the metabolism is a load-bearing organ, not an ornament. The cross-ablation matrix passes the diagonal-dominance (≥5/7) and causal-register (≥5) gates.
+The double dissociation - metabolism/register ablations collapse functional and decision accuracy, while consolidation is near-neutral on a single session - supports the claim that the seven registers carry differentiated function and that the metabolism is a load-bearing organ, not an ornament. The cross-ablation matrix passes the diagonal-dominance (≥5/7) and causal-register (≥5) gates.
 
 ### 5.3 Persistence, reload and sleep
 
@@ -165,7 +165,7 @@ Persistent recall after a full **export → fresh-model → reload** round-trip 
 
 ### 5.4 Chronodynamic tempo
 
-Across low-pressure, stress-pulse and sleep regimes, the internal tempo multiplier accelerates under stress beyond the **≥4.0 stress-to-low ratio** gate, calendar priming raises tempo above baseline, sleep is slower than stress, the internal tick advances monotonically, and the temporal hash chain verifies. An independent tamper test confirms that mutating any sealed temporal event **breaks chain verification** — an anti-rollback property.
+Across low-pressure, stress-pulse and sleep regimes, the internal tempo multiplier accelerates under stress beyond the **≥4.0 stress-to-low ratio** gate, calendar priming raises tempo above baseline, sleep is slower than stress, the internal tick advances monotonically, and the temporal hash chain verifies. An independent tamper test confirms that mutating any sealed temporal event **breaks chain verification** - an anti-rollback property.
 
 ### 5.5 v10.0 longitudinal developmental loop
 
@@ -180,15 +180,15 @@ Across low-pressure, stress-pulse and sleep regimes, the internal tempo multipli
 | adversarial-source resilience | **1.000** | ≥0.60 ✓ |
 | contradiction-boundary retention (v9.9.1) | **1.000** | ≥0.60 ✓ |
 
-The loop validates that learning occurs, survives a simulated restart, is causally dependent on the addressable memory, can be deliberately erased, resists source-spoofing of the *query channel*, and — after the v9.9.1 sleep-gated commitment dynamic (§6.3) — resists transient re-ingested contradictions of a consolidated value. The verdict is **V10_DEVELOPMENTAL_LOOP_VALIDATED_WEAK, 8/8**.
+The loop validates that learning occurs, survives a simulated restart, is causally dependent on the addressable memory, can be deliberately erased, resists source-spoofing of the *query channel*, and - after the v9.9.1 sleep-gated commitment dynamic (§6.3) - resists transient re-ingested contradictions of a consolidated value. The verdict is **V10_DEVELOPMENTAL_LOOP_VALIDATED_WEAK, 8/8**.
 
 ### 5.6 Live epistemic discipline
 
 In the live end-to-end test the orchestrator, fed FAISS hits + FCE-M report + the D_Cortex grounding packet, was queried with three probes and answered correctly through Claude:
 
-- **Known** — stated "Level 2 of 4, Morphogenetic Advisory Memory", and *rejected* the adversarial Level-3 claim.
-- **Boundary** — refused to accept a user assertion that contradicts the canonical record.
-- **Unknown** — refused to fabricate a private credential ("no such information exists in memory").
+- **Known** - stated "Level 2 of 4, Morphogenetic Advisory Memory", and *rejected* the adversarial Level-3 claim.
+- **Boundary** - refused to accept a user assertion that contradicts the canonical record.
+- **Unknown** - refused to fabricate a private credential ("no such information exists in memory").
 
 ---
 
@@ -206,11 +206,11 @@ The chronodynamic layer makes "how stressed / how rested the agent is" a measura
 
 An earlier revision of the cortex used **last-write-wins** addressable memory: a re-ingested contradiction overwrote the consolidated value (`contradiction-boundary retention = 0.0`). We reported this candidly and then **improved the architecture** rather than merely delegating the problem.
 
-In v9.9.1 the addressable memory gains a *sleep-gated commitment and arbitration* dynamic, modelled on the project's sealed v15.7a consolidator. A value becomes **committed** only after surviving a sleep consolidation. Once committed, a conflicting re-ingest does **not** overwrite it; the challenger accumulates evidence in a provisional slot, and replacement (retrograde of the old value into archive, promotion of the challenger) happens **only at a subsequent sleep cycle** once the challenger has crossed the M-evidence threshold. Crucially this is *additive*: unknown and not-yet-committed keys retain the original last-write-wins dynamics, so every prior audit is unchanged, and a *genuinely repeated and re-consolidated* correction still updates — no capability is removed.
+In v9.9.1 the addressable memory gains a *sleep-gated commitment and arbitration* dynamic, modelled on the project's sealed v15.7a consolidator. A value becomes **committed** only after surviving a sleep consolidation. Once committed, a conflicting re-ingest does **not** overwrite it; the challenger accumulates evidence in a provisional slot, and replacement (retrograde of the old value into archive, promotion of the challenger) happens **only at a subsequent sleep cycle** once the challenger has crossed the M-evidence threshold. Crucially this is *additive*: unknown and not-yet-committed keys retain the original last-write-wins dynamics, so every prior audit is unchanged, and a *genuinely repeated and re-consolidated* correction still updates - no capability is removed.
 
 The measured effect: contradiction-boundary retention rises from **0.0 → 1.0** for a transient re-ingested contradiction, while learning, reload retention, controlled forgetting and adversarial resilience remain at their prior values (v10 verdict improves from 7/7 to **8/8**).
 
-This yields a **two-layer defence**. The cortex now resists *transient* contradictions structurally; the BYON Auditor continues to adjudicate *disputes at answer time* — the live test (§5.6) shows BYON+Claude rejecting an adversarial "Level 3" claim. The organ defends consolidated memory; the auditor governs what is spoken. Neither layer is a substitute for the other.
+This yields a **two-layer defence**. The cortex now resists *transient* contradictions structurally; the BYON Auditor continues to adjudicate *disputes at answer time* - the live test (§5.6) shows BYON+Claude rejecting an adversarial "Level 3" claim. The organ defends consolidated memory; the auditor governs what is spoken. Neither layer is a substitute for the other.
 
 ---
 
@@ -255,19 +255,19 @@ consolidator** is embedded and staged on the engine path, `FCEM_MEMORY_ENGINE_RO
 and `FSOAT_REQUIRE_EXTERNAL_FCEM_RUNTIME=true` makes the run **fail-hard** if a shim is
 detected. The confirmed full-organism run reports `source=external_v15_7a, shim_used=false,
 adapter=DCortexAdapter` and **`fcem_runtime_proven=true`**, with `fce_state`, `fce_advisory`
-and synthetic receipt assimilation passing under strict mode — real FCE-M activation inside
+and synthetic receipt assimilation passing under strict mode - real FCE-M activation inside
 the full BYON + D_Cortex organism, while preserving `FULL_LEVEL3_NOT_DECLARED`.
 
 ## 7. Applied research value
 
 The contribution is a *validatable architectural direction*, useful independently of leaderboard performance:
 
-1. **Longitudinal personal cognitive agent.** A single agent that accumulates a user's history in addressable, persistent, consolidatable memory — with provenance and refusal — rather than a stateless chat that forgets between sessions.
+1. **Longitudinal personal cognitive agent.** A single agent that accumulates a user's history in addressable, persistent, consolidatable memory - with provenance and refusal - rather than a stateless chat that forgets between sessions.
 2. **Provenance-aware research assistant.** Source recall and the known/unknown/disputed distinction are structural, supporting auditable literature and hypothesis tracking.
 3. **Cognitive memory layer over commercial LLMs.** The clean separation (organ vs. auditor vs. language faculty) lets the same memory/audit substrate sit beneath Claude, GPT or a local model, providing continuity and epistemic governance the base model lacks.
-4. **Enterprise auditability.** Hash-chained temporal memory, explicit fail-hard discipline (no silent mocks), heartbeat and crash reports make the agent's internal history inspectable — a prerequisite for regulated deployments.
+4. **Enterprise auditability.** Hash-chained temporal memory, explicit fail-hard discipline (no silent mocks), heartbeat and crash reports make the agent's internal history inspectable - a prerequisite for regulated deployments.
 
-Negative results were valuable because they exposed a last-write-wins contradiction weakness; **v9.9.1 addressed it** with sleep-gated commitment and retrograde arbitration (contradiction-boundary retention 0.0 → 1.0). The remaining concrete, reproducible constraints — capacity/interference on a shared address space, M-threshold tuning, and validation on *real* contradictory streams — tell an integrator exactly what is solved and what is still being hardened (the v10 milestone, §9).
+Negative results were valuable because they exposed a last-write-wins contradiction weakness; **v9.9.1 addressed it** with sleep-gated commitment and retrograde arbitration (contradiction-boundary retention 0.0 → 1.0). The remaining concrete, reproducible constraints - capacity/interference on a shared address space, M-threshold tuning, and validation on *real* contradictory streams - tell an integrator exactly what is solved and what is still being hardened (the v10 milestone, §9).
 
 ---
 
@@ -291,9 +291,9 @@ Epistemic Memory Contract + coexistence reframe (§6.4), GPU **87/87** · v9.9.3
 v15.7a runtime proof (§6.5), `fcem_runtime_proven=true` · **v10.0 Longitudinal Generalization
 & Isolation, 8/8 (`V10_LONGITUDINAL_VALIDATED`)**.
 
-### Milestone — v10: Longitudinal Generalization & Isolation · **VALIDATED (8/8)**
+### Milestone - v10: Longitudinal Generalization & Isolation · **VALIDATED (8/8)**
 
-> **Canonical formulation.** v10.0 — Longitudinal Generalization & Isolation validates the
+> **Canonical formulation.** v10.0 - Longitudinal Generalization & Isolation validates the
 > integrated BYON + D_Cortex + real FCE-M organism against eight standing gates designed to
 > falsify audit-overfitting: mandatory real FCE-M, unseen-domain transfer, real OOV UNKNOWN
 > behaviour, delayed recall after restart/interference, cross-user isolation, real-document
@@ -302,7 +302,7 @@ v15.7a runtime proof (§6.5), `fcem_runtime_proven=true` · **v10.0 Longitudinal
 > validation milestone, not a Level-3 claim and not production-deployment proof.
 
 A robustness milestone against audit-overfitting (§8), with **real FCE-M mandatory** (any shim
-**fails the run hard** — `RealFCEMRequiredError`, no diluted fallback). Module:
+**fails the run hard** - `RealFCEMRequiredError`, no diluted fallback). Module:
 `dcortex/v10_milestone.py` → `runtime/v10_milestone_out/v10_milestone_report.json`. Every gate
 runs on data / keys the v9.9.x audits never touched; the headline invariant is
 `false_assertions=0` over all ungrounded queries. The architecturally decisive results are not
@@ -317,26 +317,26 @@ dropout); and a document parser that grabbed a trailing-clause word instead of t
 
 **Validation profiles (dev-sheet §7.3).** Real FCE-M is skippable *only* in the unit-portable
 profile (engine-dependent tests skip when the v15.7a engine is not locally resolvable, so the
-fast suite stays green offline). In **release validation** —
-`BYON_VALIDATE_REAL_FCEM=true python -m pytest tests/test_v10_milestone.py -m slow -v` — a
+fast suite stays green offline). In **release validation** -
+`BYON_VALIDATE_REAL_FCEM=true python -m pytest tests/test_v10_milestone.py -m slow -v` - a
 missing real engine is a **hard FAIL, never a skip**.
 
 | Gate | Must demonstrate | Result (CPU, real v15.7a engine) |
 |---|---|---|
-| `REAL_FCEM_REQUIRED` | fail-hard if a shim appears (strict external v15.7a) | **PASS** — `DCortexAdapter`, sealed `__version__`, live pipeline; bogus root raises |
-| `UNSEEN_DOMAIN_TRANSFER` | new domains, not AG News / WikiText (23/29/31) | **PASS** — mean post-accuracy 1.0 |
-| `REAL_OOV_UNKNOWN` | real never-taught keys → UNKNOWN | **PASS** — untaught keys 100% UNKNOWN |
-| `DELAYED_RECALL_RESTART` | recall after restart + interference + elapsed time | **PASS** — retention 1.0 |
-| `CROSS_USER_ISOLATION` | user A does not contaminate user B | **PASS** — cross-contamination 0 |
-| `REAL_CONTRADICTION_STREAM` | contradictions parsed from real documents | **PASS** — transient resisted, verified correction wins |
-| `FCEM_ADVISORY_EFFECT` | FCE-M measurably changes priority/attention | **PASS** — contested pressure 0.60 > aligned 0.0 |
-| `FALSE_ASSERTION_RATE_ZERO` | ungrounded assertions = 0 | **PASS** — 0 / 12 |
+| `REAL_FCEM_REQUIRED` | fail-hard if a shim appears (strict external v15.7a) | **PASS** - `DCortexAdapter`, sealed `__version__`, live pipeline; bogus root raises |
+| `UNSEEN_DOMAIN_TRANSFER` | new domains, not AG News / WikiText (23/29/31) | **PASS** - mean post-accuracy 1.0 |
+| `REAL_OOV_UNKNOWN` | real never-taught keys → UNKNOWN | **PASS** - untaught keys 100% UNKNOWN |
+| `DELAYED_RECALL_RESTART` | recall after restart + interference + elapsed time | **PASS** - retention 1.0 |
+| `CROSS_USER_ISOLATION` | user A does not contaminate user B | **PASS** - cross-contamination 0 |
+| `REAL_CONTRADICTION_STREAM` | contradictions parsed from real documents | **PASS** - transient resisted, verified correction wins |
+| `FCEM_ADVISORY_EFFECT` | FCE-M measurably changes priority/attention | **PASS** - contested pressure 0.60 > aligned 0.0 |
+| `FALSE_ASSERTION_RATE_ZERO` | ungrounded assertions = 0 | **PASS** - 0 / 12 |
 
 ### Longer-horizon tracks
 - **Capacity & addressing.** Replace the fixed 8-key space with a learned/sparse addressable store; measure the interference curve; target graceful degradation rather than overwrite.
 - **Unified arbitration semantics.** Expose the cortex M-evidence threshold as policy and align it explicitly with the live FCE-M / v15.7a consolidator so cortex and advisory memory share one provisional→committed→retrograde semantics.
 - **Provider-agnostic language interface.** Claude / GPT / local, cortex+auditor substrate constant, to test that epistemic discipline is a property of the architecture, not of one model.
-- **Trainable local model.** Fuse local reader, tokenizer, addressable memory and controlled plasticity into a small *trainable* model with D_Cortex internal — from "memory organ attached to an API" to "model with native cognitive memory".
+- **Trainable local model.** Fuse local reader, tokenizer, addressable memory and controlled plasticity into a small *trainable* model with D_Cortex internal - from "memory organ attached to an API" to "model with native cognitive memory".
 - **Security & safety (cross-cutting).** Key handling, air-gapped executor boundary, prompt-injection resistance at the memory-trust boundary, signed temporal ledgers for tamper-evident longitudinal audit.
 
 ---
@@ -350,7 +350,7 @@ missing real engine is a **hard FAIL, never a skip**.
 | Additive memory-organ adapter | `orchestration/dcortex_v99_adapter.py` |
 | Live QA harness | `orchestration/byon-dcortex-v99-live-e2e.mjs` |
 | v10.0 developmental loop | `dcortex/v10_developmental_loop.py` |
-| **v10 milestone — Longitudinal Generalization & Isolation** | `dcortex/v10_milestone.py` |
+| **v10 milestone - Longitudinal Generalization & Isolation** | `dcortex/v10_milestone.py` |
 | GPU full-organism (real FCE-M + FSOAT + live Claude) | `colab/BYON_DCORTEX_V992_FULL_ORGANISM_LIVE_COLAB.txt` |
 | GPU audit-only (real-text 45k + closed-book QA) | `colab/BYON_DCORTEX_V99_FULL_GPU_REALTEXT_CLOSEDBOOK_COLAB.txt` |
 | Test suite | `tests/` (pytest **15/15** local; vitest **697/697** in the Colab orchestrator); v10 loop **8/8**; v10 milestone **8/8** |
@@ -373,10 +373,10 @@ Provenance: official orchestrator `byon_optimus@main` (`3b94773…`); real level
 | Closed (validated, real runs) | Open (longer-horizon tracks) |
 |---|---|
 | D_Cortex GPU **87/87** (`VALIDATED_WEAK`) | Capacity/interference scaling beyond the fixed 8-key space |
-| Epistemic Memory Contract — UNKNOWN-when-ungrounded (v9.9.2) | Unified cortex ↔ FCE-M arbitration semantics as explicit policy |
+| Epistemic Memory Contract - UNKNOWN-when-ungrounded (v9.9.2) | Unified cortex ↔ FCE-M arbitration semantics as explicit policy |
 | Cortex contradiction arbitration, 0.0→1.0 (v9.9.1) | Provider-agnostic language interface (Claude / GPT / local) |
-| **Real FCE-M v15.7a runtime proven** — `fcem_runtime_proven=true` (v9.9.3) | Trainable local model with native cognitive memory |
-| **v10 longitudinal: unseen-domain transfer, real OOV→UNKNOWN, delayed recall after restart, cross-user isolation, real contradiction stream, measurable FCE-M advisory effect — 8/8, `false_assertions=0`** | FCE-M advisory effect on the *final* decision (beyond measurable signal) |
+| **Real FCE-M v15.7a runtime proven** - `fcem_runtime_proven=true` (v9.9.3) | Trainable local model with native cognitive memory |
+| **v10 longitudinal: unseen-domain transfer, real OOV→UNKNOWN, delayed recall after restart, cross-user isolation, real contradiction stream, measurable FCE-M advisory effect - 8/8, `false_assertions=0`** | FCE-M advisory effect on the *final* decision (beyond measurable signal) |
 | FSOAT **11/11** organs (`FSOAT_ACTIVATION_VERIFIED`, real FCE-M) | Real-text contradiction streams at corpus scale (GPU) |
 | Live Claude E2E **3/3**; vitest **697/697**; pytest **15/15**; v10 loop **8/8**; v10 milestone **8/8** | Security/safety hardening at the memory-trust boundary |
 

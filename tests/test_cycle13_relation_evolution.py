@@ -1,4 +1,4 @@
-"""Cycle 13 — general objective relation-aware answering + trust decay + grounded path explanation
+"""Cycle 13 - general objective relation-aware answering + trust decay + grounded path explanation
 + contradiction evolution + relation-gap tasks + relation-aware self-state + answer safety metadata.
 
 The relation field stays non-authoritative; decay never deletes; vault-only objective relations
@@ -31,7 +31,7 @@ def _rel(**kw):
     return base
 
 
-# ============================================================ S2 — trust decay
+# ============================================================ S2 - trust decay
 def test_stale_unreinforced_relation_loses_weight():
     r = _rel()
     assert rf.relation_decay(r)["decayed_weight"] < rf.relation_weight_score(r)
@@ -85,7 +85,7 @@ def test_tombstoned_source_relation_decays_hard():
     assert rf.relation_decay(tomb)["decay_factor"] < rf.relation_decay(normal)["decay_factor"]
 
 
-# ============================================================ S1 — general objective answering
+# ============================================================ S1 - general objective answering
 def _obj_field():
     f = _f()
     f.add_relation("BYON", "depends_on", "memory-service", relation_type=rf.DEPENDS_ON,
@@ -145,7 +145,7 @@ def test_relation_context_not_used_as_sole_authority_when_disallowed():
     assert all(b["status"] in (rf.COMMITTED, rf.REINFORCED) for b in ctx["relations"])
 
 
-# ============================================================ S3 — grounded path explanation
+# ============================================================ S3 - grounded path explanation
 def _canon_path():
     f = _f()
     f.add_relation("A", "depends_on", "B", relation_type=rf.DEPENDS_ON, source_id="c1",
@@ -213,7 +213,7 @@ def test_path_explanation_rejects_unsourced_hop():
     assert rr.render_path_explanation(f, "A", "B")["epistemic_status"] != "KNOWN"
 
 
-# ============================================================ S4 — contradiction evolution
+# ============================================================ S4 - contradiction evolution
 def _disputed():
     f = _f()
     f.add_relation("P", "depends_on", "Q", relation_type=rf.DEPENDS_ON, source_id="s1",
@@ -279,7 +279,7 @@ def test_contradiction_resolution_source_recorded():
     assert rec["resolution_source"] == "verified:doc"
 
 
-# ============================================================ S5 — relation-gap tasks
+# ============================================================ S5 - relation-gap tasks
 class FakeTasks:
     def __init__(self):
         self.created = []
@@ -366,7 +366,7 @@ def test_secret_relation_gap_no_task():
     assert any(g.get("skipped") == "secret" for g in gaps)
 
 
-# ============================================================ S6 — relation-aware self-state
+# ============================================================ S6 - relation-aware self-state
 def _metric_field():
     f = _f()
     f.add_relation("BYON", "has_component", "D_Cortex", relation_type=rf.HAS_COMPONENT, source_id="c1",
@@ -416,7 +416,7 @@ def test_relation_gaps_visible_in_self_state():
     assert "weak_central_nodes" in st and "decayed_relations" in st
 
 
-# ============================================================ S7 — answer safety metadata
+# ============================================================ S7 - answer safety metadata
 def test_relation_context_metadata_present():
     b = rr.relation_context_bundle(_obj_field(), "ce depinde de BYON?")
     assert {"used", "source_classes", "relation_ids", "any_disputed", "any_candidate", "any_decayed"} <= set(b)

@@ -1,4 +1,6 @@
-"""Web search — the one genuinely-missing epistemic source (BYON has no web layer).
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Web search - the one genuinely-missing epistemic source (BYON has no web layer).
 
 Pluggable provider, disabled by default. Web results are EVIDENCE CANDIDATES, never
 auto-committed truth. Providers: disabled | duckduckgo | tavily | brave | serpapi | custom.

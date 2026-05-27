@@ -1,4 +1,4 @@
-"""Cycle 4 target 6 — recent-write buffer: immediate recall before FAISS catches up, honestly
+"""Cycle 4 target 6 - recent-write buffer: immediate recall before FAISS catches up, honestly
 marked, expiring after TTL or once FAISS has the fact."""
 from __future__ import annotations
 

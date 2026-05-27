@@ -1,4 +1,6 @@
-"""Normalise a BYON verdict into the public response — and enforce the safety gate.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""Normalise a BYON verdict into the public response - and enforce the safety gate.
 
 This is where 'no answer without audit' and 'never weaken UNKNOWN' are mechanically
 enforced, regardless of what a backend returns:
@@ -36,11 +38,11 @@ def normalize(result: BYONResult, *, audit_trace_id: str, user_namespace: str,
     status = result.epistemic_status if result.epistemic_status in _VALID else "ERROR"
     answer = result.answer or ""
 
-    # Gate 1 — no KNOWN answer reaches the user unless BYON's final audit passed.
+    # Gate 1 - no KNOWN answer reaches the user unless BYON's final audit passed.
     if require_final_audit and not result.final_audit_passed and status == "KNOWN":
         status, answer = "REFUSED", ""
 
-    # Gate 2 — only KNOWN is grounded-confident. PROVISIONAL/DISPUTED/etc. may carry an
+    # Gate 2 - only KNOWN is grounded-confident. PROVISIONAL/DISPUTED/etc. may carry an
     # answer but always WITH an uncertainty label and never marked grounded. UNKNOWN/
     # REFUSED/ERROR carry no asserted content.
     grounded = bool(result.grounded) and status == "KNOWN"

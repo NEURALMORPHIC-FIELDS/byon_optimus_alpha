@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-"""v10.1 — BYON World Connector Alpha validation.
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Licensed under Apache-2.0.
+"""v10.1 - BYON World Connector Alpha validation.
 
 Runs every gate that can be validated OFFLINE (without a running LibreChat / OpenClaw
 / n8n / live orchestrator) against a deterministic injected BYON backend. Gates that
 genuinely require an external service are reported as `deferred`, never counted as
-passing — consistent with the project's fail-hard, no-stub discipline (dev-sheet §7.3).
+passing - consistent with the project's fail-hard, no-stub discipline (dev-sheet §7.3).
 
 The injected backend is a TEST DOUBLE used only here to exercise the Gateway/MCP
 contract; production wires the real HTTP backend onto the BYON orchestrator.
@@ -238,7 +240,7 @@ def run_alpha_validation(outdir: Path | str = "runtime/v10_1_out") -> Dict[str, 
 def main() -> None:
     report = run_alpha_validation()
     print("=" * 92)
-    print(f"v10.1 BYON World Connector Alpha — {report['verdict']} "
+    print(f"v10.1 BYON World Connector Alpha - {report['verdict']} "
           f"({report['gates_passed']}/{report['gates_total']})")
     for k, v in report["gates"].items():
         print(f"  {'[+]' if v else '[-]'} {k}")

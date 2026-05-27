@@ -5,7 +5,7 @@ decides; n8n executes controlled workflows. Default `BYON_ENABLE_N8N=false` in a
 
 Allowed automations in alpha:
 1. feedback capture (`byon-feedback.workflow.json`)
-2. daily alpha report (`byon-webhook.workflow.json` — scheduled metrics pull from `/v1/admin/metrics`)
+2. daily alpha report (`byon-webhook.workflow.json` - scheduled metrics pull from `/v1/admin/metrics`)
 3. admin notification
 4. memory audit export
 

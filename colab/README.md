@@ -1,4 +1,4 @@
-# colab — GPU notebooks
+# colab - GPU notebooks
 
 Two single-cell Colab sources. Pick by what you want to validate.
 
@@ -8,7 +8,7 @@ The **full organism, live, no economy**. One cell that:
 - clones the official `byon_optimus`,
 - boots the canonical memory-service (FAISS + FCE-M sealed v15.7a + injected D_Cortex organ),
 - patches `server.py` with the `dcortex_v99_*` actions,
-- runs the **full D_Cortex audit on GPU** (real-text 45k reader + closed-book QA + chronodynamic, full mode — no fast, no skip, no low-VRAM),
+- runs the **full D_Cortex audit on GPU** (real-text 45k reader + closed-book QA + chronodynamic, full mode - no fast, no skip, no low-VRAM),
 - runs **FSOAT** (full-source organism activation),
 - runs the **live Claude QA gating harness** (known / contradiction-boundary / unknown).
 

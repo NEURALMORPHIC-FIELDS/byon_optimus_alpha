@@ -1,4 +1,4 @@
-"""Tests for v10.1 — BYON World Connector Alpha.
+"""Tests for v10.1 - BYON World Connector Alpha.
 
 Exercises the Gateway contract, per-user namespace isolation, the MCP tool handlers,
 and the OpenClaw forward-only adapter against a deterministic injected BYON backend
