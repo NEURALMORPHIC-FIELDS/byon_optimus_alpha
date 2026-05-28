@@ -19,6 +19,17 @@
   },
   "runtime_entrypoints": ["run_byon.py", "scripts/live_byon_eval.py", "verify_integration.py",
                           "scripts/check_style_contract.py", "scripts/restart_app.py"],
+  "diagnostics_scripts": {
+    "scripts/check_live_stack.py": "Cycle 14 S1: pre-flight live-stack health check (Gateway + memory-service + writer lock + relation/lifeloop endpoints); exit 0-5; writes runtime/diagnostics/live_stack_health.{json,md}",
+    "scripts/monitor_memory_service.py": "Cycle 14 S2: memory-service crash monitor with RSS/CPU/FD resource time-series; memory liveness derived only from the memory probe, never the Gateway",
+    "scripts/reproduce_memory_service_crash.py": "Cycle 14 S4: crash reproduction outside the harness (modes search/relation/lifeloop/store-read/mixed/acquisition-store incl. store_batch)",
+    "docs/CYCLE14_MEMORY_SERVICE_ROOT_CAUSE.md": "Cycle 14 S7: root-cause writeup (pipe-deadlock excluded for the canonical launch path; mechanism proven; live 240-iter sustained-load no-crash)"
+  },
+  "stability_supervision": {
+    "app/service_supervisor.py": "Cycle 14 S5: child output to SEPARATE pipe-safe file handles (never an unread subprocess.PIPE); process diagnostics (PID/command/redacted-env/exit-code); bounded opt-in autorestart (default OFF) that marks the run unstable",
+    "gateway degraded-state": "Cycle 14 S6: memory_service_up() guard; /v1/chat and /v1/research return ERROR when memory-service is down (no fabrication, no Claude/local fallback in REAL); /v1/health + /v1/memory/status report memory_service_up",
+    "live_byon_eval ServiceHealthGuard": "Cycle 14 S3: pre-flight + per-gate memory-service health poll; a crash is MEMORY_SERVICE_CRASH (not misclassified) and halts the run; records last_successful_gate + health trace"
+  },
   "external_dependencies": {
     "byon_optimus_orchestrator": "github.com/NEURALMORPHIC-FIELDS/byon_optimus, consumed at runtime under external/ (not vendored)",
     "fcem_v15_7a": "sealed FCE-M consolidator resolved via FCEM_MEMORY_ENGINE_ROOT; not bundled; mandatory for release validation",

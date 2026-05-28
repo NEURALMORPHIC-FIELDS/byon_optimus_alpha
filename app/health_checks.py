@@ -31,9 +31,14 @@ def summarize(gateway_url: str) -> Dict[str, str]:
                 "Claude key": "PRESENT" if claude_key_present() else "MISSING"}
     backend = h.get("backend", {}) or {}
     fcem = backend.get("fcem", {}) or {}
+    # Cycle 14 (S6): the UI must show the memory-service as DOWN when it is unreachable, even though
+    # the Gateway itself is up. A truthy backend NAME is not proof the memory-service is reachable.
+    mem_reachable = backend.get("memory_service_up")
+    if mem_reachable is None:
+        mem_reachable = bool((backend.get("memory_service", {}) or {}).get("reachable"))
     return {
         "Gateway": "OK",
-        "Memory/D_Cortex": "OK" if backend.get("backend") else "UNKNOWN",
+        "Memory/D_Cortex": "OK" if mem_reachable else ("DOWN" if backend.get("backend") else "UNKNOWN"),
         "FCE-M": "REAL" if fcem.get("runtime_proven") else "NOT FOUND",
         "Claude key": "PRESENT" if (backend.get("claude", {}) or {}).get("key_present")
                       or claude_key_present() else "MISSING",

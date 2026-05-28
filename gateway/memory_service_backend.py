@@ -76,18 +76,41 @@ class MemoryServiceBackend:
         except Exception:
             pass  # seeding is best-effort; the search still runs
 
+    def memory_service_up(self) -> bool:
+        """Cycle 14 (S6): is the canonical memory-service reachable right now? Used to fail safely
+        (ERROR/REFUSED) instead of fabricating or falling back to Claude / a local backend."""
+        try:
+            return bool((self.mem.health() or {}).get("_reachable"))
+        except Exception:
+            return False
+
     def status(self) -> Dict[str, Any]:
         h = self.mem.health()
+        up = bool(h.get("_reachable"))
         return {
             "backend": "memory-service",
-            "memory_service": {"reachable": bool(h.get("_reachable")), "version": h.get("version")},
+            "memory_service_up": up,
+            "memory_service": {"reachable": up, "version": h.get("version")},
             "web": {"provider": getattr(self.web, "name", "disabled"),
                     "available": getattr(self.web, "available", False),
                     "enabled": self.default_allow_web},
             "claude": {"language_only": True, "available": getattr(self.claude, "available", False)},
             "dcortex": {"source": "canonical memory-service FAISS + FCE-M", "version": "memory-service"},
-            "fcem": {"runtime_proven": bool(h.get("_reachable"))},
+            "fcem": {"runtime_proven": up},
         }
+
+    @staticmethod
+    def _memory_down_result(research_trace_id: Optional[str]) -> Dict[str, Any]:
+        """Cycle 14 (S6): the safe degraded response when the memory-service is down. No fabricated
+        answer, no Claude fallback that bypasses memory, no LocalBYONBackend in REAL."""
+        return {"epistemic_status": "ERROR", "research_status": "error", "answer": "",
+                "grounded": False, "confidence": 0.0, "sources_searched": [], "web_results": [],
+                "claude_hypothesis": None, "stress_percent": 0.0, "phase": "error", "clock": {},
+                "memory_service_up": False,
+                "synthesis": {"epistemic_verdict": "ERROR", "reason": "memory_service_down",
+                              "note": "canonical memory-service unreachable; refusing to answer "
+                                      "(no fabrication, no Claude/local fallback)"},
+                "research_trace_id": research_trace_id or "memory_service_down", "can_extend": False}
 
     def _learning(self, namespace_dir: Any, user_id: str) -> Any:
         return ContinuousLearning(namespace_dir, self.mem, thread_id=user_id)
@@ -131,6 +154,10 @@ class MemoryServiceBackend:
 
     # -- full research (drives /v1/research) --------------------------------
     def research(self, *, user_id: str, session_id: str, question: str, namespace_dir: Any, allow_web: Optional[bool]=None, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None) -> Any:
+        # Cycle 14 (S6): if the canonical memory-service is down, fail safe BEFORE any Claude/learning
+        # path. The Gateway never fabricates and never falls back to Claude/local when memory is down.
+        if not self.memory_service_up():
+            return self._memory_down_result(research_trace_id)
         learning = self._learning(namespace_dir, user_id)
         expr = ExpressionLearning(self.mem, namespace_dir=str(namespace_dir) if namespace_dir else None)
         # CANONICAL learning side-effect: every non-secret user message goes through the
@@ -209,6 +236,11 @@ class MemoryServiceBackend:
                   "pressure_max": out.get("stress_percent")})
 
     def memory_status(self, *, user_id: str, namespace_dir: Any) -> Any:
+        # Cycle 14 (S6): when the memory-service is down, report it plainly without touching the
+        # (unreachable) stats/substrate endpoints.
+        if not self.memory_service_up():
+            return {"available": False, "memory_service_up": False,
+                    "note": "canonical memory-service unreachable", **self.status()}
         learning = self._learning(namespace_dir, user_id)
         return {"available": True, "candidates": learning.list_candidates(),
                 "committed": learning.list_committed(), "disputed": learning.list_disputed(),

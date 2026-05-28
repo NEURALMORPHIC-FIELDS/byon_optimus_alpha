@@ -101,11 +101,96 @@ def _get(url: str, path: str, timeout: float = 30.0) -> Dict[str, Any]:
     return r.json()
 
 
+CAT_MEMORY_SERVICE_CRASH = "MEMORY_SERVICE_CRASH"
+
+
+def _mem_alive(memory_url: str) -> bool:
+    try:
+        import httpx
+        return httpx.get(f"{memory_url.rstrip('/')}/health", timeout=4.0).status_code < 500
+    except Exception:
+        return False
+
+
+class ServiceHealthGuard:
+    """Cycle 14 S3: guards the live harness against a memory-service crash. A memory-service death
+    is reported as MEMORY_SERVICE_CRASH and the harness stops immediately, rather than continuing
+    with only the Gateway alive or misclassifying the failure as relation/source/policy. The health
+    probe and an optional S1 stack-checker are injectable, so the guard is unit-testable."""
+
+    def __init__(self, gateway_url: str, memory_url: str, *,
+                 health_probe: Optional[Callable[[], bool]] = None,
+                 stack_checker: Optional[Callable[[], Dict[str, Any]]] = None) -> None:
+        self.gateway_url = gateway_url.rstrip("/")
+        self.memory_url = memory_url.rstrip("/")
+        self.health_probe = health_probe or (lambda: _mem_alive(self.memory_url))
+        self.stack_checker = stack_checker
+        self.crashed = False
+        self.crash_detected_at_gate: Optional[str] = None
+        self.last_successful_gate: Optional[str] = None
+        self.health_trace: List[Dict[str, Any]] = []
+        self.stack_health_start: Optional[Dict[str, Any]] = None
+        self.stack_health_end: Optional[Dict[str, Any]] = None
+        self.unstable = False
+
+    def precheck(self) -> Dict[str, Any]:
+        if self.stack_checker is not None:
+            try:
+                res = self.stack_checker()
+                self.stack_health_start = res
+                alive = bool(res.get("healthy"))
+            except Exception as exc:
+                self.stack_health_start = {"error": str(exc)}
+                alive = False
+        else:
+            alive = bool(self.health_probe())
+            self.stack_health_start = {"memory_service_alive": alive}
+        if not alive:
+            self.crashed = True
+            self.crash_detected_at_gate = "preflight"
+            return {"healthy": False, "failure_category": CAT_MEMORY_SERVICE_CRASH,
+                    "reason": "memory-service down before the run (gateway-up-memory-down is a failure)"}
+        return {"healthy": True}
+
+    def before_gate(self, gate: str) -> bool:
+        return not self.crashed
+
+    def after_gate(self, gate: str) -> None:
+        alive = bool(self.health_probe())
+        self.health_trace.append({"gate": gate, "memory_service_alive": alive})
+        if alive:
+            self.last_successful_gate = gate
+        elif not self.crashed:
+            self.crashed = True
+            self.crash_detected_at_gate = gate
+
+    def should_stop(self) -> bool:
+        return self.crashed
+
+    def postcheck(self) -> None:
+        alive = bool(self.health_probe())
+        self.stack_health_end = {"memory_service_alive": alive}
+        if not alive and not self.crashed:
+            self.unstable = True   # died after the final gate but before the report was written
+
+    def report_fields(self) -> Dict[str, Any]:
+        return {
+            "stack_health_start": self.stack_health_start,
+            "stack_health_end": self.stack_health_end,
+            "memory_service_health_trace": self.health_trace,
+            "memory_service_crashed": self.crashed,
+            "crash_detected_at_gate": self.crash_detected_at_gate,
+            "last_successful_gate": self.last_successful_gate,
+            "failure_category": CAT_MEMORY_SERVICE_CRASH if self.crashed else None,
+        }
+
+
 class Harness:
     def __init__(self, url: str, allow_web: bool = False, mem_url: str = "http://127.0.0.1:8000") -> None:
         self.url = url.rstrip("/")
         self.mem_url = mem_url.rstrip("/")
         self.allow_web = allow_web
+        self.guard = ServiceHealthGuard(self.url, self.mem_url)
         # use the vault owner so the vault gate truly exercises vault retrieval (vault facts are
         # thread-scoped to the owner); self/relation facts are system-scope so visible to anyone.
         self.user = "lucian"
@@ -195,16 +280,32 @@ class Harness:
 
     def check(self, name: str, q: str, predicate: Callable[[Dict[str, Any], str], str],
               **kw: Any) -> None:
+        # Cycle 14 S3: never continue once the memory-service has crashed; skip honestly.
+        if self.guard.should_stop():
+            self._skip(name, q, "memory-service crashed - run halted (MEMORY_SERVICE_CRASH)")
+            return
         try:
             out = self.research(q, **kw)
         except Exception as exc:
             self._record(name, q, {}, False, f"request failed: {exc}")
+            self.guard.after_gate(name)
             return
         syn = out.get("synthesis") or {}
         why = predicate(out, (out.get("answer") or ""))
         self._record(name, q, out, ok=(why == ""), why=why or "ok")
+        self.guard.after_gate(name)   # poll memory-service health after each gate
 
     def run(self) -> Dict[str, Any]:
+        # Cycle 14 S3: pre-flight stack health. If the memory-service is down, do NOT run gates
+        # with only the Gateway alive - record MEMORY_SERVICE_CRASH and let every gate skip.
+        pre = self.guard.precheck()
+        if not pre.get("healthy"):
+            self.results.append({"gate": "preflight_stack_health", "question": "memory-service /health",
+                                 "pass": False, "skipped": False, "why": pre.get("reason"),
+                                 "failure_category": CAT_MEMORY_SERVICE_CRASH,
+                                 "status_epistemically_valid": True, "vault_used": False,
+                                 "vault_used_incorrectly": False})
+
         def has(*subs: str) -> Any:  # answer contains any of subs (case-insensitive)
             return lambda o, a: "" if any(s.lower() in a.lower() for s in subs) else f"answer lacks {subs}"
 
@@ -293,6 +394,7 @@ class Harness:
                              "root_cause_hint": None if not iso_leak else "thread_id isolation broke"})
 
         self._adversarial()
+        self.guard.postcheck()   # Cycle 14 S3: verify memory-service alive after the final gate
 
         graded = [r for r in self.results if not r.get("skipped")]
         pass_count = sum(1 for r in graded if r.get("pass"))

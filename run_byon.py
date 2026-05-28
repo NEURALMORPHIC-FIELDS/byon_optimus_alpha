@@ -144,8 +144,13 @@ def main() -> int:
     ms_env["MEMORY_SERVICE_HOST"] = "127.0.0.1"
     ms_env["MEMORY_SERVICE_PORT"] = "8000"
     ms_env["FCEM_MEMORY_ENGINE_ROOT"] = disc.fcem_root
-    sup.start("memory-service", [sys.executable, "server.py"],
-              cwd=str(disc.memory_service_server.parent), env=ms_env)
+    # Cycle 14 S5: child output to SEPARATE file handles (pipe-safe; never an unread subprocess.PIPE
+    # that would fill the OS buffer under load and block the child) + process diagnostics.
+    sup.start("memory-service", [sys.executable, "-u", "server.py"],
+              cwd=str(disc.memory_service_server.parent), env=ms_env,
+              stdout_path="runtime/logs/memory_service_stdout.log",
+              stderr_path="runtime/logs/memory_service_stderr.log",
+              record_diagnostics=True)
     if not sup.wait_http("memory-service", f"{memory_url}/health", timeout=90):
         _print("-" * 60)
         _print("memory-service failed to become healthy. REAL mode does NOT fall back to a")
