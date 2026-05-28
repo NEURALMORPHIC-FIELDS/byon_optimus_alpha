@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 Channel = Literal["web", "openclaw", "telegram", "whatsapp", "slack", "api"]
 EpistemicStatus = Literal[
     "KNOWN", "PROVISIONAL", "PROVISIONAL_UNVERIFIED", "DISPUTED",
-    "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "UNKNOWN", "REFUSED", "ERROR",
+    "NEEDS_MORE_TIME", "ASK_USER_FOR_SOURCE", "BUDGET_REQUIRED", "UNKNOWN", "REFUSED", "ERROR",
     "SELF_STATE_GROUNDED", "ACTION_DONE", "ACTION_REQUIRED",
 ]
 

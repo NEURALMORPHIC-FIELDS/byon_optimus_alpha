@@ -18,7 +18,13 @@ from typing import Any, Dict, List
 
 TRUST_RANK = {
     "SYSTEM_CANONICAL": 6, "VERIFIED_PROJECT_FACT": 5, "DOMAIN_VERIFIED": 4,
-    "USER_PREFERENCE": 3, "EXTRACTED_USER_CLAIM": 2, "PROVISIONAL_WEB": 1,
+    "USER_PREFERENCE": 3, "EXTRACTED_USER_CLAIM": 2,
+    # Cycle 13.2 acquisition tiers: below the committed tiers and above PROVISIONAL_WEB, so a
+    # canonical/project fact ALWAYS outranks any external-LLM or model-prior packet. Float ranks
+    # keep the existing integer ranks (and thus existing rerank behavior) unchanged.
+    "EXTERNAL_VERIFIED": 1.8, "MODEL_PRIOR_UNVERIFIED": 1.6, "EXTERNAL_LLM_ADVISORY": 1.4,
+    "INTERNAL_PRESSURE_TRACE": 1.2,
+    "PROVISIONAL_WEB": 1,
     None: 1, "": 1, "DISPUTED_OR_UNSAFE": 0,
 }
 COMMITTED_TIERS = {"SYSTEM_CANONICAL", "VERIFIED_PROJECT_FACT", "DOMAIN_VERIFIED", "USER_PREFERENCE"}

@@ -2,7 +2,8 @@
   "canonical_modules": {
     "run_byon.py": "REAL-mode launcher: starts memory-service child + Gateway + UI; LocalBYONBackend forbidden in REAL",
     "gateway/app.py": "FastAPI Gateway: the only public surface; no raw memory/engine exposure; final audit enforced",
-    "gateway/epistemic_search.py": "epistemic search loop (memory -> candidates -> Claude hypothesis -> web); relation context injection",
+    "gateway/epistemic_search.py": "epistemic search loop (memory -> project files -> Claude hypothesis -> external-LLM advisory -> web -> corpus -> budget); relation context injection; sufficiency-gated acquisition escalation",
+    "gateway/acquisition/": "Cycle 13.3 additive evidence-acquisition package: EvidencePacket + source adapters (project_files, corpus, external_llm advisory, budget) + sufficiency-gated orchestrator + acquisition_policy.json. NOT a parallel engine; supplies evidence the existing synthesis/verdict logic decides over. external-LLM/model-prior packets are advisory only and never become KNOWN; a budget request yields BUDGET_REQUIRED instead of a fabricated answer.",
     "gateway/source_policy.py": "query_class + source_class gating; canonical constraints; the source-bleed boundary",
     "gateway/memory_service_backend.py": "canonical memory-service backend (real D_Cortex/FAISS + FCE-M)",
     "gateway/consistent_client.py": "read-consistent client wrapper over the memory-service (tombstone-filtered)",

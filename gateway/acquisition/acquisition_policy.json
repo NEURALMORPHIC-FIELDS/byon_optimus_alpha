@@ -1,0 +1,30 @@
+{
+  "version": "13.2",
+  "note": "Sufficiency thresholds and escalation policy for the evidence-acquisition extension. Loaded by gateway.epistemic_search; if absent the loop falls back to its prior behavior with no crash. This file is configuration only; it never overrides source policy or the Auditor.",
+  "sufficiency_thresholds": {
+    "simple": 0.55,
+    "medium": 0.70,
+    "complex": 0.82,
+    "high_stakes": 0.90
+  },
+  "source_order": [
+    "local_memory",
+    "project_files",
+    "model_prior",
+    "external_llm",
+    "web",
+    "corpus",
+    "budget",
+    "user_clarification"
+  ],
+  "rules": {
+    "empty_memory_triggers_acquisition": true,
+    "project_questions_require_repo_files": true,
+    "current_info_requires_web": true,
+    "book_questions_require_corpus_ingestion": true,
+    "paid_source_requires_budget_request": true,
+    "model_prior_never_becomes_verified_fact_without_external_support": true,
+    "external_llm_output_is_advisory_only": true,
+    "all_new_memory_requires_provenance": true
+  }
+}

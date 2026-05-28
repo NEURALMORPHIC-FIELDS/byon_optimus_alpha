@@ -27,6 +27,8 @@ from gateway.perspective_synthesis import synthesize
 from gateway import query_router as qr
 from gateway import source_policy as sp
 from gateway import web_search as ws
+from gateway.acquisition import acquisition as acq
+from gateway.web_search import WebResult
 
 _SECRET = re.compile(
     r"(?i)\b(password|parol[ăa]|secret|secret[ăa]|private\s+key|cheie\s+(?:privat[ăa]|secret[ăa])|"
@@ -199,7 +201,7 @@ class EpistemicSearch:
                 pass
         return ("Grounded facts: " + " | ".join(facts[:8])) if facts else "(no grounded facts)", srcs[:6]
 
-    def run(self, *, question: str, user_id: str, session_id: str, namespace_dir: Any, mem_client: Any, learning: Any, web_provider: Optional[Any]=None, claude_provider: Optional[Any]=None, allow_web: bool=False, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None, clock: Optional[InternalResearchClock]=None, time_fn: Optional[Callable[[], float]]=None, recent_buffer: Optional[Any]=None) -> Any:
+    def run(self, *, question: str, user_id: str, session_id: str, namespace_dir: Any, mem_client: Any, learning: Any, web_provider: Optional[Any]=None, claude_provider: Optional[Any]=None, allow_web: bool=False, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None, clock: Optional[InternalResearchClock]=None, time_fn: Optional[Callable[[], float]]=None, recent_buffer: Optional[Any]=None, acquisition_context: Optional[Dict[str, Any]]=None) -> Any:
         trace_id = research_trace_id or ("research_" + uuid.uuid4().hex)
         clk = clock or self._clock(action, trace_id, time_fn)
         if action == "continue":  # a continuation extends the budget by one window
@@ -207,6 +209,9 @@ class EpistemicSearch:
         sources_searched: List[str] = []
         web_results: List[Any] = []
         claude_hypothesis: Optional[Dict[str, Any]] = None
+        # Cycle 13.2 acquisition state (additive; folded into synthesis inputs after the web phase).
+        acquired_packets: List[Any] = []
+        acquisition_record: Dict[str, Any] = {"ran": False, "tiers_run": [], "budget_request": None}
 
         if _HIGH_CERTAINTY.search(question):
             clk.add_pressure("high_certainty_demand", PRESSURE_HIGH_CERTAINTY)
@@ -427,6 +432,41 @@ class EpistemicSearch:
             if claude_hypothesis:
                 sources_searched.append("claude")
 
+        # --- phase: acquisition (additive escalation, sufficiency-gated) -----
+        # Order: local memory -> project files -> model prior (Claude, above) -> external LLM ->
+        # web (next) -> corpus -> budget. Adapters only emit under their own activation conditions;
+        # a tier that does not apply contributes nothing, so memory-grounded behavior is unchanged.
+        policy = acq.load_policy()
+        acq_ctx = dict(acquisition_context or {})
+        acq_ctx.setdefault("intent", intent)
+        acq_ctx.setdefault("query_class", qclass)
+        acq_ctx.setdefault("memory_hits", memory_hits)
+        acq_ctx.setdefault("namespace_dir", namespace_dir)
+        acq_ctx.setdefault("repo_root", os.environ.get("BYON_REPO_ROOT", ""))
+        acq_ctx.setdefault("claude_hypothesis", claude_hypothesis)
+        acq_ctx["policy"] = policy
+        suff = acq.assess_sufficiency(question=question, memory_hits=memory_hits, committed=committed,
+                                      intent=intent, qclass=qclass, policy=policy)
+        acquisition_record["sufficiency"] = suff
+        qlow = question.lower()
+        is_project_q = (intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY,
+                                   qr.RELATION_FIELD_QUERY) or any(t in qlow for t in qr.SELF_TERMS))
+        qpersonal = (qclass in (sp.Q_USER_PERSONAL, sp.Q_USER_VAULT) or intent == qr.USER_VAULT_QUERY)
+        if not suff["sufficient"]:
+            acquisition_record["ran"] = True
+            pre = []
+            if is_project_q and not qpersonal:
+                pre.append("project_files")
+            if not qpersonal:
+                pre.append("external_llm")
+            if pre:
+                clk.set_phase("acquisition")
+                r1 = acq.run_tiers(question, acq_ctx, pre)
+                acquired_packets.extend(r1["packets"])
+                acquisition_record["tiers_run"].extend(r1["tiers_run"])
+                for t in r1["tiers_run"]:
+                    sources_searched.append(f"acquisition:{t}")
+
         # --- phase: web evidence (candidates, not truth) ---------------------
         if allow_web and web_provider is not None and getattr(web_provider, "available", False):
             clk.set_phase("web")
@@ -449,11 +489,62 @@ class EpistemicSearch:
             if not web_results:
                 clk.add_pressure("web_failed", PRESSURE_WEB_FAIL)
 
+        # --- phase: acquisition (post-web tiers: corpus, then budget) --------
+        if acquisition_record["ran"]:
+            acq_ctx["free_sources_exhausted"] = (not acquired_packets) and (not web_results)
+            r2 = acq.run_tiers(question, acq_ctx, ["corpus", "budget"])
+            acquired_packets.extend(r2["packets"])
+            acquisition_record["tiers_run"].extend(r2["tiers_run"])
+            for t in r2["tiers_run"]:
+                sources_searched.append(f"acquisition:{t}")
+            if r2["budget_request"]:
+                acquisition_record["budget_request"] = r2["budget_request"]
+
+        # --- fold acquired evidence into the EXISTING synthesis inputs -------
+        acquisition_record["packets"] = [p.to_dict() for p in acquired_packets]
+        fold = acq.fold_packets(acquired_packets)
+        acquisition_record["fold"] = {"ground_count": fold["ground_count"],
+                                      "advisory_count": fold["advisory_count"],
+                                      "conflict": fold["conflict"],
+                                      "distinct_claims": fold["distinct_claims"]}
+        acq_web = [WebResult(title=r["title"], url=r["url"], snippet=r["snippet"],
+                             source_domain=r["source_domain"], claim=r["claim"])
+                   for r in fold["advisory_results"]]
+        if fold["conflict"]:
+            if fold["ground_top"] is not None:
+                gp = fold["ground_top"]
+                acq_web.append(WebResult(title=gp.source.title,
+                                         url=gp.source.id or gp.source.file_path,
+                                         snippet=gp.content.raw_text, source_domain=gp.source.type,
+                                         claim=gp.primary_claim()[:160]))
+            web_results = web_results + acq_web
+        elif fold["ground_top"] is not None:
+            memory_hits = [acq.ground_packet_as_hit(fold["ground_top"])] + memory_hits
+            web_results = web_results + acq_web
+        else:
+            web_results = web_results + acq_web
+
+        # --- budget gate: a paid source is the only remaining path -----------
+        if (acquisition_record["budget_request"] and fold["ground_top"] is None
+                and not fold["advisory_results"] and not web_results):
+            clk.set_phase("done")
+            learning.record_event("chat", question=question, status="BUDGET_REQUIRED", intent=intent)
+            syn = {"epistemic_verdict": "BUDGET_REQUIRED", "intent": intent, "query_class": qclass,
+                   "source_class": sp.UNKNOWN, "vault_primary": False,
+                   "budget_request": acquisition_record["budget_request"],
+                   "acquisition": acquisition_record,
+                   "note": "no free source could ground this; a paid-source budget is requested"}
+            res = self._result(trace_id, clk, "BUDGET_REQUIRED", "done", answer="", confidence=0.0,
+                               sources_searched=sources_searched, memory_hits=memory_hits,
+                               web_results=[], claude_hypothesis=claude_hypothesis, synthesis=syn)
+            res["acquisition"] = acquisition_record
+            return res
+
         # --- phase: synthesis + verdict --------------------------------------
         clk.set_phase("synthesis")
         syn = synthesize(question=question, memory_hits=memory_hits, candidate_hits=[],
                          claude_hypothesis=claude_hypothesis, web_results=web_results,
-                         web_enabled=allow_web, auto_commit_web=self.auto_commit_web,
+                         web_enabled=(allow_web or bool(acq_web)), auto_commit_web=self.auto_commit_web,
                          min_web_sources=self.min_web_sources)
         if len(syn.get("distinct_claims", [])) >= 2:
             clk.add_pressure("sources_conflict", PRESSURE_SOURCES_CONFLICT)
@@ -494,12 +585,15 @@ class EpistemicSearch:
                                         "sources_searched": sources_searched,
                                         "stress_percent": clk.stress_percent(),
                                         "extension_count": clk.extension_count})
+        syn["acquisition"] = acquisition_record
         clk.set_phase("done")
-        return self._result(trace_id, clk, syn["epistemic_verdict"], "done",
-                            answer=syn["answer"], confidence=syn["confidence"],
-                            sources_searched=sources_searched, memory_hits=memory_hits,
-                            web_results=[r.to_dict() for r in web_results],
-                            claude_hypothesis=claude_hypothesis, synthesis=syn)
+        res = self._result(trace_id, clk, syn["epistemic_verdict"], "done",
+                           answer=syn["answer"], confidence=syn["confidence"],
+                           sources_searched=sources_searched, memory_hits=memory_hits,
+                           web_results=[r.to_dict() for r in web_results],
+                           claude_hypothesis=claude_hypothesis, synthesis=syn)
+        res["acquisition"] = acquisition_record
+        return res
 
     @staticmethod
     def _result(trace_id: Any, clk: Any, status: Any, research_status: Any, *, answer: Any, confidence: Any, sources_searched: Any, memory_hits: Any, web_results: Any, claude_hypothesis: Any, synthesis: Any, can_extend: Optional[Any]=None) -> Any:
