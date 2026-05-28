@@ -19,7 +19,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from .source_policy import CANONICAL_CONSTRAINTS
+from gateway.source_policy import CANONICAL_CONSTRAINTS
 
 # relations
 SAME = "same_claim"
@@ -160,7 +160,7 @@ def _polarity_conflict(a: str, b: str) -> bool:
     return False
 
 
-def _claude_advice(a: str, b: str, advisor) -> Optional[Dict[str, Any]]:
+def _claude_advice(a: str, b: str, advisor: Any) -> Any:
     """Advisory NLI via Claude - opt-in, suggestion only, never authority/truth."""
     if advisor is None or os.environ.get("BYON_EVIDENCE_NLI", "false").strip().lower() not in (
             "1", "true", "yes", "on"):

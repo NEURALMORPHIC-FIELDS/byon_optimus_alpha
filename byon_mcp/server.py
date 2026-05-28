@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import os
 
-from .client import GatewayClient
-from . import handlers as H
+from byon_mcp.client import GatewayClient
+from byon_mcp import handlers as H
 
 
 def build_client() -> GatewayClient:

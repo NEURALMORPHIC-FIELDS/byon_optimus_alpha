@@ -92,13 +92,10 @@ class MemoryServiceClient:
         return {"success": True, "fallback": True, "stored": len(stored), "failed": len(failed),
                 "ids": stored, "failed_items": failed}
 
-    def tombstone_fact(self, *, ctx_id=None, source_id=None, content_sha_value=None,
-                       reason: str = "", trust=None, canonical: bool = False,
-                       operator: bool = False, by_content_sha: bool = False,
-                       audit_trace_id=None, store=None) -> Dict[str, Any]:
+    def tombstone_fact(self, *, ctx_id: Optional[Any]=None, source_id: Optional[Any]=None, content_sha_value: Optional[Any]=None, reason: str='', trust: Optional[Any]=None, canonical: bool=False, operator: bool=False, by_content_sha: bool=False, audit_trace_id: Optional[Any]=None, store: Optional[Any]=None) -> Any:
         """Mark a fact inactive via the tombstone overlay (no physical delete). Requires a reason;
         tombstoning canonical/verified facts requires operator=True. Audited + reversible."""
-        from .tombstones import TombstoneStore
+        from gateway.tombstones import TombstoneStore
         ts = store if store is not None else TombstoneStore()
         return ts.tombstone(ctx_id=ctx_id, source_id=source_id, content_sha_value=content_sha_value,
                             reason=reason, trust=trust, canonical=canonical, operator=operator,

@@ -7,7 +7,7 @@ import json
 from typing import Any, Dict
 
 
-def render_audit(client, trace_id: str) -> str:
+def render_audit(client: Any, trace_id: str) -> Any:
     if not trace_id:
         return "Audit trace not available."
     out = client.audit_trace(trace_id)

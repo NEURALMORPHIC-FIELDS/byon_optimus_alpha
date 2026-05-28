@@ -21,12 +21,12 @@ import re
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
-from .internal_clock import (InternalResearchClock, PRESSURE_HIGH_CERTAINTY,
+from gateway.internal_clock import (InternalResearchClock, PRESSURE_HIGH_CERTAINTY,
                              PRESSURE_SOURCES_CONFLICT, PRESSURE_UNSAFE_TOPIC, PRESSURE_WEB_FAIL)
-from .perspective_synthesis import synthesize
-from . import query_router as qr
-from . import source_policy as sp
-from . import web_search as ws
+from gateway.perspective_synthesis import synthesize
+from gateway import query_router as qr
+from gateway import source_policy as sp
+from gateway import web_search as ws
 
 _SECRET = re.compile(
     r"(?i)\b(password|parol[ăa]|secret|secret[ăa]|private\s+key|cheie\s+(?:privat[ăa]|secret[ăa])|"
@@ -105,7 +105,7 @@ class EpistemicSearch:
         "BYON operational Level 2 FULL_LEVEL3_NOT_DECLARED; D_Cortex function; FCE-M function; Claude not authority",
     ]
 
-    def _gather_canonical(self, mem_client, user_id: str):
+    def _gather_canonical(self, mem_client: Any, user_id: str) -> Any:
         """Actively pull the committed relation/repo canonical facts so a self-architecture
         answer is complete even when the user's (e.g. Romanian) query has low cosine to the
         English facts."""
@@ -127,7 +127,7 @@ class EpistemicSearch:
         return out
 
     @staticmethod
-    def _attach_relation_context(syn, rel_bundle, committed) -> None:
+    def _attach_relation_context(syn: Any, rel_bundle: Any, committed: Any) -> None:
         """Cycle 13 (S7): record relation-context safety metadata on the synthesis. Relation context
         is SECONDARY whenever a committed memory fact grounded the answer; it never converts the
         answer's source_class above what the committed grounding already established."""
@@ -148,14 +148,14 @@ class EpistemicSearch:
             "epistemic_status": syn.get("epistemic_verdict"),
         }
 
-    def _relation_bundle(self, question: str, namespace_dir):
+    def _relation_bundle(self, question: str, namespace_dir: Any) -> Any:
         """Cycle 12/13: policy-gated committed relation CONTEXT + safety metadata for a normal answer.
         Best-effort: any failure yields an empty (unused) bundle and never breaks the answer path."""
         empty = {"used": False, "hits": [], "relation_ids": [], "source_classes": [], "primary": False,
                  "any_disputed": False, "any_candidate": False, "any_decayed": False, "blocked": False}
         try:
-            from .relation_field import lifeloop_field
-            from . import relation_reports as rr
+            from gateway.relation_field import lifeloop_field
+            from gateway import relation_reports as rr
             users_root = os.path.dirname(str(namespace_dir)) if namespace_dir else "runtime/users"
             field = lifeloop_field(users_root)
             if field.is_empty():
@@ -164,7 +164,7 @@ class EpistemicSearch:
         except Exception:
             return empty
 
-    def _describe_from_facts(self, question: str, committed_hits):
+    def _describe_from_facts(self, question: str, committed_hits: Any) -> Any:
         """Self-knowledge synthesis: describe from the TOP canonical facts, with Claude as a
         language faculty over GROUNDED facts only (never inventing). Falls back to joining the
         facts if Claude is unavailable. Returns (answer, sources)."""
@@ -199,11 +199,7 @@ class EpistemicSearch:
                 pass
         return ("Grounded facts: " + " | ".join(facts[:8])) if facts else "(no grounded facts)", srcs[:6]
 
-    def run(self, *, question: str, user_id: str, session_id: str, namespace_dir,
-            mem_client, learning, web_provider=None, claude_provider=None,
-            allow_web: bool = False, allow_claude: bool = True, action: str = "start",
-            research_trace_id: Optional[str] = None, clock: Optional[InternalResearchClock] = None,
-            time_fn: Optional[Callable[[], float]] = None, recent_buffer=None) -> Dict[str, Any]:
+    def run(self, *, question: str, user_id: str, session_id: str, namespace_dir: Any, mem_client: Any, learning: Any, web_provider: Optional[Any]=None, claude_provider: Optional[Any]=None, allow_web: bool=False, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None, clock: Optional[InternalResearchClock]=None, time_fn: Optional[Callable[[], float]]=None, recent_buffer: Optional[Any]=None) -> Any:
         trace_id = research_trace_id or ("research_" + uuid.uuid4().hex)
         clk = clock or self._clock(action, trace_id, time_fn)
         if action == "continue":  # a continuation extends the budget by one window
@@ -233,7 +229,7 @@ class EpistemicSearch:
 
         # --- self-introspection: answer from RUNTIME STATE, never generic vault retrieval ----
         if intent in qr.SELF_STATE_INTENTS:
-            from .self_state_provider import SelfStateProvider
+            from gateway.self_state_provider import SelfStateProvider
             ssp = SelfStateProvider(mem_client, namespace_dir=str(namespace_dir) if namespace_dir else None)
             answer, srcs = ssp.answer_for(intent, question)
             clk.set_phase("done")
@@ -249,7 +245,7 @@ class EpistemicSearch:
 
         # --- operational / self-referential commands: runtime state / actions, never vault --
         if intent in qr.OPERATIONAL_INTENTS:
-            from .operational_intents import OperationalIntents
+            from gateway.operational_intents import OperationalIntents
             op = OperationalIntents(mem_client, str(namespace_dir) if namespace_dir else None, session_id)
             status, answer, srcs = op.handle(intent, question)
             clk.set_phase("done")
@@ -276,7 +272,7 @@ class EpistemicSearch:
         #  - a system/project fact (SYSTEM_CANONICAL / VERIFIED_PROJECT_FACT) must NOT ground a
         #    personal "my X" or objective-world question (that is the canonical→personal bleed
         #    seen when a repo chunk loosely matches "what is my …").
-        def _bleeds(h) -> bool:
+        def _bleeds(h: Any) -> Any:
             src = str((h.get("metadata") or {}).get("source", ""))
             if intent != qr.USER_VAULT_QUERY and src.startswith("vault:"):
                 return True
@@ -506,8 +502,7 @@ class EpistemicSearch:
                             claude_hypothesis=claude_hypothesis, synthesis=syn)
 
     @staticmethod
-    def _result(trace_id, clk, status, research_status, *, answer, confidence, sources_searched,
-                memory_hits, web_results, claude_hypothesis, synthesis, can_extend=None) -> Dict[str, Any]:
+    def _result(trace_id: Any, clk: Any, status: Any, research_status: Any, *, answer: Any, confidence: Any, sources_searched: Any, memory_hits: Any, web_results: Any, claude_hypothesis: Any, synthesis: Any, can_extend: Optional[Any]=None) -> Any:
         snap = clk.snapshot()
         syn = synthesis or {}
         return {

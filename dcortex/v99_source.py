@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
 
-# D_Cortex v9.9 — Chronodynamic Semantic Grounded Cortex
+# D_Cortex v9.9 - Chronodynamic Semantic Grounded Cortex
 # COMPLETE COLAB SOURCE, TXT/COPY-PASTE READY
 #
 # Design intent:
@@ -219,7 +222,7 @@ def _v99_env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 # Off-Colab portability: honor the D_CORTEX_FAST_RUN_REQUESTED env that the BYON
-# adapter already sets (previously ignored — fast_run was hard-pinned to False).
+# adapter already sets (previously ignored - fast_run was hard-pinned to False).
 _V99_FAST_RUN = _v99_env_truthy("D_CORTEX_FAST_RUN_REQUESTED")
 C = V92Config(fast_run=_V99_FAST_RUN).apply_fast()
 
@@ -1559,7 +1562,7 @@ class ForwardBoundMorphogeneticCortex(FullOrganismMorphogeneticPlasticCortex):
 
             # v9.9.2 Epistemic Memory Contract: a query/archive-query answer is only valid
             # if the addressable memory actually holds that key. With no valid memory cell
-            # (persistent_known False — e.g. memory disabled, or an out-of-vocabulary /
+            # (persistent_known False - e.g. memory disabled, or an out-of-vocabulary /
             # never-taught key), the cortex MUST emit UNKNOWN instead of reconstructing a
             # value from prior. `known` is set only by trusted writes, so it also carries
             # provenance. This makes the cortex's abstention agree with BYON's grounding gate.
@@ -1833,7 +1836,7 @@ def train_model(model: nn.Module, env: MorphogeneticEpisodeWorld, cfg: V92Config
     steps_executed = 0
     # Convergence early-stop: training past the point of no measurable improvement is pure
     # waste (the sequential cortex loop is launch-bound, so each wasted step is expensive).
-    # This stops a phase once `multi` stops improving for `patience` logs — independent of the
+    # This stops a phase once `multi` stops improving for `patience` logs - independent of the
     # absolute saturation thresholds, which can sit above a model's structural plateau and
     # therefore never fire. Verdict thresholds are unaffected.
     conv_patience = int(getattr(cfg, "early_stop_patience", 3))
@@ -2120,7 +2123,7 @@ def sleep_consolidate_persistent_memory(model: nn.Module, cfg: V92Config) -> Dic
     Challengers that accumulated >= M evidence during waking ingest are retrograded into the
     current slot (the consolidated value is archived); all known values are then marked
     committed. This is sleep-gated, so a transient (unconsolidated) contradiction is resisted,
-    while a genuinely repeated+consolidated correction still updates — no capability removed.
+    while a genuinely repeated+consolidated correction still updates - no capability removed.
     """
     retrogrades = commits = 0
     if hasattr(model, "persistent_committed"):
@@ -3108,7 +3111,7 @@ def compute_verdict_v96(results: Dict[str, Any], cfg: V92Config) -> None:
 
 def build_report(results: Dict[str, Any]) -> str:
     lines = []
-    lines.append("# D_Cortex v9.9 — Chronodynamic Semantic Grounded Cortex")
+    lines.append("# D_Cortex v9.9 - Chronodynamic Semantic Grounded Cortex")
     lines.append("")
     lines.append("## Real BYON source bundle")
     bundle = results.get("byon_source_bundle", {})
@@ -3162,7 +3165,7 @@ def build_report(results: Dict[str, Any]) -> str:
         lines.append(f"- concepts={', '.join(rt.get('real_text_spec_summary',{}).get('concepts',[])[:8])}")
         lines.append("")
     lines.append("## Verdict")
-    lines.append(f"`{results.get('verdict')}` — {results.get('criteria_passed')}/{results.get('criteria_total')}")
+    lines.append(f"`{results.get('verdict')}` - {results.get('criteria_passed')}/{results.get('criteria_total')}")
     for k, v in results.get("criteria", {}).items():
         lines.append(f"- {'[+]' if v else '[-]'} {k}")
     return "\n".join(lines) + "\n"
@@ -3574,7 +3577,7 @@ def main() -> None:
         print(f"[INFO] Drive not mounted in subprocess; using local output -> {C.output_dir}", flush=True)
     outdir = ensure_dir(C.output_dir)
     print("=" * 94)
-    print("D_Cortex v9.9 — Chronodynamic Semantic Grounded Cortex")
+    print("D_Cortex v9.9 - Chronodynamic Semantic Grounded Cortex")
     print("=" * 94)
     device = get_device()
     print(f"[INFO] device = {device}")
@@ -4188,7 +4191,7 @@ def compute_verdict_v96(results: Dict[str, Any], cfg: V92Config) -> None:  # typ
 
 def build_report(results: Dict[str, Any]) -> str:  # type: ignore[override]
     lines: List[str] = []
-    lines.append("# D_Cortex v9.9 — Chronodynamic Semantic Grounded Cortex")
+    lines.append("# D_Cortex v9.9 - Chronodynamic Semantic Grounded Cortex")
     lines.append("")
     lines.append("## Real BYON source bundle")
     bundle = results.get("byon_source_bundle", {})
@@ -4235,7 +4238,7 @@ def build_report(results: Dict[str, Any]) -> str:  # type: ignore[override]
         lines.append(f"- passes={rt.get('passes')}")
     lines.append("")
     lines.append("## Verdict")
-    lines.append(f"`{results.get('verdict')}` — {results.get('criteria_passed')}/{results.get('criteria_total')}")
+    lines.append(f"`{results.get('verdict')}` - {results.get('criteria_passed')}/{results.get('criteria_total')}")
     for k, v in results.get("criteria", {}).items():
         lines.append(f"- {'[+]' if v else '[-]'} {k}")
     return "\n".join(lines) + "\n"
@@ -4244,7 +4247,7 @@ def build_report(results: Dict[str, Any]) -> str:  # type: ignore[override]
 
 
 # ==============================================================================================
-# v9.8 extension layer — Semantic Grounded QA + Anti-Memorization Audit
+# v9.8 extension layer - Semantic Grounded QA + Anti-Memorization Audit
 # This layer preserves the v9.7 full organism and adds stricter question/audit structure:
 #   - generated semantic QA objects with paraphrase/source/relation/no-answer/contradiction forms
 #   - answer grounding is scored through the already-existing closed-book persistent-memory probes
@@ -4526,7 +4529,7 @@ def build_report(results: Dict[str, Any]) -> str:  # type: ignore[override]
 
 
 # ======================================================================================
-# v9.9 extension layer — Internal Tempo + Neuromodulated Chronodynamic Cortex
+# v9.9 extension layer - Internal Tempo + Neuromodulated Chronodynamic Cortex
 # ======================================================================================
 # This section is intentionally embedded in the FULL v9.8 source above. It is not a
 # wrapper, loader, or external shell. The previous semantic grounded QA cortex remains
@@ -4960,7 +4963,7 @@ def main() -> None:  # type: ignore[override]
     C.output_dir = _v99_resolve_output_dir()
     # Low-VRAM GPU profile (e.g. 2 GB Pascal GTX 1050): shrink ONLY the real-text reader
     # minibatch and force fp32 (Pascal lacks native bf16). Vocabulary target, training
-    # steps and model dimensions are unchanged, so the science/gates are not diluted —
+    # steps and model dimensions are unchanged, so the science/gates are not diluted -
     # only the minibatch size and precision are adjusted to fit the card.
     if _v99_env_truthy("D_CORTEX_GPU_LOW_VRAM"):
         C.use_amp = False

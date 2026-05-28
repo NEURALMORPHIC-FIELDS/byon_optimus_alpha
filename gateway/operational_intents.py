@@ -13,8 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import query_router as qr
-from .self_state_provider import SelfStateProvider
+from gateway import query_router as qr
+from gateway.self_state_provider import SelfStateProvider
 
 
 class OperationalIntents:
@@ -34,7 +34,7 @@ class OperationalIntents:
         if not self.namespace_dir:
             return []
         try:
-            from .session_events import SessionEvents
+            from gateway.session_events import SessionEvents
             se = SessionEvents(self.namespace_dir, self.session_id)
             if se.exists():
                 rows = []
@@ -198,11 +198,11 @@ class OperationalIntents:
                 f"ruleaza o actiune (ex. consolideaza memoria).",
                 ["runtime:session_log"])
 
-    def _relation_field(self):
+    def _relation_field(self) -> Any:
         """The system relation field lives in the lifeloop namespace (sibling of the candidate
         lifecycle). namespace_dir is the caller's user root → users_root is its parent."""
-        from .relation_field import lifeloop_field, RelationFieldBuilder
-        from .candidate_lifecycle import CandidateLifecycle
+        from gateway.relation_field import lifeloop_field, RelationFieldBuilder
+        from gateway.candidate_lifecycle import CandidateLifecycle
         users_root = self.namespace_dir.parent if self.namespace_dir else "runtime/users"
         field = lifeloop_field(users_root)
         if field.is_empty():                              # lazily build once from existing memory
@@ -217,7 +217,7 @@ class OperationalIntents:
         """Relation-aware answer (Cycle 10): consult the relation field BEFORE any Claude/web, and
         ground the answer in committed relations with provenance. The field navigates structure;
         BYON + source policy + the Auditor remain the only truth authority."""
-        from . import relation_reports as rr
+        from gateway import relation_reports as rr
         field = self._relation_field()
         out = rr.render_answer(field, question)
         return (out["status"], out["answer"], out["sources"])

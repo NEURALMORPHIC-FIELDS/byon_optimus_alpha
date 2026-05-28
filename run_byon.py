@@ -34,7 +34,7 @@ def _load_dotenv() -> None:
         pass
 
 
-def _print(*a):
+def _print(*a: Any) -> None:
     print(*a, flush=True)
 
 
@@ -216,7 +216,7 @@ def config_port_from_url(url: str, default: int) -> int:
         return default
 
 
-def _launch_ui_only(config, demo: bool) -> int:
+def _launch_ui_only(config: Any, demo: bool) -> Any:
     """Build the runtime client + UI and launch Gradio. Shared by all modes."""
     from app.runtime_manager import build_runtime, should_launch
     from app.alpha_ui import build_ui

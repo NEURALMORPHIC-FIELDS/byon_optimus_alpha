@@ -24,7 +24,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional
 
-from . import relation_field as rf
+from gateway import relation_field as rf
 
 # methods
 M_DETERMINISTIC = "deterministic"
@@ -90,8 +90,7 @@ def _is_secret(text: str) -> bool:
     return bool(_SECRET.search(text or ""))
 
 
-def _candidate(subject, predicate, obj, rtype, conf, quote, source, source_class, method,
-               provenance, *, is_contradiction=False) -> Dict[str, Any]:
+def _candidate(subject: Any, predicate: Any, obj: Any, rtype: Any, conf: Any, quote: Any, source: Any, source_class: Any, method: Any, provenance: Any, *, is_contradiction: bool=False) -> Any:
     return {"subject": subject, "predicate": predicate, "object": obj, "relation_type": rtype,
             "confidence": round(conf, 3), "evidence_quote": (quote or "")[:240], "source_id": source,
             "source_class": source_class, "method": method, "provenance": provenance or {},
@@ -137,7 +136,7 @@ def infer_relations_from_text(text: str, source: str, source_class: Optional[str
     return out + adv
 
 
-def _claude_relations(text, source, source_class, provenance, advisor) -> List[Dict[str, Any]]:
+def _claude_relations(text: Any, source: Any, source_class: Any, provenance: Any, advisor: Any) -> Any:
     """Advisory Claude extraction - opt-in, bounded snippet, proposed candidates only, never truth."""
     if advisor is None or os.environ.get("BYON_RELATION_INFERENCE_CLAUDE", "false").strip().lower() \
             not in ("1", "true", "yes", "on"):

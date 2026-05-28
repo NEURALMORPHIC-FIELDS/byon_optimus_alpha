@@ -53,7 +53,7 @@ def _http_post(url: str) -> Callable[[str, Dict[str, Any]], Dict[str, Any]]:
     return post
 
 
-def _research(post, user: str, session: str, question: str) -> Dict[str, Any]:
+def _research(post: Any, user: str, session: str, question: str) -> Any:
     return post("/v1/research", {"user_id": user, "session_id": session,
                                  "question": question, "allow_web": False})
 

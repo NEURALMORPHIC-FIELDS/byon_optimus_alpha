@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, Tuple
 
-from . import relation_field as rf
+from gateway import relation_field as rf
 
 CANONICAL_CLASSES = {"SYSTEM_CANONICAL", "VERIFIED_PROJECT_FACT"}
 VERIFIED_CLASSES = {"SYSTEM_CANONICAL", "VERIFIED_PROJECT_FACT", "DOMAIN_VERIFIED"}

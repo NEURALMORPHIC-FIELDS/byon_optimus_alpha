@@ -12,8 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from .byon_runtime_client import BYONRuntimeClient, DemoBYONClient
-from .local_config import AlphaConfig
+from app.byon_runtime_client import BYONRuntimeClient, DemoBYONClient
+from app.local_config import AlphaConfig
 
 
 @dataclass

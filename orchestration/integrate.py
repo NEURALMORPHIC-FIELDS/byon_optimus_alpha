@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""BYON Optimus + D_Cortex — off-Colab / local full-organism integration runner.
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
+"""BYON Optimus + D_Cortex - off-Colab / local full-organism integration runner.
 
 This is the Windows/Linux-local adaptation of the v9.9 self-contained Colab runner.
 It removes every Colab/Drive assumption (``drive.mount``, ``/content`` paths,
@@ -121,7 +124,7 @@ def run(cmd: List[str], cwd: Optional[Path] = None, env: Optional[Dict[str, str]
 
 
 # --------------------------------------------------------------------------------------
-# Secret handling — never written to a tracked file
+# Secret handling - never written to a tracked file
 # --------------------------------------------------------------------------------------
 def load_secret_key() -> str:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()

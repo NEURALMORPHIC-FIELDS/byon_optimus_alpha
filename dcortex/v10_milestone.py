@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""D_Cortex v10 — Longitudinal Generalization & Isolation milestone.
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
+"""D_Cortex v10 - Longitudinal Generalization & Isolation milestone.
 
 This is NOT another FSOAT run and NOT the in-process v10 developmental loop
 (`v10_developmental_loop.py`). It is a *standing* robustness milestone whose job
@@ -51,7 +54,7 @@ from dcortex import v99_source as v
 
 
 # ======================================================================================
-# Gate 1 support — load the REAL external v15.7a FCE-M consolidator (fail-hard on shim)
+# Gate 1 support - load the REAL external v15.7a FCE-M consolidator (fail-hard on shim)
 # ======================================================================================
 
 # The sealed extraction stamps this exact version string in d_cortex/__init__.py.
@@ -61,7 +64,7 @@ _SEALED_VERSION_PREFIX = "0.1.0-extracted-from-v15.7a-sealed"
 
 class RealFCEMRequiredError(RuntimeError):
     """Raised when the real external v15.7a runtime cannot be proven (no diluted
-    fallback — dev-sheet §7.3). REAL_FCEM_REQUIRED is a hard gate."""
+    fallback - dev-sheet §7.3). REAL_FCEM_REQUIRED is a hard gate."""
 
 
 def resolve_fcem_engine_root() -> str:
@@ -117,7 +120,7 @@ def load_real_fcem_adapter() -> Dict[str, Any]:
     if not str(version).startswith(_SEALED_VERSION_PREFIX):
         raise RealFCEMRequiredError(
             f"d_cortex.__version__={version!r} is not the sealed v15.7a extraction "
-            f"(expected prefix {_SEALED_VERSION_PREFIX!r}) — refusing to run on a shim."
+            f"(expected prefix {_SEALED_VERSION_PREFIX!r}) - refusing to run on a shim."
         )
     if DCortexAdapter.__name__ != "DCortexAdapter" or "Minimal" in DCortexAdapter.__name__:
         raise RealFCEMRequiredError(
@@ -156,7 +159,7 @@ def load_real_fcem_adapter() -> Dict[str, Any]:
 
 
 # ======================================================================================
-# Cortex query helpers — return per-key predictions so we can count UNKNOWN exactly
+# Cortex query helpers - return per-key predictions so we can count UNKNOWN exactly
 # ======================================================================================
 
 UNK_OFFSET = 0  # the UNKNOWN class index == cfg.n_values (decision head is n_values+1 wide)
@@ -219,7 +222,7 @@ def _query_keys(
 def _new_cortex(cfg, device):
     """Fresh morphogenetic cortex in eval() mode. eval() disables dropout so the
     algorithmic ledger's grounded one-hot deterministically dominates the (untrained)
-    neural decision head — recall is then a function of memory, not RNG."""
+    neural decision head - recall is then a function of memory, not RNG."""
     m = v.ForwardBoundMorphogeneticCortex(cfg, morphogenetic=True, plastic=True).to(device)
     m.eval()
     return m
@@ -233,7 +236,7 @@ def _fresh_from_checkpoint(cfg, device, ckpt_path):
 
 
 # ======================================================================================
-# False-assertion accumulator — gate 8 aggregates every ungrounded query in the run
+# False-assertion accumulator - gate 8 aggregates every ungrounded query in the run
 # ======================================================================================
 
 class FalseAssertionLedger:
@@ -256,7 +259,7 @@ class FalseAssertionLedger:
 
 
 # ======================================================================================
-# Gates 2–6 — cortex longitudinal behaviour on never-audited data
+# Gates 2–6 - cortex longitudinal behaviour on never-audited data
 # ======================================================================================
 
 # Domain ids deliberately disjoint from anything the v9.9.x audits or the in-process
@@ -334,7 +337,7 @@ def gate_delayed_recall_restart(cfg, device, outdir: Path) -> Dict[str, Any]:
         v.ingest_continual_domain_experience(interferer, cfg, other, device)
         v.sleep_consolidate_persistent_memory(interferer, cfg)
         v.continual_domain_probe(interferer, cfg, other, device)
-    del model, interferer  # drop the in-memory state — only the on-disk snapshot remains
+    del model, interferer  # drop the in-memory state - only the on-disk snapshot remains
 
     # --- restart: brand-new cortex instance reloads the snapshot from disk ---
     reloaded = _fresh_from_checkpoint(cfg, device, ckpt)
@@ -382,7 +385,7 @@ def gate_cross_user_isolation(cfg, device, outdir: Path, far: FalseAssertionLedg
     b_leaks_a = sum(1 for k in distinguishing if preds_b[k] == spec_a["values"][k])
 
     # Ungrounded probe for the false-assertion ledger: query user A on keys it was never
-    # taught (a fresh user C with empty memory) — must be UNKNOWN.
+    # taught (a fresh user C with empty memory) - must be UNKNOWN.
     user_c = _new_cortex(cfg, device)
     v.clear_persistent_cortex_memory(user_c, cfg)
     preds_c = _query_keys(user_c, cfg, spec_a, device, keys)
@@ -420,7 +423,7 @@ def _stable_value_idx(token: str, n_values: int) -> int:
 def _parse_doc_value(text: str, n_values: int) -> Tuple[int, str]:
     """Deterministically map a document's asserted location term → a value index.
     The 'fact' is the capitalised place name introduced by a locative preposition
-    ('in'/'to'/'at') — the last such occurrence, robust to trailing clauses like
+    ('in'/'to'/'at') - the last such occurrence, robust to trailing clauses like
     '... in Calder this year.'."""
     words = [w.strip(".,;:") for w in text.split()]
     place = None
@@ -437,7 +440,7 @@ def _parse_doc_value(text: str, n_values: int) -> Tuple[int, str]:
 def gate_real_contradiction_stream(cfg, device) -> Dict[str, Any]:
     """Stream contradictions parsed from real document text. A consolidated fact must
     resist a single transient (un-reconsolidated) contradiction, yet a genuinely
-    repeated + re-consolidated correction must still win — v9.9.1 arbitration on real
+    repeated + re-consolidated correction must still win - v9.9.1 arbitration on real
     inputs (not synthetic event tuples)."""
     model = _new_cortex(cfg, device)
     v.clear_persistent_cortex_memory(model, cfg)
@@ -501,7 +504,7 @@ def gate_real_contradiction_stream(cfg, device) -> Dict[str, Any]:
 
 
 # ======================================================================================
-# Gate 7 — the REAL v15.7a adapter's advisory signals measurably change with structure
+# Gate 7 - the REAL v15.7a adapter's advisory signals measurably change with structure
 # ======================================================================================
 
 def gate_fcem_advisory_effect(fcem: Dict[str, Any]) -> Dict[str, Any]:
@@ -584,7 +587,7 @@ def run_v10_milestone(
     device = v.get_device()
 
     print("=" * 94)
-    print(f"D_Cortex v10 — Longitudinal Generalization & Isolation  (fast={fast} device={device})")
+    print(f"D_Cortex v10 - Longitudinal Generalization & Isolation  (fast={fast} device={device})")
     print("=" * 94, flush=True)
 
     # ---- Gate 1: REAL_FCEM_REQUIRED (fail-hard; raises before any other gate runs) ----

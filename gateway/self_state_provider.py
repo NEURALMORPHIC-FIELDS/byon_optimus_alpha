@@ -38,7 +38,7 @@ class SelfStateProvider:
         if not self.namespace_dir:
             return {"candidates": 0, "committed": 0, "disputed": 0}
         try:
-            from .continuous_learning import ContinuousLearning
+            from gateway.continuous_learning import ContinuousLearning
             cl = ContinuousLearning(self.namespace_dir, self.mem)
             return {"candidates": len(cl.list_candidates()), "committed": len(cl.list_committed()),
                     "disputed": len(cl.list_disputed())}
@@ -58,7 +58,7 @@ class SelfStateProvider:
     # -- collection ---------------------------------------------------------
     def _relation_count(self) -> int:
         try:
-            from .self_training import _RELATIONS
+            from gateway.self_training import _RELATIONS
             return len(_RELATIONS)
         except Exception:
             return 0
@@ -119,7 +119,7 @@ class SelfStateProvider:
         out.append("Nota: LifeLoop observa si propune; NU raspunde direct si NU este autoritate de adevar.")
         return out
 
-    def _lifeloop_tail(self, kinds, limit=5) -> List[Dict[str, Any]]:
+    def _lifeloop_tail(self, kinds: Any, limit: int=5) -> Any:
         if not self.lifeloop_events.exists():
             return []
         rows = []
@@ -256,7 +256,7 @@ class SelfStateProvider:
         return out
 
     def answer_for(self, intent: str, question: str = "") -> Tuple[str, List[str]]:
-        from . import query_router as qr
+        from gateway import query_router as qr
         st = self.collect()
         sources = ["runtime:self_state", "memory-service:stats"]
         if st.get("self_training"):

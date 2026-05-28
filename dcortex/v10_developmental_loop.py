@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""D_Cortex v10.0 — Full-Organism Developmental Training Loop.
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
+"""D_Cortex v10.0 - Full-Organism Developmental Training Loop.
 
 Where v9.x audits proved single capabilities, v10.0 chains them into a multi-epoch
 cognitive development cycle and measures longitudinal behaviour:
@@ -37,7 +40,7 @@ def _mean(xs: List[float]) -> float:
 
 
 def _fresh_from_checkpoint(cfg, device, ckpt_path):
-    """Build a fresh cortex and load a full state_dict checkpoint from disk — the
+    """Build a fresh cortex and load a full state_dict checkpoint from disk - the
     faithful 'process restart + checkpoint reload' the v9.5 persistence audit uses
     (registered persistent buffers travel with the state_dict). Used per sub-test so
     earlier mutations never leak between phases."""
@@ -59,7 +62,7 @@ def run_v10_developmental_loop(
     device = v.get_device()
 
     print("=" * 94)
-    print(f"D_Cortex v10.0 Developmental Loop — sessions={sessions} fast={fast} device={device}")
+    print(f"D_Cortex v10.0 Developmental Loop - sessions={sessions} fast={fast} device={device}")
     print("=" * 94, flush=True)
 
     model = v.ForwardBoundMorphogeneticCortex(cfg, morphogenetic=True, plastic=True).to(device)

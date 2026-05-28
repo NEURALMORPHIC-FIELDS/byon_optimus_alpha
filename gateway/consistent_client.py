@@ -22,9 +22,9 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
-from .engine_consistency import EngineConsistency
-from .tombstones import TombstoneStore
-from .write_lock import VaultTrainingLock
+from gateway.engine_consistency import EngineConsistency
+from gateway.tombstones import TombstoneStore
+from gateway.write_lock import VaultTrainingLock
 
 READ_CONSISTENCY_MODE = "rw_coordinated_snapshot+retry"
 
@@ -48,7 +48,7 @@ class ConsistentMemoryClient:
         self.last_read_timed_out = False
 
     # passthrough for everything not overridden (store_fact, stats, health, fce_*, ...)
-    def __getattr__(self, name):
+    def __getattr__(self, name: Any) -> Any:
         return getattr(self.base, name)
 
     def _write_in_progress(self) -> bool:
@@ -58,11 +58,11 @@ class ConsistentMemoryClient:
             return False
 
     @staticmethod
-    def _key(query, kw) -> str:
+    def _key(query: Any, kw: Any) -> Any:
         return f"{query}|{kw.get('thread_id')}|{kw.get('scope')}|{kw.get('top_k')}|{kw.get('threshold')}"
 
     # -- read-consistent, tombstone-filtered search -------------------------
-    def search_facts(self, query: str, *, include_tombstoned: bool = False, **kw) -> List[Dict[str, Any]]:
+    def search_facts(self, query: str, *, include_tombstoned: bool = False, **kw: Any) -> List[Dict[str, Any]]:
         self.last_read_timed_out = False
         # in-engine coordination: wait for any active write batch to commit before reading, so the
         # reader never observes partial FAISS/metadata state (bounded by an explicit timeout).
@@ -122,10 +122,7 @@ class ConsistentMemoryClient:
                 "failed_items": failed, "batch_size": batch_size}
 
     # -- tombstone API ------------------------------------------------------
-    def tombstone_fact(self, *, ctx_id=None, source_id=None, content_sha_value=None,
-                       reason: str = "", trust=None, canonical: bool = False,
-                       operator: bool = False, by_content_sha: bool = False,
-                       audit_trace_id=None) -> Dict[str, Any]:
+    def tombstone_fact(self, *, ctx_id: Optional[Any]=None, source_id: Optional[Any]=None, content_sha_value: Optional[Any]=None, reason: str='', trust: Optional[Any]=None, canonical: bool=False, operator: bool=False, by_content_sha: bool=False, audit_trace_id: Optional[Any]=None) -> Any:
         return self.tomb.tombstone(ctx_id=ctx_id, source_id=source_id,
                                    content_sha_value=content_sha_value, reason=reason, trust=trust,
                                    canonical=canonical, operator=operator,

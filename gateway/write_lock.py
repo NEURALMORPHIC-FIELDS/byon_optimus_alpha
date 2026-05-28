@@ -122,8 +122,8 @@ class VaultTrainingLock:
                 pass
         self._held = False
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *exc: Any) -> None:
         self.release()

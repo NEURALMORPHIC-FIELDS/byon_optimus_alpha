@@ -1,4 +1,7 @@
-"""BYON Optimus + D_Cortex — off-Colab, enterprise harness.
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
+"""BYON Optimus + D_Cortex - off-Colab, enterprise harness.
 
 This package wraps the v9.9 Chronodynamic Semantic Grounded Cortex (``v99_source``)
 so it can run outside Google Colab, on a local CPU/GPU machine, and be integrated

@@ -1,0 +1,7 @@
+# Canonical author identity for byon_optimus_alpha (BYON Optimus + D_Cortex).
+# Maps historical / alternate commit identities to the single canonical author.
+# Format: Canonical Name <canonical@email> [Commit Name] <commit@email>
+Vasile Lucian Borbeleac <lucianborbeleac@gmail.com> <lucianborbeleac@gmail.com>
+Vasile Lucian Borbeleac <lucianborbeleac@gmail.com> <v.l.borbel@gmail.com>
+Vasile Lucian Borbeleac <lucianborbeleac@gmail.com> Lucian <lucianborbeleac@gmail.com>
+Vasile Lucian Borbeleac <lucianborbeleac@gmail.com> Lucian <v.l.borbel@gmail.com>

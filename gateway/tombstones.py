@@ -52,7 +52,7 @@ class TombstoneStore:
         self._load()
 
     @staticmethod
-    def _key(ctx_id, source_id, csha) -> str:
+    def _key(ctx_id: Any, source_id: Any, csha: Any) -> Any:
         if ctx_id is not None:
             return f"ctx:{ctx_id}"
         if source_id:
@@ -145,8 +145,7 @@ class TombstoneStore:
         self._audit({**rec, "action": "tombstone"})
         return {"ok": True, "key": key, "tombstoned": True}
 
-    def revive(self, *, ctx_id=None, source_id=None, content_sha_value=None,
-               reason: str = "revive") -> Dict[str, Any]:
+    def revive(self, *, ctx_id: Optional[Any]=None, source_id: Optional[Any]=None, content_sha_value: Optional[Any]=None, reason: str='revive') -> Any:
         key = self._key(ctx_id, source_id, content_sha_value)
         if key not in self._records:
             return {"ok": False, "error": "not tombstoned"}

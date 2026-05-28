@@ -1,4 +1,4 @@
-# BYON + D_Cortex — Windows convenience runner.
+# BYON + D_Cortex - Windows convenience runner.
 # Usage:  .\run.ps1 tests | smoke | integrate | e2e | v10
 param([Parameter(Position=0)][string]$task = "tests")
 

@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .memory_service_client import MemoryServiceClient
+from gateway.memory_service_client import MemoryServiceClient
 
 # Default canonical corpus: docs (full) + module docstrings (intent) for the key components.
 _DOC_FILES = ["README.md", "STATUS.md", "CHANGELOG.md", "MILESTONE_v10.0.md", "SECURITY.md",
@@ -49,7 +49,7 @@ def md_heading_chunks(text: str, max_chars: int = 1100) -> List[Tuple[str, str]]
     heading = "(intro)"
     buf: List[str] = []
 
-    def flush():
+    def flush() -> None:
         body = "\n".join(buf).strip()
         if not body:
             return
@@ -75,8 +75,7 @@ def _docstring(text: str) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
-def train_self(memory_url: str, *, repo_root, mem_client=None,
-               files: Optional[List[str]] = None, report_dir: str = "runtime/training") -> Dict[str, Any]:
+def train_self(memory_url: str, *, repo_root: Any, mem_client: Optional[Any]=None, files: Optional[List[str]]=None, report_dir: str='runtime/training') -> Any:
     client = mem_client or MemoryServiceClient(memory_url)
     root = Path(repo_root)
     doc_files = files if files is not None else _DOC_FILES
@@ -86,7 +85,7 @@ def train_self(memory_url: str, *, repo_root, mem_client=None,
     used_files: List[str] = []
     trust_tiers: Dict[str, int] = {}
 
-    def store(chunk: str, *, rel: str, heading: str):
+    def store(chunk: str, *, rel: str, heading: str) -> None:
         nonlocal chunks_stored
         client.store_fact(chunk, source=f"repo:{rel}#{heading}",
                           tags=["self_knowledge", "repo", rel, heading[:40]],

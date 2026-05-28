@@ -26,16 +26,16 @@ from typing import Any, Dict, Optional
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 
-from . import __version__
-from .audit import AuditLog, new_trace_id
-from .auth import authenticate
-from .byon_backend import BYONBackend, BYONResult, HttpBYONBackend
-from .config import GatewayConfig
-from .namespace import UserNamespace
-from .normalizer import normalize
-from .ratelimit import RateLimiter
-from .session_events import SessionEvents
-from .types import (
+from gateway import __version__
+from gateway.audit import AuditLog, new_trace_id
+from gateway.auth import authenticate
+from gateway.byon_backend import BYONBackend, BYONResult, HttpBYONBackend
+from gateway.config import GatewayConfig
+from gateway.namespace import UserNamespace
+from gateway.normalizer import normalize
+from gateway.ratelimit import RateLimiter
+from gateway.session_events import SessionEvents
+from gateway.types import (
     BYONChatRequest,
     BYONChatResponse,
     FeedbackRequest,
@@ -59,11 +59,11 @@ def _resolve_backend(cfg: GatewayConfig) -> BYONBackend:
     mode = os.environ.get("BYON_BACKEND_MODE", "").strip().lower()
     backend_url = os.environ.get("BYON_BACKEND_URL", "").strip()
     if mode == "memory_service":
-        from .memory_service_backend import MemoryServiceBackend
+        from gateway.memory_service_backend import MemoryServiceBackend
         return MemoryServiceBackend(cfg.memory_service_url)
     if mode == "http" or backend_url:
         return HttpBYONBackend(backend_url or cfg.orchestrator_url, cfg.backend_timeout_s)
-    from .local_backend import LocalBYONBackend
+    from gateway.local_backend import LocalBYONBackend
     return LocalBYONBackend(fcem_root=os.environ.get("FCEM_MEMORY_ENGINE_ROOT") or None)
 
 
@@ -81,7 +81,7 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     # BYONLifeLoop v1 - internal circulation (no memory authority). Holds self_state and
     # triggers the canonical fce_consolidate; truth/storage stay in the memory-service.
-    from .lifeloop import BYONLifeLoop
+    from gateway.lifeloop import BYONLifeLoop
     lifeloop = BYONLifeLoop()
     _mem = getattr(resolved_backend, "mem", None)
 
@@ -100,7 +100,7 @@ def create_app(config: Optional[GatewayConfig] = None,
         status = out.get("epistemic_status")
         candidate_id = None
         try:   # Cycle 8: ingest the result as a CANDIDATE (never committed here; only consolidation commits)
-            from .candidate_lifecycle import CandidateLifecycle
+            from gateway.candidate_lifecycle import CandidateLifecycle
             lcyc = CandidateLifecycle(ns.root, b.mem if hasattr(b, "mem") else None, "lifeloop")
             cand = lcyc.ingest_task_result(
                 task_id=task["task_id"], topic=task.get("topic", ""),
@@ -111,7 +111,7 @@ def create_app(config: Optional[GatewayConfig] = None,
             candidate_id = (cand or {}).get("candidate_id")
             if cand:    # Cycle 10: keep the relation field fresh without a full rebuild
                 try:
-                    from .relation_field import lifeloop_field, RelationFieldBuilder
+                    from gateway.relation_field import lifeloop_field, RelationFieldBuilder
                     rfield = lifeloop_field(cfg.users_root)
                     RelationFieldBuilder(rfield, mem_client=b.mem if hasattr(b, "mem") else None,
                                          lifecycle=lcyc).incremental_update({"type": "candidate",
@@ -128,15 +128,15 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     # Cycle 8: candidate consolidation (the only path that moves candidate state) + status, both
     # over the canonical memory-service. FCE-M state only sets attention/priority, never truth.
-    def _candidate_consolidator():
-        from .candidate_lifecycle import CandidateLifecycle
+    def _candidate_consolidator() -> Any:
+        from gateway.candidate_lifecycle import CandidateLifecycle
         ns = _namespace("lifeloop")
         lcyc = CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
         fce = {"contested": (lifeloop.pressure.total() >= lifeloop.pressure_threshold)}
         return lcyc.consolidate(fce_state=fce)
 
-    def _candidate_status_provider():
-        from .candidate_lifecycle import CandidateLifecycle
+    def _candidate_status_provider() -> Any:
+        from gateway.candidate_lifecycle import CandidateLifecycle
         ns = _namespace("lifeloop")
         lcyc = CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
         return {"counts": lcyc.counts(),
@@ -162,7 +162,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     # Optional background circulation daemon (opt-in; run_byon enables it in REAL mode).
     if os.environ.get("BYON_LIFELOOP_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on"):
         import threading
-        def _life_daemon():
+        def _life_daemon() -> None:
             interval = float(os.environ.get("BYON_LIFELOOP_TICK_SECONDS", "60"))
             while True:
                 time.sleep(interval)
@@ -391,7 +391,7 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     @app.post("/v1/lifeloop/run-task/{task_id}")
     def lifeloop_run_task(task_id: str, backend: BYONBackend = Depends(get_backend)) -> Dict[str, Any]:
-        from .research_tasks import BLOCKED_NEEDS_PERMISSION, DONE, FAILED, RUNNING
+        from gateway.research_tasks import BLOCKED_NEEDS_PERMISSION, DONE, FAILED, RUNNING
         t = lifeloop.tasks.get(task_id)
         if not t:
             raise HTTPException(status_code=404, detail="task not found")
@@ -450,8 +450,8 @@ def create_app(config: Optional[GatewayConfig] = None,
         return {"task": t, "result": (t.get("result") or {})}
 
     # -- Cycle 8: candidate lifecycle endpoints (over the canonical memory-service) ----
-    def _candidate_lc():
-        from .candidate_lifecycle import CandidateLifecycle
+    def _candidate_lc() -> Any:
+        from gateway.candidate_lifecycle import CandidateLifecycle
         ns = _namespace("lifeloop")
         return CandidateLifecycle(ns.root, getattr(resolved_backend, "mem", None), "lifeloop")
 
@@ -479,9 +479,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         return {"ok": True, "decisions": _candidate_consolidator()}
 
     # -- Cycle 10: relational memory field (structure/navigation, NOT a truth store) ----
-    def _relation_field(build_if_empty: bool = True):
-        from .relation_field import lifeloop_field, RelationFieldBuilder
-        from .candidate_lifecycle import CandidateLifecycle
+    def _relation_field(build_if_empty: bool=True) -> Any:
+        from gateway.relation_field import lifeloop_field, RelationFieldBuilder
+        from gateway.candidate_lifecycle import CandidateLifecycle
         field = lifeloop_field(cfg.users_root)
         if build_if_empty and field.is_empty():
             lc = CandidateLifecycle(field.dir, getattr(resolved_backend, "mem", None), "lifeloop")
@@ -502,14 +502,14 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     @app.get("/v1/lifeloop/relation-field/neighborhood/{entity}")
     def relation_field_neighborhood(entity: str) -> Dict[str, Any]:
-        from . import relation_reports as rr
+        from gateway import relation_reports as rr
         field = _relation_field()
         return {"neighborhood": rr.entity_neighborhood(field, entity),
                 "contradictions": rr.contradiction_map(field, focus=entity)["contradictions"]}
 
     @app.get("/v1/lifeloop/relation-field/contradictions")
     def relation_field_contradictions() -> Dict[str, Any]:
-        from . import relation_reports as rr
+        from gateway import relation_reports as rr
         field = _relation_field()
         return {"count": len(field.contradictions()),
                 "contradictions": rr.contradiction_map(field)["contradictions"],
@@ -517,9 +517,9 @@ def create_app(config: Optional[GatewayConfig] = None,
 
     @app.post("/v1/lifeloop/relation-field/rebuild")
     def relation_field_rebuild(owner: Optional[str] = None) -> Dict[str, Any]:
-        from .relation_field import lifeloop_field, RelationFieldBuilder
-        from .candidate_lifecycle import CandidateLifecycle
-        from .vault_manifest import VaultManifest
+        from gateway.relation_field import lifeloop_field, RelationFieldBuilder
+        from gateway.candidate_lifecycle import CandidateLifecycle
+        from gateway.vault_manifest import VaultManifest
         field = lifeloop_field(cfg.users_root)
         mem = getattr(resolved_backend, "mem", None)
         lc = CandidateLifecycle(field.dir, mem, "lifeloop")
@@ -539,7 +539,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     def relation_field_infer(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
         """Grounded relation inference over a bounded text (operator/test surface). Adds CANDIDATE
         relations only - never commits; secret text yields nothing."""
-        from .relation_field import lifeloop_field, RelationFieldBuilder
+        from gateway.relation_field import lifeloop_field, RelationFieldBuilder
         field = lifeloop_field(cfg.users_root)
         # explicit relation (operator surface): add one typed edge directly as a CANDIDATE
         if body.get("subject") and body.get("object"):
@@ -573,7 +573,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     @app.get("/v1/lifeloop/relation-field/explain-path")
     def relation_field_explain_path(source: str, target: Optional[str] = None, depth: int = 2,
                                     include_inverse: bool = False) -> Dict[str, Any]:
-        from . import relation_reports as rr
+        from gateway import relation_reports as rr
         return rr.render_path_explanation(_relation_field(), source, target,
                                           include_inverse=include_inverse, max_depth=depth)
 
@@ -588,7 +588,7 @@ def create_app(config: Optional[GatewayConfig] = None,
     def relation_field_scan_gaps() -> Dict[str, Any]:
         """Cycle 13: turn weak/disputed/vault-only/decayed relation gaps into controlled internal
         research tasks (memory-only auto, web needs permission, secret-derived skipped)."""
-        from .relation_field import RelationGapScanner
+        from gateway.relation_field import RelationGapScanner
         gaps = RelationGapScanner(_relation_field(build_if_empty=False), tasks=lifeloop.tasks).scan()
         return {"ok": True, "count": len(gaps), "gaps": gaps}
 
@@ -606,8 +606,8 @@ def create_app(config: Optional[GatewayConfig] = None,
     def relation_field_propose() -> Dict[str, Any]:
         """The relation field PROPOSES candidates back to the candidate lifecycle (missing fact /
         contradiction / dependency / consolidation). It cannot commit and cannot override policy."""
-        from .relation_field import RelationProposer
-        from .candidate_lifecycle import CandidateLifecycle
+        from gateway.relation_field import RelationProposer
+        from gateway.candidate_lifecycle import CandidateLifecycle
         field = _relation_field()
         lc = CandidateLifecycle(field.dir, getattr(resolved_backend, "mem", None), "lifeloop")
         proposals = RelationProposer(field, lifecycle=lc).run()

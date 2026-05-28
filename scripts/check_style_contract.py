@@ -13,25 +13,37 @@ The em-dash and Level-3 strings are built from char codes so this checker contai
 em-dash nor a raw Level-3 claim, and it never scans itself or verify_integration.py.
 
 Exit 0 when clean; 1 when any violation is found.
+
+Cycle 13.2 (A5): the em-dash + copyright-header scan now ALSO covers the sealed / adapter trees
+dcortex/, orchestration/, integrations/ (no type-hint requirement is imposed on those trees; only
+the header presence and em-dash absence are enforced there). The owned source dirs continue to be
+scanned exactly as before, and the positive-Level-3-claim and FULL_LEVEL3_NOT_DECLARED-marker checks
+remain repo-wide. Any em-dash, any missing header, any positive Level-3 claim, or a missing marker
+still causes a non-zero exit.
 """
 from __future__ import annotations
 
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 EMDASH = chr(0x2014)
 HEADER_MARK = "Copyright (c) 2024-2026 Vasile Lucian Borbeleac"
 LEVEL3_MARKER = "FULL_LEVEL3_NOT_DECLARED"
 
 SOURCE_DIRS = ["gateway", "app", "byon_mcp", "scripts"]
-ROOT_PY = ["run_byon.py"]
+# Cycle 13.2 (A5): sealed / adapter trees - em-dash + header enforced, no type-hint demand.
+WIDE_DIRS = ["dcortex", "orchestration", "integrations"]
+ROOT_PY = ["run_byon.py", "run_alpha_app.py"]
 DOC_GLOBS = ["*.md", "docs/*.md"]
 TOOLING = {"scripts/check_style_contract.py", "scripts\\check_style_contract.py",
            "verify_integration.py"}
 EXCLUDE = {".venv", ".venv_gpu", "external", "node_modules", "__pycache__", "runtime", "dcortex",
            ".git", "tests"}
+# like EXCLUDE but keeps the sealed/adapter trees in scope (they are the point of the widened scan).
+WIDE_EXCLUDE = {".venv", ".venv_gpu", "external", "node_modules", "__pycache__", "runtime",
+                ".git", "tests"}
 
 # a positive "is Level 3" claim (prose), with negation handled by the caller per line
 _RAW_L3 = re.compile(r"(?i)\b(is|are|am|achieved|reached|declares?)\s+level\s*3\b")
@@ -51,6 +63,16 @@ def _owned_py(root: Path) -> List[Path]:
     for f in ROOT_PY:
         if (root / f).exists():
             out.append(root / f)
+    return sorted(set(out))
+
+
+def _widened_py(root: Path) -> List[Path]:
+    """Sealed / adapter Python files (dcortex, orchestration, integrations) for em-dash + header."""
+    out = []
+    for d in WIDE_DIRS:
+        p = root / d
+        if p.is_dir():
+            out += [f for f in p.rglob("*.py") if not any(x in WIDE_EXCLUDE for x in f.parts)]
     return sorted(set(out))
 
 
@@ -89,6 +111,8 @@ def check_repo(root: Path) -> Dict[str, Any]:
         if str(f.relative_to(root)).replace("\\", "/") in {t.replace("\\", "/") for t in TOOLING}:
             continue
         violations += _add_rel(check_file(f), f, root)
+    for f in _widened_py(root):  # sealed/adapter trees: em-dash + header (+ Level-3) only
+        violations += _add_rel(check_file(f), f, root)
     for f in _owned_docs(root):
         # docs are not Python: em-dash + raw-claim only (no header requirement)
         text = f.read_text(encoding="utf-8", errors="ignore")
@@ -110,7 +134,7 @@ def _add_rel(vs: List[Dict[str, Any]], path: Path, root: Path) -> List[Dict[str,
     return vs
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[Any]=None) -> Any:
     root = Path(__file__).resolve().parents[1]
     rep = check_repo(root)
     if rep["ok"]:

@@ -34,8 +34,16 @@
     "no copy of a canonical module (verify_integration.py flags byte-identical copies as DUPLICATE)"
   ],
   "sealed_or_closed": {
-    "dcortex/": "v10.0 milestone code, CLOSED; not modified by hygiene/cycle work",
+    "dcortex/": "v10.0 milestone code, CLOSED; logic/control-flow/constants never modified. Cycle 13.2 hygiene applied header+em-dash edits ONLY (comments/docstrings) per the sealed-tree exception.",
+    "orchestration/": "adapter shims onto BYON; Cycle 13.2 hygiene applied header+em-dash edits ONLY; now in the style-contract widened scan",
+    "integrations/": "external-world connectors (forward-only onto BYON); Cycle 13.2 hygiene applied header+em-dash edits ONLY; now in the style-contract widened scan",
     "external/": "sealed/vendored at runtime; not scanned or modified"
   },
-  "verification": "python verify_integration.py (all critical modules WIRED, no boundary violation) + python scripts/check_style_contract.py"
+  "release_hygiene": {
+    ".mailmap": "canonical author identity (Vasile Lucian Borbeleac <lucianborbeleac@gmail.com>); maps historical/alternate commit identities; local git user.name/user.email set to match",
+    "style_contract_scope": "scripts/check_style_contract.py em-dash + copyright-header scan now covers owned source/docs AND the sealed/adapter trees dcortex/, orchestration/, integrations/ (no type-hint requirement on the sealed/adapter trees); positive-Level-3-claim and FULL_LEVEL3_NOT_DECLARED-marker checks remain repo-wide",
+    "type_hint_coverage": "owned source (gateway/, app/, byon_mcp/, scripts/, run_byon.py, run_alpha_app.py) at 100.0 with PEP 563 'from __future__ import annotations'",
+    "import_style": "owned packages use absolute imports only (0 relative)"
+  },
+  "verification": "python verify_integration.py (all critical modules WIRED, no boundary violation) + python scripts/check_style_contract.py (widened scan covers owned + dcortex/orchestration/integrations)"
 }

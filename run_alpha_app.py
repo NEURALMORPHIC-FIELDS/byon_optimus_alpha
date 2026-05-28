@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""BYON Alpha App — one-command local web UI.
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
+"""BYON Alpha App - one-command local web UI.
 
     python run_alpha_app.py        →  http://localhost:7860
 

@@ -26,8 +26,8 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional
 
-from .pressure import PressureModel, topic_of, SCHEDULE_RESEARCH
-from .research_tasks import ResearchTaskQueue
+from gateway.pressure import PressureModel, topic_of, SCHEDULE_RESEARCH
+from gateway.research_tasks import ResearchTaskQueue
 
 VERSION = "v2"
 
@@ -44,7 +44,7 @@ def _is_secret(question: str, query_class: Optional[str], source_class: Optional
     if query_class == "secret":
         return True
     try:
-        from .epistemic_search import is_secret_query
+        from gateway.epistemic_search import is_secret_query
         return bool(is_secret_query(question))
     except Exception:
         return False
@@ -249,7 +249,7 @@ class BYONLifeLoop:
                 "tasks_run": ran, "self_state": self.snapshot()}
 
     @staticmethod
-    def _candidate_counts(learning) -> Dict[str, Optional[int]]:
+    def _candidate_counts(learning: Any) -> Any:
         if learning is None:
             return {"candidates": None, "disputed": None}
         try:
@@ -258,8 +258,7 @@ class BYONLifeLoop:
         except Exception:
             return {"candidates": None, "disputed": None}
 
-    def _log_consolidation(self, trigger, p_before, p_after, result, fce_status,
-                           cand_before, cand_after) -> None:
+    def _log_consolidation(self, trigger: Any, p_before: Any, p_after: Any, result: Any, fce_status: Any, cand_before: Any, cand_after: Any) -> None:
         rec = {"ts": _now(), "trigger": trigger, "pressure_before": p_before,
                "pressure_after": p_after, "result": result, "fce_status": fce_status,
                "candidates_before": cand_before.get("candidates"),
@@ -273,12 +272,12 @@ class BYONLifeLoop:
             pass
 
     # -- autonomous memory-only task execution (Cycle 7) --------------------
-    def set_task_runner(self, runner) -> None:
+    def set_task_runner(self, runner: Any) -> None:
         """runner(task) -> result dict; runs a MEMORY-ONLY task through the canonical research
         loop and stores its result as a candidate (never truth). Set by the app."""
         self._task_runner = runner
 
-    def set_candidate_hooks(self, *, consolidator=None, status_provider=None) -> None:
+    def set_candidate_hooks(self, *, consolidator: Optional[Any]=None, status_provider: Optional[Any]=None) -> None:
         """consolidator() -> list of decisions (the ONLY path that moves candidate state);
         status_provider() -> dict of candidate counts/last-decision for status. Set by the app."""
         if consolidator is not None:
@@ -295,7 +294,7 @@ class BYONLifeLoop:
     def drain_tasks(self, max_tasks: int = 3) -> List[Dict[str, Any]]:
         """Auto-run a few SAFE memory-only tasks. Web/secret/permissioned tasks are never run
         here. Each result is logged and stored as a candidate by the runner (never committed)."""
-        from .research_tasks import PENDING, RUNNING, DONE, FAILED, BLOCKED_NEEDS_PERMISSION
+        from gateway.research_tasks import PENDING, RUNNING, DONE, FAILED, BLOCKED_NEEDS_PERMISSION
         if self._task_runner is None:
             return []
         ran: List[Dict[str, Any]] = []

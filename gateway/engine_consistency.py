@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
-from .write_lock import pid_alive
+from gateway.write_lock import pid_alive
 
 MODE = "in_engine_rw_lock"
 DEFAULT_STATE = Path("runtime/locks/memory_engine.json")

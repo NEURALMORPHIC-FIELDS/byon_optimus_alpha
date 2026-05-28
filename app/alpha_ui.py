@@ -14,10 +14,10 @@ from typing import Any, Dict, List
 
 import gradio as gr
 
-from .audit_view import render_audit
-from .local_config import AlphaConfig
-from .runtime_manager import RuntimeStatus
-from .user_store import UILogStore
+from app.audit_view import render_audit
+from app.local_config import AlphaConfig
+from app.runtime_manager import RuntimeStatus
+from app.user_store import UILogStore
 
 _BADGE = {
     "KNOWN": "✅ KNOWN", "PROVISIONAL": "🟡 PROVISIONAL",
@@ -160,7 +160,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             refresh_health = gr.Button("Refresh health")
 
         # ---- helpers --------------------------------------------------------
-        def _apply(out: Dict[str, Any], history: List[Dict[str, str]], uid, sid, question):
+        def _apply(out: Dict[str, Any], history: List[Dict[str, str]], uid: Any, sid: Any, question: Any) -> Any:
             history = (history or []) + [
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": _assistant_text(out)},
@@ -186,7 +186,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                          stress_box, elapsed_box, phase_box, sources_box,
                          synthesis_json, web_json, claude_json, last_trace, last_question, last_audit]
 
-        def on_send(message, history, uid, sid, a_claude, a_web):
+        def on_send(message: Any, history: Any, uid: Any, sid: Any, a_claude: Any, a_web: Any) -> Any:
             if not (message or "").strip():
                 return (history or [], "", "", "", "", "", "", "", "", {}, [], None, "", "", "")
             if not uid.strip() or not sid.strip():
@@ -201,7 +201,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         msg.submit(on_send, [msg, chatbot, user_id, session_id, allow_claude, allow_web], _send_outputs)
         send.click(lambda: "", None, msg)
 
-        def on_action(action, history, uid, sid, a_claude, a_web, trace, question):
+        def on_action(action: Any, history: Any, uid: Any, sid: Any, a_claude: Any, a_web: Any, trace: Any, question: Any) -> Any:
             if not trace or not question:
                 return on_send("(no active research)", history, uid, sid, a_claude, a_web)
             out = client.research(uid.strip(), sid.strip(), question,
@@ -219,7 +219,7 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                            _send_outputs)
         stop_btn.click(lambda: ("⏹ research stopped", ""), None, [info_box, last_trace])
 
-        def on_teach(text, history, uid, sid):
+        def on_teach(text: Any, history: Any, uid: Any, sid: Any) -> Any:
             if not text.strip():
                 return history or [], "Type a fact to teach."
             out = client.research(uid.strip(), sid.strip(), f"remember that {text.strip()}", action="start")
@@ -229,40 +229,40 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             return history, f"Stored: {out.get('answer','')}"
         teach_btn.click(on_teach, [teach_box, chatbot, user_id, session_id], [chatbot, info_box])
 
-        def on_memory(uid):
+        def on_memory(uid: Any) -> Any:
             st = client.memory_status(uid.strip()) if hasattr(client, "memory_status") else {}
             return st.get("candidates", []), st.get("committed", []), st.get("disputed", [])
         refresh_mem_btn.click(on_memory, user_id, [cand_json, committed_json, disputed_json])
 
-        def on_consolidate(uid):
+        def on_consolidate(uid: Any) -> Any:
             out = client.consolidate(uid.strip()) if hasattr(client, "consolidate") else {}
             st = client.memory_status(uid.strip()) if hasattr(client, "memory_status") else {}
             return (f"Consolidation: promoted {out.get('promoted', [])}",
                     st.get("candidates", []), st.get("committed", []), st.get("disputed", []))
         consolidate_btn.click(on_consolidate, user_id, [info_box, cand_json, committed_json, disputed_json])
 
-        def on_clear():
+        def on_clear() -> Any:
             return [], "", "", "", "", "", "", "", "", {}, [], None, "chat cleared"
         clear_btn.click(on_clear, None,
                         [chatbot, status_box, grounded_box, confidence_box, trace_box,
                          stress_box, elapsed_box, phase_box, sources_box,
                          synthesis_json, web_json, claude_json, info_box])
 
-        def on_forget(uid, sid):
+        def on_forget(uid: Any, sid: Any) -> Any:
             return client.forget(uid.strip(), sid.strip()).get("message", "forget requested")
         forget_btn.click(on_forget, [user_id, session_id], info_box)
 
         audit_btn.click(lambda t: render_audit(client, t), last_audit, info_box)
 
-        def on_export(uid, sid):
+        def on_export(uid: Any, sid: Any) -> Any:
             p = logs.path_for(uid.strip(), sid.strip())
             return f"Logs: {p.resolve()}" if p.exists() else f"No logs yet: {p.resolve()}"
         export_btn.click(on_export, [user_id, session_id], info_box)
 
-        def on_health():
+        def on_health() -> Any:
             if demo_mode:
                 return {"Gateway": "DEMO"}
-            from .health_checks import summarize
+            from app.health_checks import summarize
             return summarize(config.gateway_url)
         refresh_health.click(on_health, None, health_json)
 
@@ -279,37 +279,37 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
                     f"- active/tombstoned vault facts: {ll.get('active_vault_facts')}/{ll.get('tombstoned_vault_facts')}\n"
                     f"- read consistency: {ll.get('memory_service_read_consistency_mode')}")
 
-        def on_life_refresh():
+        def on_life_refresh() -> Any:
             data = client.lifeloop_state()
             ll = data.get("lifeloop", data)
             return _life_summary(ll), (ll.get("pending_research_tasks") or []), ll
 
-        def on_life_tick():
+        def on_life_tick() -> Any:
             client.lifeloop_tick()
             return on_life_refresh()
 
-        def on_life_consolidate(uid):
+        def on_life_consolidate(uid: Any) -> Any:
             r = client.consolidate((uid or "user").strip())
             s, t, j = on_life_refresh()
             return s, t, j, f"consolidation: {r.get('fce_status', r.get('message', r))}"
 
-        def on_run_task(tid):
+        def on_run_task(tid: Any) -> Any:
             r = client.lifeloop_run_task((tid or "").strip())
             return f"run-task: {r}"
 
-        def on_approve_web(tid):
+        def on_approve_web(tid: Any) -> Any:
             r = client.lifeloop_approve_web((tid or "").strip())
             return f"approve-web: {r}"
 
-        def on_cancel_task(tid):
+        def on_cancel_task(tid: Any) -> Any:
             r = client.lifeloop_cancel_task((tid or "").strip())
             return f"cancel-task: {r}"
 
-        def on_view_evidence(tid):
+        def on_view_evidence(tid: Any) -> Any:
             r = client.lifeloop_task_evidence((tid or "").strip())
             return f"evidence: {r}"
 
-        def on_mark_resolved(topic):
+        def on_mark_resolved(topic: Any) -> Any:
             r = client.lifeloop_mark_resolved((topic or "").strip())
             return f"mark-resolved: {r}"
 
@@ -324,11 +324,11 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         mark_resolved_btn.click(on_mark_resolved, topic_box, life_action_info)
 
         # ---- Candidate lifecycle panel (Gateway-only; consolidation moves state, not the UI) ----
-        def on_cand_refresh():
+        def on_cand_refresh() -> Any:
             d = client.lifeloop_candidates()
             return d.get("counts", {}), d.get("candidates", [])
 
-        def on_cand_consolidate():
+        def on_cand_consolidate() -> Any:
             try:
                 client._request("POST", "/v1/lifeloop/consolidate-candidates")
             except Exception:
@@ -336,10 +336,10 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
             c, l = on_cand_refresh()
             return c, l, "consolidation run (only consolidation moves candidate state)"
 
-        def on_cand_view(cid):
+        def on_cand_view(cid: Any) -> Any:
             return f"candidate: {client.lifeloop_candidate((cid or '').strip())}"
 
-        def _cand_op(cid, op):
+        def _cand_op(cid: Any, op: Any) -> Any:
             return f"{op}: {client.lifeloop_candidate_op((cid or '').strip(), op)}"
 
         refresh_cand_btn.click(on_cand_refresh, None, [cand_counts, cand_list])
@@ -352,17 +352,17 @@ def build_ui(config: AlphaConfig, status: RuntimeStatus) -> "gr.Blocks":
         archive_cand_btn.click(lambda c: _cand_op(c, "archive"), cand_id_box, cand_action_info)
 
         # ---- Relation Field panel (Gateway-only; the field navigates, it never answers/decides) ----
-        def on_rel_refresh():
+        def on_rel_refresh() -> Any:
             return client.relation_field_status()
 
-        def on_rel_rebuild():
+        def on_rel_rebuild() -> Any:
             client.relation_field_rebuild()
             return client.relation_field_status()
 
-        def on_rel_neighborhood(entity):
+        def on_rel_neighborhood(entity: Any) -> Any:
             return client.relation_field_neighborhood((entity or "").strip())
 
-        def on_rel_contradictions():
+        def on_rel_contradictions() -> Any:
             return client.relation_field_contradictions()
 
         refresh_rel_btn.click(on_rel_refresh, None, rel_status)

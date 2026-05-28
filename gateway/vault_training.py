@@ -16,12 +16,12 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .memory_service_client import MemoryServiceClient
-from .self_training import md_heading_chunks
-from . import vault_errors as ve
-from .engine_consistency import EngineConsistency
-from .vault_manifest import VaultManifest, chunk_sha256, file_sha256, source_id
-from .write_lock import VaultTrainingLock
+from gateway.memory_service_client import MemoryServiceClient
+from gateway.self_training import md_heading_chunks
+from gateway import vault_errors as ve
+from gateway.engine_consistency import EngineConsistency
+from gateway.vault_manifest import VaultManifest, chunk_sha256, file_sha256, source_id
+from gateway.write_lock import VaultTrainingLock
 
 _IGNORE_DIRS = {".obsidian", ".git", ".trash", "trash", "node_modules", "secrets", ".obsidian.vimrc"}
 _WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]")
@@ -50,7 +50,7 @@ def _tags(text: str, fm: Dict[str, Any]) -> List[str]:
     return sorted(tags)
 
 
-def _iter_notes(vault: Path):
+def _iter_notes(vault: Path) -> Any:
     for p in vault.rglob("*.md"):
         if any(part in _IGNORE_DIRS for part in p.relative_to(vault).parts):
             continue
@@ -65,11 +65,7 @@ def _atomic_write_json(path: Path, obj: Dict[str, Any]) -> None:
     tmp.replace(path)   # atomic on the same filesystem
 
 
-def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
-                owner: Optional[str] = None, verified_folders: Optional[List[str]] = None,
-                report_dir: str = "runtime/training", max_files: Optional[int] = None,
-                resume: bool = True, use_lock: bool = True,
-                vaults_base: str = "runtime/vaults", progress_every: int = 25) -> Dict[str, Any]:
+def train_vault(memory_url: str, *, vault_path: str, mem_client: Optional[Any]=None, owner: Optional[str]=None, verified_folders: Optional[List[str]]=None, report_dir: str='runtime/training', max_files: Optional[int]=None, resume: bool=True, use_lock: bool=True, vaults_base: str='runtime/vaults', progress_every: int=25) -> Any:
     """Index an Obsidian vault into the canonical memory-service with: a single-writer lock,
     content-addressed chunk dedup (re-index does not re-store), encoding-aware reads, per-file
     error classification, and a coherent resumable report (partial until every eligible note is
@@ -110,8 +106,7 @@ def train_vault(memory_url: str, *, vault_path: str, mem_client=None,
             lock.release()
 
 
-def _run_index(client, vault, owner, verified, report_path, report_dir, vaults_base,
-               max_files, resume, progress_every, started, lock, lock_info) -> Dict[str, Any]:
+def _run_index(client: Any, vault: Any, owner: Any, verified: Any, report_path: Any, report_dir: Any, vaults_base: Any, max_files: Any, resume: Any, progress_every: Any, started: Any, lock: Any, lock_info: Any) -> Any:
     import time as _time
 
     # first pass: wikilink graph for backlinks (encoding-safe; never crashes on a bad note)

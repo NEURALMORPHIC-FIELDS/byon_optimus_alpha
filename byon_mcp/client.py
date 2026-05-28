@@ -18,13 +18,13 @@ class GatewayClient:
         self.timeout_s = timeout_s
         self._client = http_client  # inject an httpx.Client (e.g. ASGI transport) in tests
 
-    def _client_or_new(self):
+    def _client_or_new(self) -> Any:
         if self._client is not None:
             return self._client, False
         import httpx
         return httpx.Client(base_url=self.base_url, timeout=self.timeout_s), True
 
-    def _request(self, method: str, path: str, **kw) -> Dict[str, Any]:
+    def _request(self, method: str, path: str, **kw: Any) -> Dict[str, Any]:
         client, owned = self._client_or_new()
         try:
             if owned:  # real httpx.Client we created → honour timeout

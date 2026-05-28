@@ -58,7 +58,7 @@ class BYONRuntimeClient:
         self._client = http_client  # injected in tests (e.g. Starlette TestClient)
 
     # -- low-level ---------------------------------------------------------
-    def _request(self, method: str, path: str, **kw) -> Any:
+    def _request(self, method: str, path: str, **kw: Any) -> Any:
         if self._client is not None:
             return self._client.request(method, path, **kw)
         import httpx
@@ -301,7 +301,7 @@ class DemoBYONClient:
             fcem_summary={"runtime_proven": False, "advisory_nonempty": False},
             raw={"demo": True, "banner": self.BANNER})
 
-    def research(self, user_id: str, session_id: str, question: str, **kw) -> Dict[str, Any]:
+    def research(self, user_id: str, session_id: str, question: str, **kw: Any) -> Dict[str, Any]:
         r = self.chat(user_id, session_id, question)
         return {"epistemic_status": r.epistemic_status, "research_status": "done",
                 "answer": r.answer, "grounded": r.grounded, "confidence": 0.5,

@@ -15,7 +15,8 @@
     {"cycle": 11, "summary": "Relation inference + grounded relational reasoning (content, not filenames)", "commit": "27f5926", "non_live": 424, "live": "137/137"},
     {"cycle": 12, "summary": "Directed, evidence-weighted, policy-aware relational reasoning", "commit": "c918e5e", "non_live": 459, "live": "155/155"},
     {"cycle": 13, "summary": "Objective relation answering + trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state", "commit": "496f1fd", "non_live": 514, "live": "178/178"},
-    {"cycle": "13.1", "summary": "Release hygiene: ownership attribution, copyright headers, verify_integration.py, .claude memory, em-dash cleanup + style contract, FCE-M runtime docs. No new cognitive features.", "commit": null}
+    {"cycle": "13.1", "summary": "Release hygiene: ownership attribution, copyright headers, verify_integration.py, .claude memory, em-dash cleanup + style contract, FCE-M runtime docs. No new cognitive features.", "commit": null},
+    {"cycle": "13.2", "summary": "Release hygiene completion: PYTHON_HEADER on remaining unheadered non-exempt files (incl sealed/adapter __init__), repo-wide em-dash eradication on the tracked surface (count 0; gitignored runtime/ artifacts out of scope), owned type-hint coverage raised to 100.0 with PEP 563 'from __future__ import annotations', relative->absolute imports across owned packages, style-contract scan widened to dcortex/orchestration/integrations (header+em-dash, no type-hint demand), .mailmap + canonical git identity. No program logic, control flow, or numeric constants changed. No new cognitive features.", "commit": null, "non_live": 531, "live": "not run this cycle (hygiene only; no live-validation claim)"}
   ],
   "deferred_items": [
     "Track A: true in-engine FAISS snapshot/atomic-swap inside the sealed memory-service (MEMORY_SERVICE_ENGINE_PATCH_PLAN.md)",
@@ -24,6 +25,6 @@
     "live connector gates (LibreChat/openclaw/n8n) deferred, never faked"
   ],
   "tests_claimed_vs_verified": "Each cycle's non-live count and live graded count are produced by a real pytest run and a real graded live-harness run on a running REAL stack; counts above are the verified figures at that cycle.",
-  "current_state": "Cycle 13 accepted; Cycle 13.1 (release hygiene) in progress/complete.",
-  "next_cycle": "Cycle 14 PENDING after hygiene (Cycle 13.1) is accepted. Do not start Cycle 14 until hygiene passes external audit."
+  "current_state": "Cycle 13 accepted; Cycle 13.1 + Cycle 13.2 (release hygiene) complete. Owned type-hint coverage 100.0, em-dash count 0 on tracked surface, owned imports absolute (0 relative), style contract widened and exits 0, verify_integration clean, non-live suite 531 passed. Live stack not re-run this cycle (hygiene only).",
+  "next_cycle": "Cycle 14 PENDING after hygiene (Cycle 13.1 + 13.2) is accepted. Do not start Cycle 14 until hygiene passes external audit. Carry-over priority into Cycle 14: external memory-service stability under sustained live-harness load (observed crash-under-load preventing a clean full live re-run)."
 }

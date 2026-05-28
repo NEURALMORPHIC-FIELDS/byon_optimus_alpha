@@ -14,8 +14,8 @@ enforced, regardless of what a backend returns:
 """
 from __future__ import annotations
 
-from .byon_backend import BYONResult
-from .types import (
+from gateway.byon_backend import BYONResult
+from gateway.types import (
     BYONChatResponse,
     DCortexSummary,
     FCEMSummary,

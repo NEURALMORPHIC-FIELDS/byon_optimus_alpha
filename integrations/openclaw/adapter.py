@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2024-2026 Vasile Lucian Borbeleac / FRAGMERGENT TECHNOLOGY S.R.L.
+# Cluj-Napoca, Romania
 """OpenClaw → BYON adapter (forward-only).
 
 OpenClaw is the social/messaging body (WhatsApp, Telegram, Slack, …). It is NOT an
 epistemic authority. This adapter enforces that by construction: it has exactly one
-behaviour — forward the inbound message to BYON (via the Gateway/MCP) and return
+behaviour - forward the inbound message to BYON (via the Gateway/MCP) and return
 BYON's audited verdict verbatim. There is no local-answer path, no local memory used
 as truth, and no rewriting of BYON's epistemic status.
 """

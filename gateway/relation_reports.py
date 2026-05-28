@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import relation_field as rf
+from gateway import relation_field as rf
 
 _HOP_WORDS = ("cum ajung", "de la", "pana la", "până la", "path from", "leaga", "leagă", "legătur",
               "depinde de ce depinde", "lant", "lanț", "chain", "via", "prin ce", "drumul")
@@ -98,7 +98,7 @@ def relation_context_for(field: rf.RelationField, question: str, *,
     normal answer. Never for secrets; source-policy gated (a vault-only OBJECTIVE relation is
     blocked from being presented as objective structure); ordered by evidence weight. This is
     CONTEXT only - it never overrides a memory fact and cannot answer alone."""
-    from . import relation_policy as rp
+    from gateway import relation_policy as rp
     if is_secret:
         return {"focus": None, "relations": [], "sources": [], "blocked": True, "reason": "secret"}
     focus = _focal_entity(field, question)
@@ -160,7 +160,7 @@ def relation_context_hits(field: rf.RelationField, question: str, *,
     """The same committed relation context as memory-service-style hits (source 'relation:...',
     trust per relation_policy) so the normal epistemic search can rerank them WITH memory facts and
     source policy - they never outrank a real committed memory fact."""
-    from . import relation_policy as rp
+    from gateway import relation_policy as rp
     ctx = relation_context_for(field, question, is_secret=is_secret, limit=limit)
     hits = []
     for b in ctx["relations"]:
@@ -277,7 +277,7 @@ def _focal_entity(field: rf.RelationField, question: str) -> Optional[str]:
     return pool[0]["canonical_name"]
 
 
-def _two_entities(field: rf.RelationField, question: str):
+def _two_entities(field: rf.RelationField, question: str) -> Any:
     """Find the two entities a path question mentions, ordered by position in the question."""
     q = (question or "").lower()
     found = field.search(question)["entities"]

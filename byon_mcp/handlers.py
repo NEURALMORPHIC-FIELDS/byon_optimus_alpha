@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from .client import GatewayClient
+from byon_mcp.client import GatewayClient
 
 TOOL_NAMES = ["byon.chat", "byon.memory_status", "byon.feedback", "byon.forget", "byon.audit_trace"]
 # Only this tool is allowed to surface a final answer to the end user.

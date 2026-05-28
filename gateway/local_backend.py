@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .byon_backend import BYONResult
+from gateway.byon_backend import BYONResult
 
 # Canonical, system-provenanced BYON facts (true, bounded). Seeded so the organism answers
 # its own operating envelope out of the box - and refuses to overstep it.

@@ -22,11 +22,11 @@ from typing import Any, Dict, List
 
 from fastapi.testclient import TestClient
 
-from . import __version__
-from .app import create_app
-from .byon_backend import BYONResult
-from .config import GatewayConfig
-from .namespace import UserNamespace, NamespaceIsolationError, assert_no_cross_access
+from gateway import __version__
+from gateway.app import create_app
+from gateway.byon_backend import BYONResult
+from gateway.config import GatewayConfig
+from gateway.namespace import UserNamespace, NamespaceIsolationError, assert_no_cross_access
 
 from byon_mcp.client import GatewayClient
 from byon_mcp import handlers as H
@@ -38,7 +38,7 @@ _REPO = Path(__file__).resolve().parents[1]
 class StubBYONBackend:
     """Deterministic BYON stand-in for contract validation (test double only)."""
 
-    def chat(self, *, user_id, session_id, channel, message, namespace_dir) -> BYONResult:
+    def chat(self, *, user_id: Any, session_id: Any, channel: Any, message: Any, namespace_dir: Any) -> Any:
         m = message.lower()
         if "noaudit" in m:  # backend claims KNOWN but final audit did NOT pass
             return BYONResult(answer="SHOULD_NOT_LEAK", epistemic_status="KNOWN",
@@ -57,14 +57,14 @@ class StubBYONBackend:
                           fcem={"runtime_proven": True, "advisory_nonempty": True,
                                 "pressure_max": 0.6})
 
-    def memory_status(self, *, user_id, namespace_dir) -> Dict[str, Any]:
+    def memory_status(self, *, user_id: Any, namespace_dir: Any) -> Any:
         return {"available": True}
 
-    def forget(self, *, user_id, namespace_dir) -> Dict[str, Any]:
+    def forget(self, *, user_id: Any, namespace_dir: Any) -> Any:
         return {"forgotten": True}
 
 
-def _cfg(tmp: Path, **over) -> GatewayConfig:
+def _cfg(tmp: Path, **over: Any) -> GatewayConfig:
     base = dict(users_root=str(tmp / "users"), audit_root=str(tmp / "audit"))
     base.update(over)
     return dataclasses.replace(GatewayConfig.from_env(), **base)

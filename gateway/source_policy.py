@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import query_router as qr
+from gateway import query_router as qr
 
 # -- source classes ---------------------------------------------------------
 SYSTEM_CANONICAL = "SYSTEM_CANONICAL"

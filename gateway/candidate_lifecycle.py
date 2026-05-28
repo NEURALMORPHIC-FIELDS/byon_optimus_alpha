@@ -26,7 +26,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import evidence_semantics as es
+from gateway import evidence_semantics as es
 
 # states
 CANDIDATE = "candidate"
@@ -129,7 +129,7 @@ def evaluate_candidate(candidate: Dict[str, Any], *, fce_state: Optional[Dict[st
     return _d(KEEP, "no change", ev, contra, "wait for more evidence", priority, quality)
 
 
-def _d(action, reason, ev, contra, step, priority, quality=None) -> Dict[str, Any]:
+def _d(action: Any, reason: Any, ev: Any, contra: Any, step: Any, priority: Any, quality: Optional[Any]=None) -> Any:
     return {"action": action, "reason": reason, "evidence_count": ev,
             "contradiction_count": contra, "required_next_step": step, "priority": priority,
             "evidence_quality_score": quality}
@@ -173,7 +173,7 @@ class CandidateLifecycle:
         except OSError:
             pass
 
-    def _audit(self, action: str, rec: Dict[str, Any], **extra) -> None:
+    def _audit(self, action: str, rec: Dict[str, Any], **extra: Any) -> None:
         try:
             self.dir.mkdir(parents=True, exist_ok=True)
             with self.audit_path.open("a", encoding="utf-8") as f:
@@ -190,13 +190,12 @@ class CandidateLifecycle:
                 if r.get("topic") == topic and r.get("status") in ACTIVE_STATES]
 
     @staticmethod
-    def _source_key(source_class, task_id, sources_used) -> str:
+    def _source_key(source_class: Any, task_id: Any, sources_used: Any) -> Any:
         srcs = "|".join(sorted(sources_used or []))
         return f"{source_class}::{task_id}::{srcs}"
 
     # -- ingestion / evidence merge -----------------------------------------
-    def _merge_evidence(self, rec: Dict[str, Any], *, skey: str, sources_used, source_event_ids,
-                        source_class, relation, rel_conf, method) -> Dict[str, Any]:
+    def _merge_evidence(self, rec: Dict[str, Any], *, skey: str, sources_used: Any, source_event_ids: Any, source_class: Any, relation: Any, rel_conf: Any, method: Any) -> Any:
         if skey not in rec.get("source_keys", []):                # INDEPENDENT evidence only
             rec["source_keys"] = rec.get("source_keys", []) + [skey]
             rec["evidence_count"] = rec.get("evidence_count", 0) + 1
@@ -273,9 +272,7 @@ class CandidateLifecycle:
                 self._save(r)
         return rec
 
-    def _new_candidate(self, task_id, topic, claim, ckey, skey, sources_used, source_event_ids,
-                       source_class, *, status, challenger_of, relation, rel_conf, method,
-                       contradiction=0, related_ids=None) -> Dict[str, Any]:
+    def _new_candidate(self, task_id: Any, topic: Any, claim: Any, ckey: Any, skey: Any, sources_used: Any, source_event_ids: Any, source_class: Any, *, status: Any, challenger_of: Any, relation: Any, rel_conf: Any, method: Any, contradiction: int=0, related_ids: Optional[Any]=None) -> Any:
         rec = {
             "candidate_id": "cand_" + uuid.uuid4().hex[:10], "topic": topic, "claim": claim[:300],
             "claim_key": ckey, "source_task_id": task_id, "source_event_ids": source_event_ids or [],
@@ -293,8 +290,7 @@ class CandidateLifecycle:
         self._audit("candidate_created", rec, challenger_of=challenger_of, relation=relation)
         return rec
 
-    def _write_dispute(self, incumbent: Dict[str, Any], challenger: Dict[str, Any],
-                       rel: Dict[str, Any], source_class_a) -> None:
+    def _write_dispute(self, incumbent: Dict[str, Any], challenger: Dict[str, Any], rel: Dict[str, Any], source_class_a: Any) -> None:
         sca, scb = source_class_a, incumbent.get("source_class")
         relation = rel["relation"]
         if relation == es.CANONICAL_CONFLICT or scb in CANONICAL_CLASSES:

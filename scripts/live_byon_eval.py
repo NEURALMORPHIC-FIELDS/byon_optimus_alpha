@@ -113,7 +113,7 @@ class Harness:
         self.session = "evalsess_" + uuid.uuid4().hex[:6]
         self.results: List[Dict[str, Any]] = []
 
-    def _mem_client(self):
+    def _mem_client(self) -> Any:
         from gateway.memory_service_client import MemoryServiceClient
         return MemoryServiceClient(self.mem_url)
 
@@ -194,7 +194,7 @@ class Harness:
                              "vault_used": False, "vault_used_incorrectly": False})
 
     def check(self, name: str, q: str, predicate: Callable[[Dict[str, Any], str], str],
-              **kw) -> None:
+              **kw: Any) -> None:
         try:
             out = self.research(q, **kw)
         except Exception as exc:
@@ -205,26 +205,26 @@ class Harness:
         self._record(name, q, out, ok=(why == ""), why=why or "ok")
 
     def run(self) -> Dict[str, Any]:
-        def has(*subs):  # answer contains any of subs (case-insensitive)
+        def has(*subs: str) -> Any:  # answer contains any of subs (case-insensitive)
             return lambda o, a: "" if any(s.lower() in a.lower() for s in subs) else f"answer lacks {subs}"
 
-        def status_in(*sts):
+        def status_in(*sts: Any) -> Any:
             return lambda o, a: "" if o.get("epistemic_status") in sts else f"status={o.get('epistemic_status')} not in {sts}"
 
-        def intent_is(i):
+        def intent_is(i: Any) -> Any:
             return lambda o, a: "" if (o.get("synthesis") or {}).get("intent") == i else \
                 f"intent={(o.get('synthesis') or {}).get('intent')} != {i}"
 
-        def src_has(sub):
+        def src_has(sub: Any) -> Any:
             return lambda o, a: "" if any(sub in str(s) for s in ((o.get("synthesis") or {}).get("sources") or [])) \
                 else f"no source contains {sub!r}"
 
-        def src_not(sub):
+        def src_not(sub: Any) -> Any:
             return lambda o, a: "" if not any(sub in str(s) for s in ((o.get("synthesis") or {}).get("sources") or [])) \
                 else f"a source contains forbidden {sub!r}"
 
-        def all_of(*preds):
-            def f(o, a):
+        def all_of(*preds: Any) -> Any:
+            def f(o: Any, a: Any) -> Any:
                 for p in preds:
                     w = p(o, a)
                     if w:
@@ -340,23 +340,23 @@ class Harness:
     # -- adversarial / regression suite -------------------------------------
     def _adversarial(self) -> None:
         """Harder cases that probe the exact ways the runtime could fake or leak."""
-        def status_in(*sts):
+        def status_in(*sts: Any) -> Any:
             return lambda o, a: "" if o.get("epistemic_status") in sts else \
                 f"status={o.get('epistemic_status')} not in {sts}"
 
-        def intent_is(i):
+        def intent_is(i: Any) -> Any:
             return lambda o, a: "" if (o.get("synthesis") or {}).get("intent") == i else \
                 f"intent={(o.get('synthesis') or {}).get('intent')} != {i}"
 
-        def src_not(sub):
+        def src_not(sub: Any) -> Any:
             return lambda o, a: "" if not any(sub in str(s) for s in ((o.get("synthesis") or {}).get("sources") or [])) \
                 else f"a source contains forbidden {sub!r}"
 
-        def has(*subs):
+        def has(*subs: str) -> Any:
             return lambda o, a: "" if any(s.lower() in a.lower() for s in subs) else f"answer lacks {subs}"
 
-        def all_of(*preds):
-            def f(o, a):
+        def all_of(*preds: Any) -> Any:
+            def f(o: Any, a: Any) -> Any:
                 for p in preds:
                     w = p(o, a)
                     if w:
@@ -454,30 +454,30 @@ class Harness:
         self._restart_recall_gate()
 
     @staticmethod
-    def _status_valid():
+    def _status_valid() -> Any:
         return lambda o, a: "" if o.get("epistemic_status") in KNOWN_STATUSES else \
             f"invalid epistemic status {o.get('epistemic_status')}"
 
     # -- source-disambiguation paraphrase / bleed suite ---------------------
     def _paraphrase_suite(self) -> None:
-        def qclass_is(c):
+        def qclass_is(c: Any) -> Any:
             return lambda o, a: "" if o.get("query_class") == c else \
                 f"query_class={o.get('query_class')} != {c}"
 
-        def not_vault_primary():
+        def not_vault_primary() -> Any:
             return lambda o, a: "" if not o.get("vault_primary") else "vault was PRIMARY (source bleed)"
 
-        def intent_is(i):
+        def intent_is(i: Any) -> Any:
             return lambda o, a: "" if (o.get("synthesis") or {}).get("intent") == i else \
                 f"intent={(o.get('synthesis') or {}).get('intent')} != {i}"
 
-        def status_in(*sts):
+        def status_in(*sts: Any) -> Any:
             return lambda o, a: "" if o.get("epistemic_status") in sts else \
                 f"status={o.get('epistemic_status')} not in {sts}"
 
-        def vault_framed():
+        def vault_framed() -> Any:
             # USER_VAULT answer must read as the user's notes, never as objective truth
-            def f(o, a):
+            def f(o: Any, a: Any) -> Any:
                 low = (a or "").lower()
                 if not low:
                     return ""  # no matching note is acceptable (UNKNOWN), not a bleed
@@ -486,11 +486,11 @@ class Harness:
                 return "vault answer not framed as user memory"
             return f
 
-        def has(*subs):
+        def has(*subs: str) -> Any:
             return lambda o, a: "" if any(s.lower() in a.lower() for s in subs) else f"answer lacks {subs}"
 
-        def all_of(*preds):
-            def f(o, a):
+        def all_of(*preds: Any) -> Any:
+            def f(o: Any, a: Any) -> Any:
                 for p in preds:
                     w = p(o, a)
                     if w:
@@ -563,7 +563,7 @@ class Harness:
         except Exception:
             return {}
 
-    def _add(self, gate: str, ok: bool, why: str, category: str = None, **extra) -> None:
+    def _add(self, gate: str, ok: bool, why: str, category: str = None, **extra: Any) -> None:
         row = {"gate": gate, "pass": bool(ok), "skipped": False,
                "why": "ok" if ok else why, "status_epistemically_valid": True,
                "vault_used": False, "vault_used_incorrectly": False}
@@ -645,7 +645,7 @@ class Harness:
                       epistemic_status=f"errors={errors}")
 
     # -- Cycle 5: read-consistency / tombstone / compaction suite -----------
-    def _consistent(self):
+    def _consistent(self) -> Any:
         from gateway.consistent_client import ConsistentMemoryClient
         from gateway.memory_service_client import MemoryServiceClient
         return ConsistentMemoryClient(MemoryServiceClient(self.mem_url))
@@ -680,7 +680,7 @@ class Harness:
             lock.acquire(vault_path="eval", command="train_vault")
             false_zero = {"seen": False}
 
-            def burst():
+            def burst() -> None:
                 for j in range(30):
                     try:
                         mc.store_fact(f"c5 burst {wu} {j}", source=f"vault:eval/burst_{j}.md#h",
@@ -926,7 +926,7 @@ class Harness:
 
     # -- Cycle 7: in-engine consistency + autonomous task suite -------------
     @staticmethod
-    def _tail_jsonl(path: str, n: int = 50):
+    def _tail_jsonl(path: str, n: int=50) -> Any:
         p = Path(path)
         if not p.exists():
             return []
@@ -1059,17 +1059,17 @@ class Harness:
         ns_root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
         mc = MemoryServiceClient(self.mem_url)
 
-        def lc():
+        def lc() -> Any:
             return CandidateLifecycle(ns_root, mc, "lifeloop")
 
-        def gcands(status=None):
+        def gcands(status: Optional[Any]=None) -> Any:
             try:
                 params = {"status": status} if status else None
                 return httpx.get(f"{self.url}/v1/lifeloop/candidates", params=params, timeout=30).json()
             except Exception:
                 return {"counts": {}, "candidates": []}
 
-        def consolidate():
+        def consolidate() -> None:
             try:
                 httpx.post(f"{self.url}/v1/lifeloop/consolidate-candidates", timeout=60)
             except Exception:
@@ -1237,29 +1237,29 @@ class Harness:
         ns_root = UserNamespace(_os.environ.get("BYON_USERS_ROOT", "runtime/users"), "lifeloop").root
         mc = MemoryServiceClient(self.mem_url)
 
-        def lc():
+        def lc() -> Any:
             return CandidateLifecycle(ns_root, mc, "lifeloop")
 
-        def gcands(status=None):
+        def gcands(status: Optional[Any]=None) -> Any:
             try:
                 params = {"status": status} if status else None
                 return httpx.get(f"{self.url}/v1/lifeloop/candidates", params=params, timeout=30).json()
             except Exception:
                 return {"counts": {}, "candidates": []}
 
-        def gdisputes():
+        def gdisputes() -> Any:
             try:
                 return httpx.get(f"{self.url}/v1/lifeloop/disputes", timeout=30).json()
             except Exception:
                 return {"count": 0, "disputes": []}
 
-        def consolidate():
+        def consolidate() -> None:
             try:
                 httpx.post(f"{self.url}/v1/lifeloop/consolidate-candidates", timeout=60)
             except Exception:
                 pass
 
-        def cand(cid):
+        def cand(cid: Any) -> Any:
             return next((c for c in gcands().get("candidates", []) if c.get("candidate_id") == cid), {})
 
         uid = uuid.uuid4().hex[:6]
@@ -1401,13 +1401,13 @@ class Harness:
         import os as _os
         import time as _t
 
-        def rf_get(path):
+        def rf_get(path: Any) -> Any:
             try:
                 return httpx.get(f"{self.url}/v1/lifeloop/relation-field/{path}", timeout=40).json()
             except Exception:
                 return {}
 
-        def rf_rebuild():
+        def rf_rebuild() -> Any:
             try:
                 return httpx.post(f"{self.url}/v1/lifeloop/relation-field/rebuild", timeout=90).json()
             except Exception:
@@ -1450,7 +1450,7 @@ class Harness:
         # 3/4. BYON has_component D_Cortex and FCE-M
         nb = rf_get("neighborhood/BYON").get("neighborhood", {})
         rels = nb.get("relations", [])
-        def _has_comp(obj_sub):
+        def _has_comp(obj_sub: Any) -> Any:
             return any(r.get("relation_type") == "has_component"
                        and obj_sub.lower() in str(r.get("object", "")).lower() for r in rels)
         self._add("relation_BYON_has_component_D_Cortex", _has_comp("d_cortex"),
@@ -1534,26 +1534,26 @@ class Harness:
     def _cycle11_suite(self) -> None:
         base = f"{self.url}/v1/lifeloop/relation-field"
 
-        def infer(text, source, source_class):
+        def infer(text: Any, source: Any, source_class: Any) -> Any:
             try:
                 return httpx.post(f"{base}/infer", json={"text": text, "source": source,
                                                          "source_class": source_class}, timeout=40).json()
             except Exception:
                 return {}
 
-        def rf_get(path):
+        def rf_get(path: Any) -> Any:
             try:
                 return httpx.get(f"{base}/{path}", timeout=40).json()
             except Exception:
                 return {}
 
-        def rf_post(path):
+        def rf_post(path: Any) -> Any:
             try:
                 return httpx.post(f"{base}/{path}", timeout=60).json()
             except Exception:
                 return {}
 
-        def neighborhood_rels(entity):
+        def neighborhood_rels(entity: Any) -> Any:
             return (rf_get(f"neighborhood/{entity}").get("neighborhood") or {}).get("relations", [])
 
         uid = uuid.uuid4().hex[:6]
@@ -1686,19 +1686,19 @@ class Harness:
         import os as _os
         base = f"{self.url}/v1/lifeloop/relation-field"
 
-        def rf_get(path):
+        def rf_get(path: Any) -> Any:
             try:
                 return httpx.get(f"{base}/{path}", timeout=40).json()
             except Exception:
                 return {}
 
-        def rf_post(path):
+        def rf_post(path: Any) -> Any:
             try:
                 return httpx.post(f"{base}/{path}", timeout=60).json()
             except Exception:
                 return {}
 
-        def infer(body):
+        def infer(body: Any) -> Any:
             try:
                 return httpx.post(f"{base}/infer", json=body, timeout=40).json()
             except Exception:
@@ -1864,19 +1864,19 @@ class Harness:
         import time as _t
         base = f"{self.url}/v1/lifeloop/relation-field"
 
-        def rf_get(path):
+        def rf_get(path: Any) -> Any:
             try:
                 return httpx.get(f"{base}/{path}", timeout=40).json()
             except Exception:
                 return {}
 
-        def rf_post(path):
+        def rf_post(path: Any) -> Any:
             try:
                 return httpx.post(f"{base}/{path}", timeout=60).json()
             except Exception:
                 return {}
 
-        def infer(body):
+        def infer(body: Any) -> Any:
             try:
                 return httpx.post(f"{base}/infer", json=body, timeout=40).json()
             except Exception:

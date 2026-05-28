@@ -14,14 +14,14 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .byon_backend import BYONResult
-from .continuous_learning import ContinuousLearning
-from .epistemic_search import ClaudeHypothesisProvider, EpistemicSearch, is_secret_query
-from .expression_learning import ExpressionLearning
-from .memory_service_client import MemoryServiceClient
-from .recent_write_buffer import RecentWriteBuffer
-from . import fact_extractor_bridge as feb
-from . import web_search as ws
+from gateway.byon_backend import BYONResult
+from gateway.continuous_learning import ContinuousLearning
+from gateway.epistemic_search import ClaudeHypothesisProvider, EpistemicSearch, is_secret_query
+from gateway.expression_learning import ExpressionLearning
+from gateway.memory_service_client import MemoryServiceClient
+from gateway.recent_write_buffer import RecentWriteBuffer
+from gateway import fact_extractor_bridge as feb
+from gateway import web_search as ws
 
 _CANONICAL = [
     ("byon operational level", "BYON is allowed to claim Level 2; Level 3 is explicitly not declared."),
@@ -32,7 +32,7 @@ _CANONICAL = [
 _seeded = False
 
 
-def _parse_teach(message: str):
+def _parse_teach(message: str) -> Any:
     m = message.strip()
     mm = re.match(r"(?i)^(?:please\s+)?(?:remember(?:\s+that)?|note(?:\s+that)?|fyi[:,]?)\s+(.+)$", m)
     if mm:
@@ -47,15 +47,14 @@ def _parse_teach(message: str):
 
 
 class MemoryServiceBackend:
-    def __init__(self, memory_url: str = "http://127.0.0.1:8000", *, mem_client=None,
-                 web_provider=None, claude_provider=None) -> None:
+    def __init__(self, memory_url: str='http://127.0.0.1:8000', *, mem_client: Optional[Any]=None, web_provider: Optional[Any]=None, claude_provider: Optional[Any]=None) -> None:
         self.memory_url = memory_url
         # Production wraps the canonical client in the read-consistent, tombstone-aware layer
         # (Cycle 5). Tests may inject a raw client.
         if mem_client is not None:
             self.mem = mem_client
         else:
-            from .consistent_client import ConsistentMemoryClient
+            from gateway.consistent_client import ConsistentMemoryClient
             self.mem = ConsistentMemoryClient(MemoryServiceClient(memory_url))
         self.web = web_provider if web_provider is not None else ws.get_provider()
         self.claude = claude_provider if claude_provider is not None else ClaudeHypothesisProvider()
@@ -90,10 +89,10 @@ class MemoryServiceBackend:
             "fcem": {"runtime_proven": bool(h.get("_reachable"))},
         }
 
-    def _learning(self, namespace_dir, user_id: str) -> ContinuousLearning:
+    def _learning(self, namespace_dir: Any, user_id: str) -> Any:
         return ContinuousLearning(namespace_dir, self.mem, thread_id=user_id)
 
-    def _learn_from_message(self, message: str, user_id: str, learning, channel: str = "web") -> Dict[str, Any]:
+    def _learn_from_message(self, message: str, user_id: str, learning: Any, channel: str='web') -> Any:
         """Canonical learning from a user message: route through the REAL FactExtractor
         (LLM extract → classify trust → store via memory-service). Falls back to a
         non-canonical heuristic ONLY if the canonical extractor is unavailable; anything
@@ -131,9 +130,7 @@ class MemoryServiceBackend:
         return {"facts": [], "canonical": False}
 
     # -- full research (drives /v1/research) --------------------------------
-    def research(self, *, user_id: str, session_id: str, question: str, namespace_dir,
-                 allow_web: Optional[bool] = None, allow_claude: bool = True,
-                 action: str = "start", research_trace_id: Optional[str] = None) -> Dict[str, Any]:
+    def research(self, *, user_id: str, session_id: str, question: str, namespace_dir: Any, allow_web: Optional[bool]=None, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None) -> Any:
         learning = self._learning(namespace_dir, user_id)
         expr = ExpressionLearning(self.mem, namespace_dir=str(namespace_dir) if namespace_dir else None)
         # CANONICAL learning side-effect: every non-secret user message goes through the
@@ -187,7 +184,7 @@ class MemoryServiceBackend:
         except Exception:
             pass  # styling is best-effort; never block or alter a truthful answer
         try:   # Cycle 4: surface indexing-in-progress so callers know reads may be churning
-            from .write_lock import VaultTrainingLock
+            from gateway.write_lock import VaultTrainingLock
             if VaultTrainingLock().status().get("indexing_in_progress"):
                 out["indexing_in_progress"] = True
         except Exception:
@@ -195,8 +192,7 @@ class MemoryServiceBackend:
         return out
 
     # -- BYONBackend.chat ----------------------------------------------------
-    def chat(self, *, user_id: str, session_id: str, channel: str, message: str,
-             namespace_dir) -> BYONResult:
+    def chat(self, *, user_id: str, session_id: str, channel: str, message: str, namespace_dir: Any) -> Any:
         # chat delegates to the canonical research loop (which also learns via FactExtractor)
         out = self.research(user_id=user_id, session_id=session_id, question=message,
                             namespace_dir=namespace_dir, action="start")
@@ -212,7 +208,7 @@ class MemoryServiceBackend:
             fcem={"runtime_proven": True, "advisory_nonempty": bool(out.get("web_results")),
                   "pressure_max": out.get("stress_percent")})
 
-    def memory_status(self, *, user_id: str, namespace_dir) -> Dict[str, Any]:
+    def memory_status(self, *, user_id: str, namespace_dir: Any) -> Any:
         learning = self._learning(namespace_dir, user_id)
         return {"available": True, "candidates": learning.list_candidates(),
                 "committed": learning.list_committed(), "disputed": learning.list_disputed(),
@@ -224,7 +220,7 @@ class MemoryServiceBackend:
         recent-write buffer size, and an orphan-writer warning."""
         from pathlib import Path as _P
         import json as _json
-        from .write_lock import VaultTrainingLock
+        from gateway.write_lock import VaultTrainingLock
         vault: Dict[str, Any] = {"present": False}
         try:
             p = _P(report_dir) / "vault_train_report.json"
@@ -265,12 +261,10 @@ class MemoryServiceBackend:
             "recent_write_buffer_count": self.recent_buffer.count(),
         }
 
-    def consolidate(self, *, user_id: str, namespace_dir) -> Dict[str, Any]:
+    def consolidate(self, *, user_id: str, namespace_dir: Any) -> Any:
         return self._learning(namespace_dir, user_id).consolidate()
 
-    def apply_feedback(self, *, user_id: str, namespace_dir, rating: str,
-                       value: Optional[str] = None, note: Optional[str] = None,
-                       audit_trace_id: Optional[str] = None) -> Dict[str, Any]:
+    def apply_feedback(self, *, user_id: str, namespace_dir: Any, rating: str, value: Optional[str]=None, note: Optional[str]=None, audit_trace_id: Optional[str]=None) -> Any:
         """Feedback is a learning signal (Phase 9): reinforce / dispute / queue, and raise
         FCE-M pressure via a receipt (success/failed)."""
         learning = self._learning(namespace_dir, user_id)
@@ -306,7 +300,7 @@ class MemoryServiceBackend:
         return {"ok": True, "rating": rating, "action": action,
                 "style_preference": style_pref}
 
-    def forget(self, *, user_id: str, namespace_dir) -> Dict[str, Any]:
+    def forget(self, *, user_id: str, namespace_dir: Any) -> Any:
         cleared = []
         for name in ("events.jsonl", "research_traces.jsonl", "memory_candidates.jsonl",
                      "facts.jsonl", "archive.jsonl"):

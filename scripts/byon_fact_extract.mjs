@@ -1,7 +1,7 @@
 // Canonical FactExtractor bridge (CLI).
 //
 // Reuses the REAL BYON Optimus FactExtractor (external/.../scripts/lib/fact-extractor.mjs)
-// — it is NOT reimplemented here. This wrapper only supplies the two transports the
+// - it is NOT reimplemented here. This wrapper only supplies the two transports the
 // extractor needs: a minimal `anthropic` client (Node global fetch → Anthropic Messages
 // API, so no @anthropic-ai/sdk install is required) and a `mem` function that POSTs to the
 // canonical memory-service. Reads a JSON payload from stdin, prints the result as JSON.

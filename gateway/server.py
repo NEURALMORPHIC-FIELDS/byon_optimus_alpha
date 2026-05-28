@@ -9,8 +9,8 @@ chat responses come back as ERROR with no answer - the Gateway never fabricates.
 """
 from __future__ import annotations
 
-from .app import create_app
-from .config import GatewayConfig
+from gateway.app import create_app
+from gateway.config import GatewayConfig
 
 
 def main() -> None:

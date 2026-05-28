@@ -483,7 +483,7 @@ class RelationField:
         rel_hits.sort(key=self._priority, reverse=True)
         return {"entities": ent_hits[:limit], "relations": rel_hits[:limit]}
 
-    def _priority(self, r: Dict[str, Any]):
+    def _priority(self, r: Dict[str, Any]) -> Any:
         # Cycle 12/13: rank by DECAYED evidence/source weight (committed/canonical/quality up;
         # disputed/candidate-only/vault-objective/stale/decayed down) - disputed & decayed relations
         # stay VISIBLE, just lower influence.
@@ -646,7 +646,7 @@ class RelationField:
         temporal_conflict | direct_contradiction."""
         text = f"{r.get('subject','')} {r.get('predicate','')} {r.get('object','')}"
         try:
-            from .source_policy import CANONICAL_CONSTRAINTS
+            from gateway.source_policy import CANONICAL_CONSTRAINTS
             for c in CANONICAL_CONSTRAINTS:
                 if c["topic"].search(text) and c["unsafe"].search(text):
                     return "canonical_conflict"
@@ -764,7 +764,7 @@ class RelationField:
         return round(max(0.0, min(1.0, q)), 3)
 
     def _policy_allows_commit(self, r: Dict[str, Any]) -> bool:
-        from . import relation_policy as rp
+        from gateway import relation_policy as rp
         ok, _ = rp.commit_allowed(r.get("relation_type"), r.get("source_classes", []),
                                   subject=r.get("subject"), obj=r.get("object"),
                                   evidence_count=len(set(r.get("source_ids", []))))
@@ -831,7 +831,7 @@ class RelationField:
             return {"start": start, "target": target, "max_depth": max_depth,
                     "include_inverse": include_inverse, "paths": []}
 
-        def steps(eid):
+        def steps(eid: Any) -> Any:
             out = []
             for r in self._rel.values():
                 s, o = self.resolve(r["subject"]), self.resolve(r["object"])
@@ -901,7 +901,7 @@ class RelationField:
 def lifeloop_field(users_root: str | Path) -> RelationField:
     """The system-level relation field lives in the lifeloop namespace, beside the candidate
     lifecycle (same root the consolidator/endpoints use)."""
-    from .namespace import UserNamespace
+    from gateway.namespace import UserNamespace
     return RelationField(UserNamespace(str(users_root), "lifeloop").root)
 
 
@@ -926,7 +926,7 @@ class RelationFieldBuilder:
     def _seed_canonical(self) -> int:
         """The canonical project relations (same seed self-training stores) - VERIFIED_PROJECT_FACT,
         committed. Deterministic so the field always knows BYON's components/roles."""
-        from .self_training import _RELATIONS
+        from gateway.self_training import _RELATIONS
         n = 0
         for subj, pred, tgt in _RELATIONS:
             self.f.add_relation(subj, pred, tgt, source_id=f"relation:{subj}->{pred}->{tgt}",
@@ -967,8 +967,8 @@ class RelationFieldBuilder:
         vault thread so vault CHUNK CONTENT is mined too. Secret content yields nothing."""
         if self.mem is None:
             return 0
-        from . import relation_inference as ri
-        from .source_policy import source_class_of
+        from gateway import relation_inference as ri
+        from gateway.source_policy import source_class_of
         queries = queries or [
             "depends on requires component contains supports contradicts role function",
             "BYON D_Cortex FCE-M memory-service Claude architecture components",
@@ -981,7 +981,7 @@ class RelationFieldBuilder:
         n += self._infer_scope(ri, source_class_of, queries, None, "thread", seen, cap=cap)
         return n
 
-    def _infer_scope(self, ri, source_class_of, queries, owner, scope, seen, *, cap) -> int:
+    def _infer_scope(self, ri: Any, source_class_of: Any, queries: Any, owner: Any, scope: Any, seen: Any, *, cap: Any) -> Any:
         n = 0
         for q in queries:
             try:                                          # high recall so a single owner vault note
@@ -1010,7 +1010,7 @@ class RelationFieldBuilder:
             return 0
         sc = c.get("source_class")
         self.f.add_entity(topic, entity_type="topic", source_class=sc)
-        from . import relation_inference as ri          # mine relations from the claim CONTENT
+        from gateway import relation_inference as ri          # mine relations from the claim CONTENT
         for rc in ri.infer_from_candidate(c):
             self.f.ingest_candidate_relation(rc)
         n = 0
@@ -1056,7 +1056,7 @@ class RelationFieldBuilder:
         n = 1
         summary = t.get("answer_summary") or ""           # Cycle 11: mine the result CONTENT too
         if summary:
-            from . import relation_inference as ri
+            from gateway import relation_inference as ri
             for rc in ri.infer_relations_from_text(summary, f"task:{t.get('task_id','')}",
                                                    t.get("source_class"), {"task_id": t.get("task_id")}):
                 self.f.ingest_candidate_relation(rc)
@@ -1121,7 +1121,7 @@ class RelationFieldBuilder:
                    provenance: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Run the grounded extractor on one bounded text and ingest the candidates (never commits).
         Used by the operator/infer endpoint and incremental updates. Secret text yields nothing."""
-        from . import relation_inference as ri
+        from gateway import relation_inference as ri
         cands = ri.infer_relations_from_text(text, source, source_class, provenance or {})
         for rc in cands:
             self.f.ingest_candidate_relation(rc)
@@ -1255,7 +1255,7 @@ class RelationGapScanner:
         self.f = field
         self.tasks = tasks
 
-    def _file(self, *, gap_type: str, subject: str, obj: str, question: str, allowed, rid: str):
+    def _file(self, *, gap_type: str, subject: str, obj: str, question: str, allowed: Any, rid: str) -> Any:
         if _SECRET_RX.search(f"{subject} {obj}"):
             return {"gap_type": gap_type, "relation_id": rid, "task_id": None, "skipped": "secret"}
         task_id = None
@@ -1271,7 +1271,7 @@ class RelationGapScanner:
                 "requires_permission": "web" in allowed}
 
     def scan(self, *, cap: int = 20) -> List[Dict[str, Any]]:
-        from . import relation_policy as rp
+        from gateway import relation_policy as rp
         out: List[Dict[str, Any]] = []
         weak_central = {r["name"] for r in self.f.weak_central_nodes(top_n=8)}
         for r in list(self.f._rel.values()):
