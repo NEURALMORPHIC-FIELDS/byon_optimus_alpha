@@ -600,6 +600,47 @@ def create_app(config: Optional[GatewayConfig] = None,
         gaps = RelationGapScanner(_relation_field(build_if_empty=False), tasks=lifeloop.tasks).scan()
         return {"ok": True, "count": len(gaps), "gaps": gaps}
 
+    # -- Cycle 15: relation maintenance / gaps / path-score / task-results (Gateway-only surface) --
+    @app.get("/v1/lifeloop/relation-field/maintenance/status")
+    def relation_field_maintenance_status() -> Dict[str, Any]:
+        from gateway.relation_maintenance import read_maintenance_log
+        history = read_maintenance_log(last=50)
+        return {"ok": True, "last_maintenance": (history[-1] if history else None),
+                "history_count": len(history)}
+
+    @app.post("/v1/lifeloop/relation-field/maintenance/run")
+    def relation_field_maintenance_run() -> Dict[str, Any]:
+        from gateway.relation_maintenance import run_relation_decay_maintenance
+        rep = run_relation_decay_maintenance(_relation_field(build_if_empty=False))
+        return {"ok": True, "report": rep}
+
+    @app.get("/v1/lifeloop/relation-field/gaps")
+    def relation_field_gaps() -> Dict[str, Any]:
+        from gateway.relation_field import RelationGapScanner
+        gaps = RelationGapScanner(_relation_field(build_if_empty=False), tasks=None).scan()
+        return {"ok": True, "count": len(gaps), "gaps": gaps}
+
+    @app.post("/v1/lifeloop/relation-field/gaps/scan")
+    def relation_field_gaps_scan() -> Dict[str, Any]:
+        """Scan relation gaps and FILE them as internal tasks (memory-only auto, web needs
+        permission, secret-derived skipped)."""
+        from gateway.relation_field import RelationGapScanner
+        gaps = RelationGapScanner(_relation_field(build_if_empty=False), tasks=lifeloop.tasks).scan()
+        return {"ok": True, "count": len(gaps), "gaps": gaps}
+
+    @app.get("/v1/lifeloop/relation-field/path-score")
+    def relation_field_path_score(source: str, target: Optional[str] = None,
+                                  depth: int = 2) -> Dict[str, Any]:
+        res = _relation_field().multi_hop_path(source, target, max_depth=depth, limit=1)
+        best = res["paths"][0] if res["paths"] else None
+        return {"ok": True, "found": bool(best), "source": source, "target": target,
+                "score": (best.get("score") if best else None), "path": best}
+
+    @app.get("/v1/lifeloop/relation-field/task-results")
+    def relation_field_task_results() -> Dict[str, Any]:
+        from gateway.relation_task_results import read_relation_task_results
+        return {"ok": True, "results": read_relation_task_results(last=30)}
+
     @app.post("/v1/lifeloop/relation-field/resolve-contradiction/{contradiction_id}")
     def relation_field_resolve_contradiction(contradiction_id: str,
                                              body: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:

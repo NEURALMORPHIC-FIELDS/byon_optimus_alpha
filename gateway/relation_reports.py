@@ -310,6 +310,53 @@ def render_path_explanation_v2(field: rf.RelationField, start: str, target: Opti
             "next_recommended_action": next_action, "sources": sources[:12]}
 
 
+def relation_self_state_v2(field: rf.RelationField, *, lifeloop: Optional[Any] = None,
+                           maintenance_log_path: Optional[str] = None,
+                           task_results_log_path: Optional[str] = None,
+                           max_weak_paths: int = 5) -> Dict[str, Any]:
+    """Cycle 15 TRACK H: relation-aware self-state. What BYON repaired automatically, what weakened,
+    what gaps it found, what repair tasks it created, which paths are weak and why, and which central
+    concepts need sources. Aggregates the maintenance log, task-result log, pressure/task queue, the
+    relation/decay metrics and the per-hop path scores. Read-only; never a truth authority."""
+    from gateway.relation_maintenance import DEFAULT_LOG, read_maintenance_log
+    from gateway.relation_task_results import DEFAULT_RESULTS_LOG, read_relation_task_results
+
+    maint = read_maintenance_log(maintenance_log_path or DEFAULT_LOG, last=1)
+    last_maintenance = maint[-1] if maint else None
+    results = read_relation_task_results(task_results_log_path or DEFAULT_RESULTS_LOG, last=30)
+    auto_repaired = [r for r in results if r.get("candidate_created") or r.get("relation_updated")]
+    relations_weakened = field.decayed_relations(limit=10)
+    gaps_found = rf.RelationGapScanner(field, tasks=None).scan(cap=12)
+    repair_tasks = []
+    if lifeloop is not None and getattr(lifeloop, "tasks", None) is not None:
+        repair_tasks = [t for t in lifeloop.tasks.list() if str(t.get("topic", "")).startswith("relgap:")]
+
+    central_nodes_needing_sources = field.weak_central_nodes(top_n=8)
+    weak_paths: List[Dict[str, Any]] = []
+    for node in central_nodes_needing_sources[:max_weak_paths]:
+        name = node.get("name") if isinstance(node, dict) else node
+        if not name:
+            continue
+        res = field.multi_hop_path(name, None, max_depth=2, limit=1)
+        for p in res.get("paths", [])[:1]:
+            sc = p.get("score") or {}
+            weak_paths.append({"start": name, "path_status": p.get("path_status"),
+                               "path_weight": sc.get("path_weight"),
+                               "bottleneck_edge": sc.get("bottleneck_edge"),
+                               "why": sc.get("explanation")})
+
+    return {
+        "relations_auto_repaired": auto_repaired,
+        "relations_weakened": relations_weakened,
+        "gaps_found": gaps_found,
+        "repair_tasks_created": repair_tasks,
+        "weak_paths": weak_paths,
+        "central_nodes_needing_sources": central_nodes_needing_sources,
+        "relation_maintenance": last_maintenance,
+        "is_truth_authority": False, "answers_user_directly": False,
+    }
+
+
 def decayed_relations_report(field: rf.RelationField, *, limit: int = 12) -> Dict[str, Any]:
     return {"decayed_relations": field.decayed_relations(limit=limit)}
 
