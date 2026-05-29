@@ -93,8 +93,12 @@ def create_app(config: Optional[GatewayConfig] = None,
         if not hasattr(b, "research"):
             return {"epistemic_status": "ERROR", "error": "no research backend"}
         ns = _namespace("lifeloop")
+        # Cycle 15 (TRACK D): pass acquisition_context (repo_root from BYON_REPO_ROOT) so the 13.3
+        # project_files / corpus / external-LLM adapters actually fire for gap-repair tasks.
+        from gateway.relation_maintenance import build_gap_acquisition_context
         out = b.research(user_id="lifeloop", session_id="lifeloop_auto", question=task["question"],
-                         namespace_dir=ns.root, allow_web=False, allow_claude=True, action="start")
+                         namespace_dir=ns.root, allow_web=False, allow_claude=True, action="start",
+                         acquisition_context=build_gap_acquisition_context())
         syn = out.get("synthesis") or {}
         sources = syn.get("sources") or out.get("sources_searched") or []
         status = out.get("epistemic_status")
@@ -404,11 +408,15 @@ def create_app(config: Optional[GatewayConfig] = None,
         try:
             if hasattr(backend, "research"):
                 ns = _namespace(t.get("trigger_user", "lifeloop"))
+                # Cycle 15 (TRACK D): thread acquisition_context (repo_root) so find_internal_evidence
+                # / verify_with_project_source actually exercise the 13.3 project_files adapter.
+                from gateway.relation_maintenance import build_gap_acquisition_context
                 out = backend.research(user_id="lifeloop", session_id="lifeloop_task",
                                        question=t["question"], namespace_dir=ns.root,
                                        allow_web=("web" in t.get("allowed_sources", []) and
                                                   not t.get("requires_user_permission")),
-                                       allow_claude=True, action="start")
+                                       allow_claude=True, action="start",
+                                       acquisition_context=build_gap_acquisition_context())
                 res = {"epistemic_status": out.get("epistemic_status"),
                        "answer_head": (out.get("answer") or "")[:200],
                        "source_class": out.get("source_class")}

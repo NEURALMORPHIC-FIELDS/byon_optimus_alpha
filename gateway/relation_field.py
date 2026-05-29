@@ -1294,6 +1294,12 @@ class RelationGapScanner:
                 gap = self._file(gap_type="resolve_dispute", subject=subj, obj=obj, rid=rid,
                                  question=f"resolve dispute: {subj} {rtype} {obj}",
                                  allowed=["memory", "vault", "self_state"])
+            elif (subj in weak_central or obj in weak_central) and status in (REINFORCED, COMMITTED) \
+                    and float(r.get("confidence", 1.0)) < 0.5:
+                # Cycle 15: high-usage (central) but low-confidence relation -> reinforce it
+                gap = self._file(gap_type="reinforce_relation", subject=subj, obj=obj, rid=rid,
+                                 question=f"reinforce central low-confidence relation: {subj} {rtype} {obj}",
+                                 allowed=["memory", "vault", "self_state"])
             elif rtype in _OBJECTIVE_GAP_TYPES and rp.is_vault_only(classes):
                 # objective relation blocked because source is vault-only → seek a verified source
                 gap = self._file(gap_type="verify_with_project_source", subject=subj, obj=obj, rid=rid,
@@ -1323,3 +1329,16 @@ class RelationGapScanner:
                               question=f"missing relation between {start} and {target}",
                               allowed=["memory", "vault", "self_state"])
         return None
+
+    def scan_bridge_gap(self, start: str, target: str) -> Optional[Dict[str, Any]]:
+        """Cycle 15: missing_middle_hop -> find_bridge_relation. Both endpoints exist (they have
+        edges) but no directed path connects them within depth, so a bridge relation is missing."""
+        s_eid, t_eid = self.f.resolve(start), self.f.resolve(target)
+        if not s_eid or not t_eid:
+            return None
+        if self.f.multi_hop_path(start, target, max_depth=2)["paths"]:
+            return None
+        return self._file(gap_type="find_bridge_relation", subject=start, obj=target,
+                          rid=_rid(start, "bridge", target),
+                          question=f"find a bridge relation connecting {start} and {target}",
+                          allowed=["memory", "vault", "self_state"])

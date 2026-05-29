@@ -153,7 +153,7 @@ class MemoryServiceBackend:
         return {"facts": [], "canonical": False}
 
     # -- full research (drives /v1/research) --------------------------------
-    def research(self, *, user_id: str, session_id: str, question: str, namespace_dir: Any, allow_web: Optional[bool]=None, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None) -> Any:
+    def research(self, *, user_id: str, session_id: str, question: str, namespace_dir: Any, allow_web: Optional[bool]=None, allow_claude: bool=True, action: str='start', research_trace_id: Optional[str]=None, acquisition_context: Optional[Dict[str, Any]]=None) -> Any:
         # Cycle 14 (S6): if the canonical memory-service is down, fail safe BEFORE any Claude/learning
         # path. The Gateway never fabricates and never falls back to Claude/local when memory is down.
         if not self.memory_service_up():
@@ -201,7 +201,8 @@ class MemoryServiceBackend:
                               namespace_dir=namespace_dir, mem_client=self.mem, learning=learning,
                               web_provider=self.web, claude_provider=self.claude,
                               allow_web=aw, allow_claude=allow_claude, action=action,
-                              research_trace_id=research_trace_id, recent_buffer=self.recent_buffer)
+                              research_trace_id=research_trace_id, recent_buffer=self.recent_buffer,
+                              acquisition_context=acquisition_context)
         # Gate 10: re-phrase the DELIVERY per learned style - status & sources are left untouched.
         try:
             syn = out.get("synthesis") or {}

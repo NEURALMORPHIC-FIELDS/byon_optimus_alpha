@@ -50,7 +50,12 @@ class ProjectFilesAdapter:
     name = "project_files"
 
     def acquire(self, question: str, context: Dict[str, Any]) -> List[EvidencePacket]:
-        root_str = context.get("repo_root") or os.environ.get("BYON_REPO_ROOT") or "."
+        # Require an EXPLICIT repo root (acquisition_context or BYON_REPO_ROOT). No cwd ('.')
+        # fallback: a caller that does not thread repo_root must not silently scan the process cwd.
+        # This makes the Cycle 15 acquisition_context wiring load-bearing (the confirmed asterisk).
+        root_str = (context.get("repo_root") or os.environ.get("BYON_REPO_ROOT") or "").strip()
+        if not root_str:
+            return []
         root = Path(root_str)
         if not root.is_dir():
             return []

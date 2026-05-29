@@ -78,6 +78,17 @@ class BYONLifeLoop:
         self.last_auto_run_task = None
         self.last_task_result = None
         self.last_candidate_decisions = []
+        # Cycle 15: scheduled relation maintenance + gap scan (bounded, autonomous, never truth)
+        _on = lambda k, d: os.environ.get(k, d).strip().lower() in ("1", "true", "yes", "on")
+        self.relation_maintenance_enabled = _on("BYON_RELATION_MAINTENANCE_ENABLED", "true")
+        self.maintenance_every_ticks = int(os.environ.get("BYON_RELATION_MAINTENANCE_EVERY_TICKS", "5"))
+        self.gap_scan_every_ticks = int(os.environ.get("BYON_RELATION_GAP_SCAN_EVERY_TICKS", "5"))
+        self.autorun_memory_tasks = _on("BYON_RELATION_AUTORUN_MEMORY_TASKS", "true")
+        self.max_tasks_per_tick = int(os.environ.get("BYON_RELATION_AUTORUN_MAX_TASKS_PER_TICK", "3"))
+        self._relation_field_provider = None       # set by the app; provider() -> RelationField
+        self.last_relation_maintenance: Optional[Dict[str, Any]] = None
+        self.last_gap_scan: Optional[Dict[str, Any]] = None
+        self.relation_maintenance_log = str(rt / "relation_maintenance_log.jsonl")
         self._lock = threading.RLock()
         self._recent: Deque[str] = deque(maxlen=50)
         self._pending_consolidation_reasons: List[str] = []
@@ -238,7 +249,10 @@ class BYONLifeLoop:
                                     fce_status, cand_before, cand_after)
             consolidated = True
         self.pressure.decay()                       # time-based decay of unattended pressure
-        ran = self.drain_tasks()                     # auto-run a few safe memory-only tasks
+        # Cycle 15: scheduled relation maintenance + gap scan (bounded; skipped if memory down).
+        relation_cycle = self.run_relation_cycle(mem_client)
+        # bounded autonomous memory-only task execution (web/secret/permissioned never run here)
+        ran = self.drain_tasks(max_tasks=self.max_tasks_per_tick) if self.autorun_memory_tasks else []
         if self._candidate_consolidator is not None:  # move candidate states (commit/dispute/...)
             try:
                 self.last_candidate_decisions = self._candidate_consolidator() or []
@@ -246,7 +260,9 @@ class BYONLifeLoop:
                 pass
         self.write_self_state_snapshot(mem_client)
         return {"consolidated": consolidated, "trigger": trigger, "result": result,
-                "tasks_run": ran, "self_state": self.snapshot()}
+                "tasks_run": ran, "relation_maintenance": relation_cycle.get("maintenance"),
+                "relation_gaps": len(relation_cycle.get("gaps", [])),
+                "relation_cycle": relation_cycle, "self_state": self.snapshot()}
 
     @staticmethod
     def _candidate_counts(learning: Any) -> Any:
@@ -284,6 +300,70 @@ class BYONLifeLoop:
             self._candidate_consolidator = consolidator
         if status_provider is not None:
             self._candidate_status_provider = status_provider
+
+    def set_relation_field_provider(self, provider: Any) -> None:
+        """provider() -> RelationField (built from the canonical namespace). Set by the app so the
+        tick can run scheduled relation maintenance + gap scan without holding a parallel store."""
+        self._relation_field_provider = provider
+
+    def _relation_field(self) -> Optional[Any]:
+        if self._relation_field_provider is None:
+            return None
+        try:
+            return self._relation_field_provider()
+        except Exception:
+            return None
+
+    def _memory_service_ok(self, mem_client: Optional[Any]) -> bool:
+        """Cycle 14 guard: if the memory-service is down, maintenance does NOT run (no fabrication)."""
+        if mem_client is not None and hasattr(mem_client, "health"):
+            try:
+                return bool((mem_client.health() or {}).get("_reachable"))
+            except Exception:
+                return False
+        return True
+
+    def run_relation_cycle(self, mem_client: Optional[Any] = None) -> Dict[str, Any]:
+        """Scheduled relation maintenance + gap scan for this tick (bounded). Skipped entirely if
+        the memory-service is down. Never answers the user, never commits, never deletes."""
+        out: Dict[str, Any] = {"maintenance": None, "gaps": [], "skipped": None}
+        if self._relation_field_provider is None:
+            out["skipped"] = "no relation field provider"
+            return out
+        if not self._memory_service_ok(mem_client):
+            out["skipped"] = "memory-service down (maintenance skipped, no fabrication)"
+            return out
+        field = self._relation_field()
+        if field is None:
+            out["skipped"] = "relation field unavailable"
+            return out
+        ticks = self.state["ticks"]
+        if self.relation_maintenance_enabled and ticks % max(1, self.maintenance_every_ticks) == 0:
+            try:
+                from gateway.relation_maintenance import run_relation_decay_maintenance
+                rep = run_relation_decay_maintenance(field, log_path=self.relation_maintenance_log)
+                self.last_relation_maintenance = {
+                    "maintenance_id": rep["maintenance_id"], "timestamp": rep["timestamp"],
+                    "relations_scanned": rep["relations_scanned"],
+                    "relations_decayed": rep["relations_decayed"],
+                    "canonical_resisted_decay": rep["canonical_resisted_decay"],
+                    "disputed_decayed": rep["disputed_decayed"],
+                    "weak_relations_flagged": len(rep["weak_relations_flagged"]),
+                    "central_weak_nodes": rep["central_weak_nodes"][:5],
+                    "recommended_tasks": len(rep["recommended_tasks"])}
+                out["maintenance"] = self.last_relation_maintenance
+            except Exception as exc:
+                out["maintenance_error"] = str(exc)
+        if ticks % max(1, self.gap_scan_every_ticks) == 0:
+            try:
+                from gateway.relation_field import RelationGapScanner
+                gaps = RelationGapScanner(field, tasks=self.tasks).scan()
+                out["gaps"] = gaps
+                self.last_gap_scan = {"ts": _now(), "gaps_found": len(gaps),
+                                      "tasks_created": sum(1 for g in gaps if g.get("task_id"))}
+            except Exception as exc:
+                out["gap_scan_error"] = str(exc)
+        return out
 
     @staticmethod
     def _is_memory_only(task: Dict[str, Any]) -> bool:
@@ -386,6 +466,8 @@ class BYONLifeLoop:
             "memory_growth_delta": None,
             "source_bleed_failures": s["source_bleed_failures"],
             "cross_user_leak_failures": s["cross_user_leak_failures"],
+            "relation_maintenance": self.last_relation_maintenance,
+            "relation_gap_scan": self.last_gap_scan,
         }
         try:
             with self.snapshots_path.open("a", encoding="utf-8") as f:
