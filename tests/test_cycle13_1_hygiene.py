@@ -119,7 +119,15 @@ def test_project_log_mentions_cycle13():
     lg = json.loads((ROOT / ".claude" / "project_log.json").read_text(encoding="utf-8"))
     cycles = {str(c["cycle"]) for c in lg["cycles"]}
     assert "13" in cycles and "13.1" in cycles
-    assert "14" in lg["next_cycle"]
+    # next_cycle must be populated AND point forward (reference a cycle beyond the highest logged
+    # one). Robust intent check, not a hardcoded cycle number that rots every cycle.
+    import re
+    nc = lg["next_cycle"]
+    assert isinstance(nc, str) and nc.strip(), "next_cycle must be a populated string"
+    max_cycle = max(float(c["cycle"]) for c in lg["cycles"])
+    referenced = [float(m) for m in re.findall(r"(?i)cycle\s+(\d+(?:\.\d+)?)", nc)]
+    assert any(r > max_cycle for r in referenced), \
+        f"next_cycle must point forward to a cycle > {max_cycle}; referenced {referenced}"
 
 
 # ============================================================ 4. style contract

@@ -9,7 +9,9 @@ this document records the measured verdict. FULL_LEVEL3_NOT_DECLARED preserved.
 - Stack launched via run_byon.py (pipe-safe file-handle child output); pre-flight
   scripts/check_live_stack.py exit 0 (Gateway :8090 + memory-service :8000, external FCE-M v15.7a
   runtime loaded, shim_used=false).
-- psutil 7.2.2 active; crash monitor sampled the memory-service PID every 5s for the whole run.
+- psutil active during the run; crash monitor sampled the memory-service PID every 5s for the whole
+  run. (Dependency note: pyproject declares `psutil>=5.9.0`, a minimum FLOOR, not a pin; 7.2.2 is
+  the version that was installed in this environment, not a pinned version.)
 - Harness: scripts/live_byon_eval.py (full configured set).
 
 ## Two runs (full transparency, not best-of-N)
@@ -54,6 +56,15 @@ this document records the measured verdict. FULL_LEVEL3_NOT_DECLARED preserved.
                 "monitor_uptime_seconds": 1391, "threshold_seconds": 300}}
 ]
 ```
+
+## Platform caveat on P4 (FD metric on Windows)
+The open-FD component of P4 is a PLATFORM ARTIFACT on Windows and must NOT be treated as leak
+evidence here: psutil on Windows exposes `num_handles`, not Unix `num_fds`, so the constant
+`FD 4 -> 4` is not a real file-descriptor measurement (a FastAPI + FAISS service holding 14072
+facts under load would show far more). The no-leak conclusion rests on RSS, which IS measured
+correctly: 558.4 -> 558.6 MB, ratio 1.000, slope ~0.02 MB/min (flat) over 184 samples / ~23 min.
+On a Unix host the FD figure would be meaningful; on Windows, read it as "not rising / not an
+obvious handle leak" at most, never as the primary leak evidence.
 
 ## Verdict: PASS (all five criteria true)
 Stability is now PROVEN under the real harness profile: a full 178-gate graded run over ~23 minutes,
