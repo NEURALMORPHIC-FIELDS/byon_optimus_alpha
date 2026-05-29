@@ -434,6 +434,8 @@ class Harness:
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             # legacy fields kept for any older consumers
             "passed": pass_count,
+            # Cycle 14 service-health guard fields (stack health, crash trace, last gate)
+            **self.guard.report_fields(),
         }
         REPORT.parent.mkdir(parents=True, exist_ok=True)
         REPORT.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -817,7 +819,9 @@ class Harness:
                       "tags": ["vault", f"source_id:obsidian:b#{i}:{bu}"], "thread_id": bu,
                       "trust": "EXTRACTED_USER_CLAIM", "source_id": f"obsidian:b#{i}:{bu}"} for i in range(3)]
             res = MemoryServiceClient(self.mem_url).store_facts_batch(items)
-            ok = (res.get("stored", len(res.get("ids", []))) >= 3) and res.get("failed", 0) == 0
+            # store_batch (Cycle 13.3) returns failed as a LIST; treat empty list OR 0 as no failures
+            # (the prior `failed == 0` check mis-read an empty list as a failure).
+            ok = (res.get("stored", len(res.get("ids", []))) >= 3) and not res.get("failed")
             self._add("batch_write_status", ok, f"batch store failed: {res}", category="other",
                       epistemic_status=f"stored={res.get('stored', len(res.get('ids', [])))}")
         except Exception as exc:

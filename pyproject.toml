@@ -60,6 +60,7 @@ app = [
     "fastapi>=0.109.0",
     "httpx>=0.26.0",
     "python-dotenv>=1.0.0",
+    "psutil>=5.9.0",
 ]
 dev = [
     "pytest>=7.0",
@@ -67,6 +68,7 @@ dev = [
     "fastapi>=0.109.0",
     "httpx>=0.26.0",
     "pydantic>=2.5.0",
+    "psutil>=5.9.0",
 ]
 
 [tool.setuptools]
