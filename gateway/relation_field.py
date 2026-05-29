@@ -312,6 +312,47 @@ class RelationField:
         except OSError:
             pass
 
+    def compact(self) -> Dict[str, Dict[str, int]]:
+        """Rewrite the append-only ledgers to one line per current record. _load() is already
+        last-record-wins per key, so discarding superseded historical lines is state-preserving:
+        a freshly loaded field is byte-for-byte identical in memory. This bounds the unbounded
+        growth that makes _load() O(history) (every add_entity/add_relation appends a full copy),
+        keeping the per-request status/gaps reads fast. Each file is rewritten atomically (temp +
+        os.replace) so a concurrent reader never sees a partial file. A final on-disk re-read +
+        merge captures lines appended since __init__; the only residual loss window is a single
+        append between that re-read and os.replace (a non-authoritative candidate, self-healing)."""
+        import os as _os
+        import tempfile as _tmp
+        stats: Dict[str, Dict[str, int]] = {}
+        for path, sink, key_field in ((self.entities_path, self._ent, "entity_id"),
+                                      (self.edges_path, self._rel, "relation_id"),
+                                      (self.contradictions_path, self._contra, "contradiction_id")):
+            before = 0
+            if path.exists():                              # re-read to fold in concurrent appends
+                try:
+                    for line in path.read_text(encoding="utf-8").splitlines():
+                        if line.strip():
+                            before += 1
+                            rec = json.loads(line)
+                            k = rec.get(key_field)
+                            if k:
+                                sink[k] = rec
+                except (OSError, json.JSONDecodeError):
+                    continue
+            if not sink:
+                continue
+            try:
+                self.dir.mkdir(parents=True, exist_ok=True)
+                fd, tmp = _tmp.mkstemp(dir=str(self.dir), prefix=".compact_", suffix=".tmp")
+                with _os.fdopen(fd, "w", encoding="utf-8") as f:
+                    for rec in sink.values():
+                        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                _os.replace(tmp, path)
+                stats[path.name] = {"before": before, "after": len(sink)}
+            except OSError:
+                pass
+        return stats
+
     def is_empty(self) -> bool:
         return not self._rel and not self._ent
 

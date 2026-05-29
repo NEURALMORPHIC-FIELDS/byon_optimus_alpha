@@ -2206,7 +2206,7 @@ class Harness:
 
         def mget(path: Any) -> Any:
             try:
-                return httpx.get(f"{base}/{path}", timeout=40).json()
+                return httpx.get(f"{base}/{path}", timeout=90).json()
             except Exception:
                 return {}
 

@@ -2,56 +2,171 @@
   "version": "10.16.0-alpha",
   "note": "Tests/harness counts are as reported by the cycle that introduced them; later cycles re-run all prior gates green. Live harness is graded against a running REAL stack.",
   "cycles": [
-    {"cycle": 1, "summary": "Active-memory runtime accepted; live harness 15/15", "commit": null},
-    {"cycle": 2, "summary": "Harden active-memory runtime (expression learning, session events, harder harness)", "commit": "640ac66", "live": "25/25 graded"},
-    {"cycle": 3, "summary": "Close memory substrate loop (source_policy, two-phase restart-recall, vault coherence)", "commit": "7f2fa94", "non_live": 196, "live": "35/35"},
-    {"cycle": 4, "summary": "Substrate hardening (dedup, write-lock, error classes, recent-write buffer, process guard)", "commit": "57e5104", "non_live": 228, "live": "40/40"},
-    {"cycle": 5, "summary": "Read-consistent access + tombstone/compaction", "commit": "9913191", "non_live": 250, "live": "49/49"},
-    {"cycle": 6, "summary": "LifeLoop v2 (pressure, research tasks, consolidation, self-state)", "commit": "f5eb108", "non_live": 282, "live": "63/63"},
-    {"cycle": 7, "summary": "Engine consistency + permissioned autonomous memory-only tasks", "commit": "6bc5606", "non_live": 307, "live": "76/76"},
-    {"cycle": 8, "summary": "Candidate-to-commit lifecycle (Track A in-engine snapshot deferred honestly)", "commit": "395eaed", "non_live": 338, "live": "93/93"},
-    {"cycle": 9, "summary": "Semantic contradiction + evidence quality", "commit": "f516280", "non_live": 361, "live": "106/106"},
-    {"cycle": 10, "summary": "Relational memory field v1 (entities + typed relations, non-authoritative)", "commit": "767cdc0", "non_live": 393, "live": "121/121"},
-    {"cycle": 11, "summary": "Relation inference + grounded relational reasoning (content, not filenames)", "commit": "27f5926", "non_live": 424, "live": "137/137"},
-    {"cycle": 12, "summary": "Directed, evidence-weighted, policy-aware relational reasoning", "commit": "c918e5e", "non_live": 459, "live": "155/155"},
-    {"cycle": 13, "summary": "Objective relation answering + trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state", "commit": "496f1fd", "non_live": 514, "live": "178/178"},
-    {"cycle": "13.1", "summary": "Release hygiene: ownership attribution, copyright headers, verify_integration.py, .claude memory, em-dash cleanup + style contract, FCE-M runtime docs. No new cognitive features.", "commit": null},
-    {"cycle": "13.2", "summary": "Release hygiene completion: PYTHON_HEADER on remaining unheadered non-exempt files (incl sealed/adapter __init__), repo-wide em-dash eradication on the tracked surface (count 0; gitignored runtime/ artifacts out of scope), owned type-hint coverage raised to 100.0 with PEP 563 'from __future__ import annotations', relative->absolute imports across owned packages, style-contract scan widened to dcortex/orchestration/integrations (header+em-dash, no type-hint demand), .mailmap + canonical git identity. No program logic, control flow, or numeric constants changed. No new cognitive features.", "commit": null, "non_live": 531, "live": "not run this cycle (hygiene only; no live-validation claim)"},
-    {"cycle": "13.3", "date": "2026-05-28", "time": "local",
-     "requested": "Two-repo Cycle 13.3: (ALPHA) finish hygiene + extend the epistemic loop with 4 live acquisition sources (EvidencePacket + project-files/corpus/external-LLM/budget adapters, +BUDGET_REQUIRED, +trust tiers), no parallel engine; (ORCH) store_batch action, FCEM_VERSIONING.md, GMV daemon real readers, FHRSS neighbor-assisted recovery per EP25216372.0.",
-     "executed": "ALPHA: gateway/acquisition/ package (EvidencePacket + 4 source adapters + sufficiency-gated orchestrator + acquisition_policy.json) wired into gateway/epistemic_search.py between the Claude and web phases; gateway/types.py +BUDGET_REQUIRED; gateway/query_router.py +EXTERNAL_VERIFIED/MODEL_PRIOR_UNVERIFIED/EXTERNAL_LLM_ADVISORY/INTERNAL_PRESSURE_TRACE trust tiers (below committed, above PROVISIONAL_WEB); 15 new acquisition tests. ORCH: memory-service store_batch action (reuses single-store per item); FCEM_VERSIONING.md; GMV daemon real memory-service + audit-trail readers; FHRSS neighbor-assisted recovery (encode-side boundary projection + decode-side majority reconstruct/merge/re-run/recompute) with T1-T4.",
-     "files_touched": 15,
-     "status": "all gates green: verify_integration exit 0, check_style_contract exit 0, ALPHA non-live pytest 546 passed (15 new), owned type-hint 100.0, em-dash 0 tracked, owned relative imports 0; ORCH npm test 700 passed + tsc build clean, memory-service pytest 7 passed (store_batch 3 + FHRSS T1-T4), FHRSS neighbor recovery measured rate 1.0000 at 40% loss.",
-     "notes": "Additive only; no parallel engine (BYON stays the single epistemic authority); dcortex/ and vendor/fce_m logic unmodified. NEEDS OWNER CONFIRMATION recorded for FCEM lineage (0.6.x vs v15.7a), GMV audit/embeddings exposure, and FHRSS distributed projection replication + 8-value compression scheme.",
-     "commit": null, "non_live": 546, "live": "not run this cycle (no live stack; no live-validation claim)"},
-    {"cycle": 14, "date": "2026-05-28", "time": "local",
-     "requested": "memory-service crash diagnosis + live-stack stability (diagnostic-first: instrument -> reproduce -> root-cause -> fix/mitigate -> honesty-wiring -> gate). No new cognitive behavior; no autonomous load.",
-     "executed": "S1 scripts/check_live_stack.py (pre-flight stack health, exit codes 0-5) + tests; S2 scripts/monitor_memory_service.py (crash monitor with RSS/CPU/FD resource time-series) + tests; S5 app/service_supervisor.py hardened (separate pipe-safe stdout/stderr file handles, process diagnostics with redacted env + exit code, bounded opt-in autorestart that marks the run unstable) + run_byon.py wired + tests; S4 scripts/reproduce_memory_service_crash.py (modes search/relation/lifeloop/store-read/mixed/acquisition-store incl. store_batch) + tests; S7 docs/CYCLE14_MEMORY_SERVICE_ROOT_CAUSE.md; S3 live_byon_eval.py ServiceHealthGuard (pre-flight + per-gate health poll + MEMORY_SERVICE_CRASH classification + last_successful_gate/health-trace report fields) + tests; S6 gateway memory_service_up() guard so chat/research return ERROR when memory down (no Claude/local fallback) + status/memory_status + UI panel + tests.",
-     "files_touched": 13,
-     "status": "all gates green: verify_integration exit 0 (79 modules), check_style_contract exit 0, ALPHA non-live pytest 587 passed (56 new), em-dash 0 tracked, owned type-hint 100.0. ROOT CAUSE: prime-suspect subprocess unread-PIPE buffer deadlock is EXCLUDED for the canonical launch path (the supervisor and integrate.py already redirect child output to file handles; the deadlock mechanism is positively reproduced in a unit test, and file-handle redirection is the cure). Live evidence: the real memory-service (external v15.7a runtime loaded, shim_used=false) sustained 240 mixed search + store_batch iterations with 0 crashes and alive_end=true (sustained_load_no_crash PROVEN).",
-     "notes": "Diagnostic-first, no blind patching. Mitigation is supervisor/Gateway-side only; the sealed engine was NOT modified. A crash is reported as MEMORY_SERVICE_CRASH honestly, never a fake pass. Remaining risk: an engine-internal crash under load not covered by the 240-iter test would be in the sealed engine (diagnosed, not patched); the resource-trend monitor characterizes leak-vs-spike when psutil is present.",
-     "commit": null, "non_live": 587, "live": "memory-service sustained-load proof run (240 iter, 0 crashes); full graded live harness not re-run this cycle"},
-    {"cycle": "14.1", "date": "2026-05-29", "time": "local",
-     "requested": "full-stack live validation: the 178-gate graded harness over real duration with a psutil-backed RSS/CPU/FD monitor; pre-declared P1-P5 thresholds.",
-     "executed": "Installed psutil 7.2.2 (added to pyproject app+dev extras). Launched the canonical stack via run_byon.py (pipe-safe), check_live_stack exit 0 (external FCE-M v15.7a runtime loaded). Ran scripts/monitor_memory_service.py (psutil-backed, 5s) over the harness; ran scripts/live_byon_eval.py full set. Fixed one stale gate assertion (batch_write_status checked failed==0 but Cycle-13.3 store_batch returns failed as a LIST; the batch actually succeeded, stored=3, failed=[]) and completed the Cycle-14 ServiceHealthGuard report-fields wiring so the eval report carries stack_health/crash/last_gate.",
-     "files_touched": 5,
-     "status": "PASS - all P1-P5 met. P1 178/178 graded gates pass (run 1 was 177/178 on the stale batch assertion, corrected, re-run 178/178). P2 0 crashes, 0 restarts, alive_end true. P3 no fabricated answer / no Claude or local fallback (failure_categories empty, all statuses epistemically valid, no cross-user leak). P4 RSS 558.4->558.6 MB (ratio 1.000, peak 567.4, slope +0.0214 MB/min), FD 4->4 (delta 0); no leak. P5 harness elapsed 22.8 min (>=5). 184 monitor samples.",
-     "notes": "Stability PROVEN under the real harness profile (not a 37s scoped replay). The single first-run failure was a test-assertion bug, not a system fault; corrected (not weakened) and re-validated; both runs reported transparently (no best-of-N). No new product logic; the sealed engine was not modified.",
-     "commit": null, "non_live": 587, "live": "178/178 graded live harness PASS under psutil monitor over ~23 min; 0 crashes"},
-    {"cycle": 15, "date": "2026-05-29", "time": "local",
-     "requested": "relation-intelligence layer: per-hop path weighting + explanation v2 (load-free), scheduled relation decay maintenance, LifeLoop integration, autonomous gap-repair routed through the 13.3 acquisition phase with acquisition_context wiring, relation task ingestion, relation self-state v2, UI/API; relation field stays non-authoritative; candidates not truth. Four phases, one commit per phase (no squash).",
-     "executed": "Phase 1 (b0114d7): TRACK F gateway/relation_path_score.py per-hop path_score replaces min-edge-weight (wired into RelationField._path_obj) + TRACK G render_path_explanation_v2. Phase 2 (741f3d9): TRACK B relation_maintenance.py scheduled decay; TRACK C LifeLoop tick integration (bounded autorun + memory-down guard); TRACK D gap-repair routed through 13.3 acquisition with acquisition_context/repo_root wired lifeloop_run_task -> backend.research -> search.run (project_files cwd-fallback removed so the wiring is load-bearing); TRACK E relation task-result ingestion as candidates. Phase 3 (cdf18d2): TRACK H relation_self_state_v2; TRACK I Gateway-only maintenance/gaps/path-score/task-results endpoints. Phase 4: TRACK E wired into the LIVE autorun path; _cycle15_suite (25 live gates) + coverage test.",
-     "files_touched": 14,
-     "status": "Cycle 15 DONE. Non-live suite 646 passed (60 new across F/G/B/C/D/E/H/I + coverage), em-dash 0, verify_integration exit 0, check_style exit 0. LIVE: all 25 Cycle-15 gates pass against a real stack (validated by executing _cycle15_suite live, not unit fixtures); routing proof is live (an ungrounded question reaches the acquisition phase; the acquisition record is emitted only by EpistemicSearch.run). HONEST FINDING: project_files is live-dormant because a project/self-term question is grounded by committed canonical memory and returns KNOWN before acquisition (correct precedence, memory wins); project_files firing is proven at unit level with empty memory (test_gap_repair_passes_acquisition_context_repo_root), and the repo_root wiring is real. Extended-profile stability (Cycle 14.1 follow-up): 278 psutil samples over ~37 min of the live harness, 0 crashes, RSS 558.2->561.0 MB (ratio 1.005, peak 572.5, slope +0.085 MB/min, no leak).",
-     "notes": "Relation field never a truth authority; LifeLoop never answers the user; task results are candidates, never committed; memory-only gaps auto-run, web gaps require permission, secret-derived gaps create no task; maintenance never deletes (decay-on-read) and is skipped when the memory-service is down. PRE-EXISTING non-Cycle-15 failures in this live run (NOT regressions, NOT faked): read_consistency_mode_active and vault_active_vs_tombstoned_counts (Cycle-5 gates) failed on environment state (vault not trained in this run; client read_consistency_mode None) - untouched by Cycle 15.",
-     "commit": null, "non_live": 646, "live": "25/25 Cycle-15 gates PASS live; 2 pre-existing Cycle-5 gates failed on environment (documented)"},
-    {"cycle": 16, "date": "2026-05-29", "time": "local",
-     "requested": "TASK 1: scoped audit flag require_independent_source so verify_with_project_source / resolve_dispute gap-repair seek a source independent of cached (vault) grounding (no short-circuit), normal retrieval keeps memory-wins. TASK 2: train vault + full green live harness, close.",
-     "executed": "TASK 1 DONE: require_independent_source flag in EpistemicSearch.run (skips the self-arch-committed + fast-path short-circuits and forces the project_files/external pass when set; scoped to verify/dispute gap tasks via lifeloop_run_task, the explicit operator path). 5 unit tests pass (project pass fires despite grounding; independent-source-or-honest-none; disputed seeks beyond; normal query unchanged/memory wins; contradiction -> disputed challenger). Found+fixed a regression I introduced: applying require_independent to the AUTONOMOUS autorun path stalled ticks (whole-repo project_files per task) -> reverted to manual-path-only per the spec. Bounded project_files_adapter (cap files + per-file bytes). Made the harness _post resilient (a slow gateway call records ERROR instead of crashing the whole run).",
-     "files_touched": 5,
-     "status": "TASK 1 complete + unit-proven (651 non-live passed, em-dash 0, verify_integration exit 0, check_style exit 0). LIVE harness NOT authoritatively green this cycle: best authoritative run was 203 graded, 202 pass, 1 fail; the SOLE failure was memory_gap_task_autoruns, caused by the autorun require_independent regression I then fixed. In that same run the two previously-red Cycle-5 gates (read_consistency_mode_active, vault_active_vs_tombstoned_counts) PASSED and the Cycle-15 routing gate PASSED. The post-fix re-run crashed on an httpx.ReadTimeout from an unwrapped harness research call under autorun load (now fixed by the resilient _post), so a clean 203/203 run was not re-confirmed within this session.",
-     "notes": "Honest close, not faked: full-green live harness is PENDING a final clean re-run with the autorun fix + bounded project_files + resilient _post in place. The fixes are unit-validated and the only failing gate's root cause is addressed. Cycle 16 TASK 2 'train vault' was moot: read_consistency_mode is an engine attribute (not vault-dependent) and there is no vault .md corpus (runtime/vaults checkouts are empty); both Cycle-5 gates nonetheless passed live from the harness's own planting + engine state in the 202/203 run.",
-     "commit": null, "non_live": 651, "live": "best run 203 graded / 202 pass / 1 fail (the autorun regression, now fixed); clean 203/203 re-run pending"}
+    {
+      "cycle": 1,
+      "summary": "Active-memory runtime accepted; live harness 15/15",
+      "commit": null
+    },
+    {
+      "cycle": 2,
+      "summary": "Harden active-memory runtime (expression learning, session events, harder harness)",
+      "commit": "640ac66",
+      "live": "25/25 graded"
+    },
+    {
+      "cycle": 3,
+      "summary": "Close memory substrate loop (source_policy, two-phase restart-recall, vault coherence)",
+      "commit": "7f2fa94",
+      "non_live": 196,
+      "live": "35/35"
+    },
+    {
+      "cycle": 4,
+      "summary": "Substrate hardening (dedup, write-lock, error classes, recent-write buffer, process guard)",
+      "commit": "57e5104",
+      "non_live": 228,
+      "live": "40/40"
+    },
+    {
+      "cycle": 5,
+      "summary": "Read-consistent access + tombstone/compaction",
+      "commit": "9913191",
+      "non_live": 250,
+      "live": "49/49"
+    },
+    {
+      "cycle": 6,
+      "summary": "LifeLoop v2 (pressure, research tasks, consolidation, self-state)",
+      "commit": "f5eb108",
+      "non_live": 282,
+      "live": "63/63"
+    },
+    {
+      "cycle": 7,
+      "summary": "Engine consistency + permissioned autonomous memory-only tasks",
+      "commit": "6bc5606",
+      "non_live": 307,
+      "live": "76/76"
+    },
+    {
+      "cycle": 8,
+      "summary": "Candidate-to-commit lifecycle (Track A in-engine snapshot deferred honestly)",
+      "commit": "395eaed",
+      "non_live": 338,
+      "live": "93/93"
+    },
+    {
+      "cycle": 9,
+      "summary": "Semantic contradiction + evidence quality",
+      "commit": "f516280",
+      "non_live": 361,
+      "live": "106/106"
+    },
+    {
+      "cycle": 10,
+      "summary": "Relational memory field v1 (entities + typed relations, non-authoritative)",
+      "commit": "767cdc0",
+      "non_live": 393,
+      "live": "121/121"
+    },
+    {
+      "cycle": 11,
+      "summary": "Relation inference + grounded relational reasoning (content, not filenames)",
+      "commit": "27f5926",
+      "non_live": 424,
+      "live": "137/137"
+    },
+    {
+      "cycle": 12,
+      "summary": "Directed, evidence-weighted, policy-aware relational reasoning",
+      "commit": "c918e5e",
+      "non_live": 459,
+      "live": "155/155"
+    },
+    {
+      "cycle": 13,
+      "summary": "Objective relation answering + trust decay + grounded path explanation + contradiction evolution + relation-gap tasks + relation self-state",
+      "commit": "496f1fd",
+      "non_live": 514,
+      "live": "178/178"
+    },
+    {
+      "cycle": "13.1",
+      "summary": "Release hygiene: ownership attribution, copyright headers, verify_integration.py, .claude memory, em-dash cleanup + style contract, FCE-M runtime docs. No new cognitive features.",
+      "commit": null
+    },
+    {
+      "cycle": "13.2",
+      "summary": "Release hygiene completion: PYTHON_HEADER on remaining unheadered non-exempt files (incl sealed/adapter __init__), repo-wide em-dash eradication on the tracked surface (count 0; gitignored runtime/ artifacts out of scope), owned type-hint coverage raised to 100.0 with PEP 563 'from __future__ import annotations', relative->absolute imports across owned packages, style-contract scan widened to dcortex/orchestration/integrations (header+em-dash, no type-hint demand), .mailmap + canonical git identity. No program logic, control flow, or numeric constants changed. No new cognitive features.",
+      "commit": null,
+      "non_live": 531,
+      "live": "not run this cycle (hygiene only; no live-validation claim)"
+    },
+    {
+      "cycle": "13.3",
+      "date": "2026-05-28",
+      "time": "local",
+      "requested": "Two-repo Cycle 13.3: (ALPHA) finish hygiene + extend the epistemic loop with 4 live acquisition sources (EvidencePacket + project-files/corpus/external-LLM/budget adapters, +BUDGET_REQUIRED, +trust tiers), no parallel engine; (ORCH) store_batch action, FCEM_VERSIONING.md, GMV daemon real readers, FHRSS neighbor-assisted recovery per EP25216372.0.",
+      "executed": "ALPHA: gateway/acquisition/ package (EvidencePacket + 4 source adapters + sufficiency-gated orchestrator + acquisition_policy.json) wired into gateway/epistemic_search.py between the Claude and web phases; gateway/types.py +BUDGET_REQUIRED; gateway/query_router.py +EXTERNAL_VERIFIED/MODEL_PRIOR_UNVERIFIED/EXTERNAL_LLM_ADVISORY/INTERNAL_PRESSURE_TRACE trust tiers (below committed, above PROVISIONAL_WEB); 15 new acquisition tests. ORCH: memory-service store_batch action (reuses single-store per item); FCEM_VERSIONING.md; GMV daemon real memory-service + audit-trail readers; FHRSS neighbor-assisted recovery (encode-side boundary projection + decode-side majority reconstruct/merge/re-run/recompute) with T1-T4.",
+      "files_touched": 15,
+      "status": "all gates green: verify_integration exit 0, check_style_contract exit 0, ALPHA non-live pytest 546 passed (15 new), owned type-hint 100.0, em-dash 0 tracked, owned relative imports 0; ORCH npm test 700 passed + tsc build clean, memory-service pytest 7 passed (store_batch 3 + FHRSS T1-T4), FHRSS neighbor recovery measured rate 1.0000 at 40% loss.",
+      "notes": "Additive only; no parallel engine (BYON stays the single epistemic authority); dcortex/ and vendor/fce_m logic unmodified. NEEDS OWNER CONFIRMATION recorded for FCEM lineage (0.6.x vs v15.7a), GMV audit/embeddings exposure, and FHRSS distributed projection replication + 8-value compression scheme.",
+      "commit": null,
+      "non_live": 546,
+      "live": "not run this cycle (no live stack; no live-validation claim)"
+    },
+    {
+      "cycle": 14,
+      "date": "2026-05-28",
+      "time": "local",
+      "requested": "memory-service crash diagnosis + live-stack stability (diagnostic-first: instrument -> reproduce -> root-cause -> fix/mitigate -> honesty-wiring -> gate). No new cognitive behavior; no autonomous load.",
+      "executed": "S1 scripts/check_live_stack.py (pre-flight stack health, exit codes 0-5) + tests; S2 scripts/monitor_memory_service.py (crash monitor with RSS/CPU/FD resource time-series) + tests; S5 app/service_supervisor.py hardened (separate pipe-safe stdout/stderr file handles, process diagnostics with redacted env + exit code, bounded opt-in autorestart that marks the run unstable) + run_byon.py wired + tests; S4 scripts/reproduce_memory_service_crash.py (modes search/relation/lifeloop/store-read/mixed/acquisition-store incl. store_batch) + tests; S7 docs/CYCLE14_MEMORY_SERVICE_ROOT_CAUSE.md; S3 live_byon_eval.py ServiceHealthGuard (pre-flight + per-gate health poll + MEMORY_SERVICE_CRASH classification + last_successful_gate/health-trace report fields) + tests; S6 gateway memory_service_up() guard so chat/research return ERROR when memory down (no Claude/local fallback) + status/memory_status + UI panel + tests.",
+      "files_touched": 13,
+      "status": "all gates green: verify_integration exit 0 (79 modules), check_style_contract exit 0, ALPHA non-live pytest 587 passed (56 new), em-dash 0 tracked, owned type-hint 100.0. ROOT CAUSE: prime-suspect subprocess unread-PIPE buffer deadlock is EXCLUDED for the canonical launch path (the supervisor and integrate.py already redirect child output to file handles; the deadlock mechanism is positively reproduced in a unit test, and file-handle redirection is the cure). Live evidence: the real memory-service (external v15.7a runtime loaded, shim_used=false) sustained 240 mixed search + store_batch iterations with 0 crashes and alive_end=true (sustained_load_no_crash PROVEN).",
+      "notes": "Diagnostic-first, no blind patching. Mitigation is supervisor/Gateway-side only; the sealed engine was NOT modified. A crash is reported as MEMORY_SERVICE_CRASH honestly, never a fake pass. Remaining risk: an engine-internal crash under load not covered by the 240-iter test would be in the sealed engine (diagnosed, not patched); the resource-trend monitor characterizes leak-vs-spike when psutil is present.",
+      "commit": null,
+      "non_live": 587,
+      "live": "memory-service sustained-load proof run (240 iter, 0 crashes); full graded live harness not re-run this cycle"
+    },
+    {
+      "cycle": "14.1",
+      "date": "2026-05-29",
+      "time": "local",
+      "requested": "full-stack live validation: the 178-gate graded harness over real duration with a psutil-backed RSS/CPU/FD monitor; pre-declared P1-P5 thresholds.",
+      "executed": "Installed psutil 7.2.2 (added to pyproject app+dev extras). Launched the canonical stack via run_byon.py (pipe-safe), check_live_stack exit 0 (external FCE-M v15.7a runtime loaded). Ran scripts/monitor_memory_service.py (psutil-backed, 5s) over the harness; ran scripts/live_byon_eval.py full set. Fixed one stale gate assertion (batch_write_status checked failed==0 but Cycle-13.3 store_batch returns failed as a LIST; the batch actually succeeded, stored=3, failed=[]) and completed the Cycle-14 ServiceHealthGuard report-fields wiring so the eval report carries stack_health/crash/last_gate.",
+      "files_touched": 5,
+      "status": "PASS - all P1-P5 met. P1 178/178 graded gates pass (run 1 was 177/178 on the stale batch assertion, corrected, re-run 178/178). P2 0 crashes, 0 restarts, alive_end true. P3 no fabricated answer / no Claude or local fallback (failure_categories empty, all statuses epistemically valid, no cross-user leak). P4 RSS 558.4->558.6 MB (ratio 1.000, peak 567.4, slope +0.0214 MB/min), FD 4->4 (delta 0); no leak. P5 harness elapsed 22.8 min (>=5). 184 monitor samples.",
+      "notes": "Stability PROVEN under the real harness profile (not a 37s scoped replay). The single first-run failure was a test-assertion bug, not a system fault; corrected (not weakened) and re-validated; both runs reported transparently (no best-of-N). No new product logic; the sealed engine was not modified.",
+      "commit": null,
+      "non_live": 587,
+      "live": "178/178 graded live harness PASS under psutil monitor over ~23 min; 0 crashes"
+    },
+    {
+      "cycle": 15,
+      "date": "2026-05-29",
+      "time": "local",
+      "requested": "relation-intelligence layer: per-hop path weighting + explanation v2 (load-free), scheduled relation decay maintenance, LifeLoop integration, autonomous gap-repair routed through the 13.3 acquisition phase with acquisition_context wiring, relation task ingestion, relation self-state v2, UI/API; relation field stays non-authoritative; candidates not truth. Four phases, one commit per phase (no squash).",
+      "executed": "Phase 1 (b0114d7): TRACK F gateway/relation_path_score.py per-hop path_score replaces min-edge-weight (wired into RelationField._path_obj) + TRACK G render_path_explanation_v2. Phase 2 (741f3d9): TRACK B relation_maintenance.py scheduled decay; TRACK C LifeLoop tick integration (bounded autorun + memory-down guard); TRACK D gap-repair routed through 13.3 acquisition with acquisition_context/repo_root wired lifeloop_run_task -> backend.research -> search.run (project_files cwd-fallback removed so the wiring is load-bearing); TRACK E relation task-result ingestion as candidates. Phase 3 (cdf18d2): TRACK H relation_self_state_v2; TRACK I Gateway-only maintenance/gaps/path-score/task-results endpoints. Phase 4: TRACK E wired into the LIVE autorun path; _cycle15_suite (25 live gates) + coverage test.",
+      "files_touched": 14,
+      "status": "Cycle 15 DONE. Non-live suite 646 passed (60 new across F/G/B/C/D/E/H/I + coverage), em-dash 0, verify_integration exit 0, check_style exit 0. LIVE: all 25 Cycle-15 gates pass against a real stack (validated by executing _cycle15_suite live, not unit fixtures); routing proof is live (an ungrounded question reaches the acquisition phase; the acquisition record is emitted only by EpistemicSearch.run). HONEST FINDING: project_files is live-dormant because a project/self-term question is grounded by committed canonical memory and returns KNOWN before acquisition (correct precedence, memory wins); project_files firing is proven at unit level with empty memory (test_gap_repair_passes_acquisition_context_repo_root), and the repo_root wiring is real. Extended-profile stability (Cycle 14.1 follow-up): 278 psutil samples over ~37 min of the live harness, 0 crashes, RSS 558.2->561.0 MB (ratio 1.005, peak 572.5, slope +0.085 MB/min, no leak).",
+      "notes": "Relation field never a truth authority; LifeLoop never answers the user; task results are candidates, never committed; memory-only gaps auto-run, web gaps require permission, secret-derived gaps create no task; maintenance never deletes (decay-on-read) and is skipped when the memory-service is down. PRE-EXISTING non-Cycle-15 failures in this live run (NOT regressions, NOT faked): read_consistency_mode_active and vault_active_vs_tombstoned_counts (Cycle-5 gates) failed on environment state (vault not trained in this run; client read_consistency_mode None) - untouched by Cycle 15.",
+      "commit": null,
+      "non_live": 646,
+      "live": "25/25 Cycle-15 gates PASS live; 2 pre-existing Cycle-5 gates failed on environment (documented)"
+    },
+    {
+      "cycle": 16,
+      "date": "2026-05-29",
+      "time": "local",
+      "requested": "TASK 1: scoped audit flag require_independent_source so verify_with_project_source / resolve_dispute gap-repair seek a source independent of cached (vault) grounding (no short-circuit), normal retrieval keeps memory-wins. TASK 2: train vault + full green live harness, close.",
+      "executed": "TASK 1 DONE: require_independent_source flag in EpistemicSearch.run (skips the self-arch-committed + fast-path short-circuits and forces the project_files/external pass when set; scoped to verify/dispute gap tasks via lifeloop_run_task, the explicit operator path). 5 unit tests pass (project pass fires despite grounding; independent-source-or-honest-none; disputed seeks beyond; normal query unchanged/memory wins; contradiction -> disputed challenger). Found+fixed a regression I introduced: applying require_independent to the AUTONOMOUS autorun path stalled ticks (whole-repo project_files per task) -> reverted to manual-path-only per the spec. Bounded project_files_adapter (cap files + per-file bytes). Made the harness _post resilient (a slow gateway call records ERROR instead of crashing the whole run).",
+      "files_touched": 5,
+      "status": "DONE - CLEAN FULL-GREEN LIVE: 203 graded / 203 pass / 0 fail / 4 skip (all_pass=True, memory_service_crashed=False) on a fresh stack with BYON_REPO_ROOT. TASK 1 complete + unit-proven. TASK 2 complete: the two previously-red Cycle-5 gates green with real state (read_consistency_mode_active=in_engine_rw_lock; vault_active_vs_tombstoned_counts active=5977 tombstoned=4419); Cycle-15 routing gate green. Journey: an interim run sat at 199/203 with 4 reds; investigation proved they were NOT correctness/invariant violations but relation-field read-latency artifacts (the append-only JSONL had bloated to 162K entity + 63K edge lines because every add_entity/add_relation appends a full copy; per-request status/gaps reads took 57s/38.8s; the harness mget(40s) coerced the timeout to empty and misread it as is_truth_authority/gaps/autorun/recent-write failures - proven by hitting the endpoints with a long timeout: status=57s returned is_truth_authority=False, gaps=38.8s returned count=20). An earlier interim 202/203 was a self-introduced autorun require_independent regression (reverted to manual-path-only). 656 non-live passed, em-dash 0, verify_integration exit 0, check_style_contract exit 0.",
+      "notes": "ROOT-CAUSE FIX (real, not a workaround): RelationField.compact() rewrites the ledger to one line per current key - state-preserving because _load() is already last-record-wins, so it only drops superseded historical duplicates that _load already ignores (unit-proven: reload identical + concurrent-append-safe). Wired into run_relation_decay_maintenance gated on a bloat threshold so it self-bounds going forward; bumped harness mget 40->90s as defense-in-depth. Compacted the live field offline 162781->1090 entities / 63366->1020 edges / 5002->62 contradictions; reload 28.6s->0.29s, live status/gaps reads 57s->~1s. recent_write_buffer was a transient flake from the contended slow stack - all 3 instances pass with reads fast. Honest gap: the psutil monitor under-sampled this run (0 RSS samples, 98s window); no-crash rests on the harness health trace (memory_service_alive across all 33 checkpoints, healthy start+end) + memory_service_crashed=False.",
+      "commit": null,
+      "non_live": 656,
+      "live": "CLEAN 203 graded / 203 pass / 0 fail / 4 skip (all_pass=True, no crash) after the compaction fix"
+    }
   ],
   "deferred_items": [
     "Track A: true in-engine FAISS snapshot/atomic-swap inside the sealed memory-service (MEMORY_SERVICE_ENGINE_PATCH_PLAN.md)",
@@ -60,6 +175,6 @@
     "live connector gates (LibreChat/openclaw/n8n) deferred, never faked"
   ],
   "tests_claimed_vs_verified": "Each cycle's non-live count and live graded count are produced by a real pytest run and a real graded live-harness run on a running REAL stack; counts above are the verified figures at that cycle.",
-  "current_state": "Cycle 16 TASK 1 DONE + unit-proven (require_independent_source: verify/dispute gap-repair seeks a source independent of cached vault grounding, no short-circuit; scoped to the explicit lifeloop_run_task path; normal retrieval keeps memory-wins). 651 non-live passed, gates green. Found+fixed an autorun regression (require_independent on the autonomous path stalled ticks -> manual-path-only); bounded project_files_adapter; made harness _post resilient. LIVE full-green NOT re-confirmed this session: best authoritative run 203 graded/202 pass/1 fail (sole failure = the autorun regression, now fixed; the 2 previously-red Cycle-5 gates + the Cycle-15 routing gate PASSED in that run); post-fix re-run crashed on an httpx.ReadTimeout (now fixed by resilient _post) before a clean 203/203 could be confirmed. Full-green close PENDING a final clean re-run; NOT faked. Prior: Cycle 15 DONE (relation-intelligence layer): per-hop path weighting + explanation v2, scheduled decay maintenance, LifeLoop integration, autonomous gap-repair routed through the 13.3 acquisition phase (acquisition_context/repo_root wired; routing proven live), relation task ingestion as candidates, relation self-state v2, Gateway-only maintenance endpoints. Four phases, one commit each (no squash): b0114d7, 741f3d9, cdf18d2, + closing commit. Non-live 646 passed; 25/25 Cycle-15 live gates pass. Honest finding: project_files adapter is live-dormant (committed canonical memory grounds project questions before acquisition; unit-proven with empty memory). Extended stability: 278 psutil samples over ~37 min, 0 crashes, RSS flat (ratio 1.005, slope +0.085 MB/min). Prior: Cycle 14.1 PASS: full 178-gate graded live harness over ~23 min under a psutil-backed RSS/CPU/FD monitor; 178/178 gates pass, 0 crashes, 0 restarts, flat memory/FD trend (no leak); all pre-declared P1-P5 met. Stability is PROVEN under the real harness profile. Prior: Cycle 14 applied (memory-service crash diagnosis + live-stack stability). ALPHA non-live suite 587 passed (56 new), em-dash 0 tracked, owned type-hint 100.0, verify_integration exit 0 (79 modules), style contract exit 0. Root cause: the subprocess unread-PIPE deadlock (prime suspect) is excluded for the canonical launch path (file-handle redirection already in place + hardened); the real memory-service sustained 240 mixed search + store_batch iterations with 0 crashes (sustained_load_no_crash proven). New instrumentation: check_live_stack, monitor_memory_service (resource time-series), reproduce_memory_service_crash, hardened ServiceSupervisor, live-harness ServiceHealthGuard, Gateway degraded-state. Note: Cycle 13.4 ORCH work (FHRSS distributed store-time replication POINT 1 + 8-value compression POINT 2) remains uncommitted in REPO_ORCH and is a separate, incomplete cycle.",
-  "next_cycle": "Close Cycle 16 green with ONE clean live harness re-run (autorun fix + bounded project_files + resilient _post in place; start stack with BYON_REPO_ROOT; expect 203/203 since the sole prior failure was the now-fixed autorun regression). Watch memory_gap_task_autoruns under autorun load (Claude latency + project_files); if still slow, lower BYON_RELATION_AUTORUN_MAX_TASKS_PER_TICK or skip Claude during autorun. Then Cycle 17 can proceed. Operational follow-ups: (a) the 2 pre-existing Cycle-5 live gates (read_consistency_mode_active, vault_active_vs_tombstoned_counts) need the live memory-service client to surface read_consistency_mode and a trained vault to report counts; (b) project_files acquisition is live-dormant because committed canonical memory grounds project questions before acquisition - decide if gap-repair should force a project-source pass even when memory grounds the head fact; (c) finish/commit the Cycle 13.4 ORCH FHRSS work (POINT 3 FCEM lineage, POINT 4 v99 integration tests)."
+  "current_state": "Cycle 16 DONE - CLEAN FULL-GREEN LIVE: 203 graded / 203 pass / 0 fail / 4 skip (all_pass=True, memory_service_crashed=False), confirmed on a fresh stack with BYON_REPO_ROOT. TASK 1 done + unit-proven (require_independent_source: verify/dispute gap-repair seeks a source independent of cached vault grounding, no short-circuit; scoped to the explicit lifeloop_run_task path; normal retrieval keeps memory-wins). TASK 2 done: the two previously-red Cycle-5 gates now green with real state (read_consistency_mode_active=in_engine_rw_lock; vault_active_vs_tombstoned_counts active=5977 tombstoned=4419). Routing proof green (gap_repair_routes_through_acquisition). En route to green: found+fixed a self-introduced autorun regression (require_independent on the autonomous path stalled ticks -> manual-path-only); bounded project_files_adapter; made harness _post resilient. The last 4 reds in the prior 199/203 run were NOT correctness/invariant violations but read-latency artifacts: the relation-field append-only JSONL had bloated to 162K entity + 63K edge lines (every add_entity/add_relation appends a full copy), so per-request status/gaps reads took 57s/38.8s and the harness mget(40s) coerced the timeout to {} -> false-failed is_truth_authority/gaps/autorun/recent-write. ROOT-CAUSE FIX: RelationField.compact() rewrites one line per current key (state-preserving, since _load is already last-wins); wired into maintenance gated on a bloat threshold; bumped harness mget 40->90s. Compacted the live field 162781->1090 entities / 63366->1020 edges / 5002->62 contradictions; reload dropped 28.6s->0.29s, status/gaps reads 57s->~1s. 656 non-live passed, em-dash 0, verify_integration exit 0, check_style_contract exit 0. NOTE: the psutil monitor under-sampled this run (0 RSS samples, 98s window), but the harness health trace confirms memory_service_alive across all 33 gate checkpoints, healthy start+end, no crash. Prior: Cycle 15 DONE (relation-intelligence layer): per-hop path weighting + explanation v2, scheduled decay maintenance, LifeLoop integration, autonomous gap-repair routed through the 13.3 acquisition phase (acquisition_context/repo_root wired; routing proven live), relation task ingestion as candidates, relation self-state v2, Gateway-only maintenance endpoints. Four phases, one commit each (no squash): b0114d7, 741f3d9, cdf18d2, + closing commit. Non-live 646 passed; 25/25 Cycle-15 live gates pass. Honest finding: project_files adapter is live-dormant (committed canonical memory grounds project questions before acquisition; unit-proven with empty memory). Extended stability: 278 psutil samples over ~37 min, 0 crashes, RSS flat (ratio 1.005, slope +0.085 MB/min). Prior: Cycle 14.1 PASS: full 178-gate graded live harness over ~23 min under a psutil-backed RSS/CPU/FD monitor; 178/178 gates pass, 0 crashes, 0 restarts, flat memory/FD trend (no leak); all pre-declared P1-P5 met. Stability is PROVEN under the real harness profile. Prior: Cycle 14 applied (memory-service crash diagnosis + live-stack stability). ALPHA non-live suite 587 passed (56 new), em-dash 0 tracked, owned type-hint 100.0, verify_integration exit 0 (79 modules), style contract exit 0. Root cause: the subprocess unread-PIPE deadlock (prime suspect) is excluded for the canonical launch path (file-handle redirection already in place + hardened); the real memory-service sustained 240 mixed search + store_batch iterations with 0 crashes (sustained_load_no_crash proven). New instrumentation: check_live_stack, monitor_memory_service (resource time-series), reproduce_memory_service_crash, hardened ServiceSupervisor, live-harness ServiceHealthGuard, Gateway degraded-state. Note: Cycle 13.4 ORCH work (FHRSS distributed store-time replication POINT 1 + 8-value compression POINT 2) remains uncommitted in REPO_ORCH and is a separate, incomplete cycle.",
+  "next_cycle": "Cycle 16 CLOSED GREEN (203/203 live). Cycle 17 open. Carry-forward: relation-field compaction now self-bounds via maintenance threshold + RelationField.compact(); if status/gaps latency ever regresses, check relation_edges.jsonl line count vs distinct relations. monitor_memory_service.py under-sampled the last run (tune its sampling window for a real extended RSS trend next live run)."
 }

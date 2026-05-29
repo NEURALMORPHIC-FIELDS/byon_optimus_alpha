@@ -34,6 +34,13 @@ def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _count_lines(path: Path) -> int:
+    try:
+        return sum(1 for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip())
+    except OSError:
+        return 0
+
+
 def _is_canonical(r: Dict[str, Any]) -> bool:
     return r.get("origin") == "canonical_schema" or "SYSTEM_CANONICAL" in (r.get("source_classes") or [])
 
@@ -109,6 +116,14 @@ def run_relation_decay_maintenance(field: RelationField, *, log_path: Optional[s
         "duration_ms": round((time.time() - start) * 1000.0, 2),
         "never_deletes": True, "never_commits": True, "is_truth_authority": False,
     }
+    # Bound the append-only ledgers: every add_entity/add_relation appends a full copy, so the
+    # files grow without limit while distinct state stays small, making per-request reads O(history).
+    # Compact (state-preserving; last-wins is already the load semantics) once a file is mostly
+    # superseded history. Threshold avoids rewriting an already-tight ledger every pass.
+    edges_lines = _count_lines(field.edges_path)
+    if edges_lines > max(2000, 4 * len(field._rel)):
+        report["compaction"] = field.compact()
+
     if log_path:
         p = Path(log_path)
         try:
