@@ -876,7 +876,7 @@ class RelationField:
                         "SYSTEM_CANONICAL" in r.get("source_classes", []) for r in rels)
         path_status = DISPUTED if disputed else (COMMITTED if all_committed else "provisional")
         inverse_rendered = any(inv for _r, _d, inv in steps)
-        weight = round(min((relation_weight_score(r) for r in rels), default=0.0), 4)
+        min_edge_weight = round(min((relation_weight_score(r) for r in rels), default=0.0), 4)
         hops = []
         for r, direction, inv in steps:
             rtype = r["relation_type"]
@@ -890,12 +890,19 @@ class RelationField:
                          "decayed_weight": dec["decayed_weight"], "decay_status": dec["decay_status"],
                          "confidence": round(min(0.99, dec["decayed_weight"]), 3),
                          "evidence_quote": r.get("evidence_quote")})
-        return {"length": len(hops), "path_status": path_status, "canonical": canonical,
-                "weight": weight, "inverse_rendered": inverse_rendered,
-                "note": ("contains an inverse-rendered hop (rendered, not stored as truth)"
-                         if inverse_rendered else None),
-                "source_classes": sorted({sc for r in rels for sc in r.get("source_classes", [])}),
-                "hops": hops}
+        obj = {"length": len(hops), "path_status": path_status, "canonical": canonical,
+               "inverse_rendered": inverse_rendered, "min_edge_weight": min_edge_weight,
+               "note": ("contains an inverse-rendered hop (rendered, not stored as truth)"
+                        if inverse_rendered else None),
+               "source_classes": sorted({sc for r in rels for sc in r.get("source_classes", [])}),
+               "hops": hops}
+        # Cycle 15 TRACK F: per-hop path weighting replaces the old min-edge weight. `weight` is now
+        # the combined per-hop score; `score` carries the full breakdown (lazy import avoids a cycle).
+        from gateway.relation_path_score import path_score
+        score = path_score(obj)
+        obj["weight"] = score["path_weight"]
+        obj["score"] = score
+        return obj
 
 
 def lifeloop_field(users_root: str | Path) -> RelationField:

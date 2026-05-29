@@ -230,6 +230,86 @@ def render_path_explanation(field: rf.RelationField, start: str, target: Optiona
             "answer": "\n".join(lines)}
 
 
+def render_path_explanation_v2(field: rf.RelationField, start: str, target: Optional[str] = None, *,
+                               include_inverse: bool = False, max_depth: int = 2) -> Dict[str, Any]:
+    """Cycle 15 TRACK G: grounded path explanation v2, built on the per-hop path score (TRACK F).
+
+    Adds, over v1: a path summary; a per-hop explanation; a bottleneck explanation; the final path
+    status with WHY it is KNOWN / PROVISIONAL / DISPUTED; relation weights and decayed weights;
+    confidence propagation; the source per hop; and a NEXT RECOMMENDED ACTION when the path is weak.
+    The relation field is never a truth authority; this only explains, it commits nothing."""
+    res = field.multi_hop_path(start, target, max_depth=max_depth, include_inverse=include_inverse)
+    if not res["paths"]:
+        return {"found": False, "epistemic_status": "UNKNOWN", "start": start, "target": target,
+                "path_summary": f"No directed path (<= {max_depth} hops) from {start}"
+                                + (f" to {target}" if target else "") + ".",
+                "hops": [], "bottleneck": None, "next_recommended_action": None,
+                "sources": ["relation:field"]}
+    best = res["paths"][0]
+    score = best.get("score") or {}
+    pstatus = best.get("path_status")
+    if pstatus == rf.DISPUTED:
+        epi, why = "DISPUTED", "a hop on this path is DISPUTED, so the whole chain is disputed"
+    elif pstatus == rf.COMMITTED:
+        epi, why = "KNOWN", ("every hop is committed/canonical and sourced"
+                             if best.get("canonical") else "every hop is committed and sourced")
+    else:
+        epi, why = "PROVISIONAL", ("the chain contains a candidate, unsourced, decayed, or "
+                                   "inverse-rendered hop, so it cannot be asserted as known")
+    per_hop: List[Dict[str, Any]] = []
+    sources = ["relation:field"]
+    for i, h in enumerate(best["hops"]):
+        src_ids = (h.get("source_ids") or [])[:3]
+        for sid in src_ids:
+            if sid and sid not in sources:
+                sources.append(sid)
+        per_hop.append({
+            "index": i, "subject": h["subject"], "relation_type": h["relation_type"],
+            "object": h["object"], "status": h.get("status"), "direction": h.get("direction"),
+            "inverse_rendered": bool(h.get("inverse_rendered")), "weight": h.get("weight"),
+            "decayed_weight": h.get("decayed_weight"), "confidence": h.get("confidence"),
+            "source_classes": h.get("source_classes", []), "source_ids": src_ids,
+            "source": (src_ids[0] if src_ids else "unsourced"),
+            "evidence_quote": h.get("evidence_quote"),
+            "explanation": (f"hop {i}: {h['subject']} {h['relation_type']} {h['object']} "
+                            f"[{h.get('status')}, w={h.get('weight')}, "
+                            f"decayed={h.get('decayed_weight')}, "
+                            f"src={','.join(h.get('source_classes', [])) or 'unknown'}]"
+                            + (" (inverse-rendered, not stored as truth)"
+                               if h.get("inverse_rendered") else ""))})
+    bn = score.get("bottleneck_edge")
+    bottleneck = None
+    if bn is not None:
+        bottleneck = dict(bn)
+        bottleneck["explanation"] = (f"the weakest hop is #{bn.get('index')} "
+                                     f"({bn.get('subject')} {bn.get('relation_type')} "
+                                     f"{bn.get('object')}, weight {bn.get('weight')}); the chain is "
+                                     f"only as strong as this hop")
+    next_action = None
+    if epi != "KNOWN" or float(score.get("path_weight", 0) or 0) < 0.5:
+        if epi == "DISPUTED":
+            next_action = ("resolve the disputed hop: gather an independent verified source or "
+                           "request operator review")
+        elif bn is not None:
+            next_action = (f"strengthen the bottleneck hop #{bn.get('index')} "
+                           f"({bn.get('subject')} {bn.get('relation_type')} {bn.get('object')}): "
+                           f"find a verified/project source to reinforce or commit it")
+        else:
+            next_action = "find a verified source to strengthen the weakest hop"
+    path_summary = (f"{start}" + (f" -> {target}" if target else "")
+                    + f" [{epi}] path_weight={score.get('path_weight')} status={pstatus}; "
+                    + (score.get("explanation") or ""))
+    return {"found": True, "epistemic_status": epi, "why": why, "start": start, "target": target,
+            "path_status": pstatus, "canonical": best.get("canonical"),
+            "path_summary": path_summary, "path_weight": score.get("path_weight"), "score": score,
+            "hops": per_hop, "bottleneck": bottleneck,
+            "confidence_propagation": {"confidence_product": score.get("confidence_product"),
+                                       "per_hop_confidence": [h["confidence"] for h in per_hop]},
+            "relation_weights": [h["weight"] for h in per_hop],
+            "decayed_weights": [h["decayed_weight"] for h in per_hop],
+            "next_recommended_action": next_action, "sources": sources[:12]}
+
+
 def decayed_relations_report(field: rf.RelationField, *, limit: int = 12) -> Dict[str, Any]:
     return {"decayed_relations": field.decayed_relations(limit=limit)}
 
