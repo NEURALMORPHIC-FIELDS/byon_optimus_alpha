@@ -19,6 +19,17 @@
   },
   "runtime_entrypoints": ["run_byon.py", "scripts/live_byon_eval.py", "verify_integration.py",
                           "scripts/check_style_contract.py", "scripts/restart_app.py"],
+  "relation_intelligence": {
+    "gateway/relation_path_score.py": "Cycle 15 TRACK F: per-hop path_score (edge_weights, bottleneck, status/decay/source/length penalties, weakest-condition path status) replacing min-edge-weight; pure/load-free; wired into RelationField._path_obj",
+    "gateway/relation_reports.py:render_path_explanation_v2": "Cycle 15 TRACK G: grounded path explanation v2 (bottleneck, KNOWN/PROVISIONAL/DISPUTED + why, confidence propagation, per-hop source, next action when weak)",
+    "gateway/relation_reports.py:relation_self_state_v2": "Cycle 15 TRACK H: relation-aware self-state (auto-repaired, weakened, gaps, repair tasks, weak paths, central nodes needing sources); read-only, never truth authority",
+    "gateway/relation_maintenance.py": "Cycle 15 TRACK B: scheduled relation decay maintenance (never deletes/commits; canonical resists, disputed/candidate decay faster) + build_gap_acquisition_context() (repo_root/corpus/external-LLM for gap-repair)",
+    "gateway/relation_task_results.py": "Cycle 15 TRACK E: gap-repair task-result ingestion as candidates (evidence->candidate/reinforce, contradiction->disputed challenger, nothing->unresolved); never commits; wired into the live autorun path",
+    "gateway/lifeloop.py": "Cycle 15 TRACK C: tick runs scheduled relation maintenance + gap scan + bounded autorun (BYON_RELATION_* env), skipped when memory-service down; never answers the user",
+    "gap_repair_routing": "Cycle 15 TRACK D: gap-repair evidence-finding runs ONLY through the existing 13.3 acquisition phase in EpistemicSearch.run, reached via lifeloop_run_task -> backend.research(acquisition_context=...) -> search.run; no parallel acquisition path",
+    "relation_maintenance_endpoints": "Cycle 15 TRACK I (Gateway-only): GET maintenance/status, POST maintenance/run, GET gaps, POST gaps/scan, GET path-score, GET task-results under /v1/lifeloop/relation-field/",
+    "live_gates": "Cycle 15 TRACK J: Harness._cycle15_suite (25 graded live gates) in scripts/live_byon_eval.py"
+  },
   "diagnostics_scripts": {
     "scripts/check_live_stack.py": "Cycle 14 S1: pre-flight live-stack health check (Gateway + memory-service + writer lock + relation/lifeloop endpoints); exit 0-5; writes runtime/diagnostics/live_stack_health.{json,md}",
     "scripts/monitor_memory_service.py": "Cycle 14 S2: memory-service crash monitor with RSS/CPU/FD resource time-series; memory liveness derived only from the memory probe, never the Gateway",

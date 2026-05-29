@@ -189,6 +189,25 @@ def test_harness_covers_cycle13_gates():
         assert gate in src, f"harness missing Cycle 13 gate {gate}"
 
 
+def test_harness_covers_cycle15_gates():
+    import inspect
+    src = inspect.getsource(_load().Harness._cycle15_suite)
+    for gate in ["relation_maintenance_status_present", "scheduled_decay_maintenance_runs",
+                 "canonical_resists_scheduled_decay", "weak_relation_flagged_by_maintenance",
+                 "relation_gap_scan_finds_gap", "weak_gap_creates_memory_task",
+                 "web_gap_requires_permission", "memory_gap_task_autoruns",
+                 "relation_task_result_logged", "task_result_candidate_only",
+                 "path_score_reports_bottleneck", "path_score_penalizes_disputed_edge",
+                 "path_score_penalizes_decayed_edge", "path_v2_explains_known_path",
+                 "path_v2_explains_provisional_path", "path_v2_explains_disputed_path",
+                 "self_state_reports_relation_maintenance", "self_state_reports_gap_repair",
+                 "gap_repair_routes_through_acquisition", "source_policy_still_dominant",
+                 "relation_field_still_not_truth_authority", "candidate_lifecycle_still_passes",
+                 "restart_recall_still_passes", "memory_service_health_guard_present",
+                 "FULL_LEVEL3_NOT_DECLARED_preserved"]:
+        assert gate in src, f"harness missing Cycle 15 gate {gate}"
+
+
 def test_harness_report_has_epistemic_fields():
     import inspect
     src = inspect.getsource(_load().Harness.run)

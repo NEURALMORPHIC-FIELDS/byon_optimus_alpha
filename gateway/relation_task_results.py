@@ -26,10 +26,12 @@ def _now() -> str:
 
 def ingest_relation_task_result(*, gap: Dict[str, Any], result: Dict[str, Any],
                                 field: Optional[Any] = None, lifecycle: Optional[Any] = None,
-                                pressure_delta: float = 0.0,
+                                pressure_delta: float = 0.0, candidate_id: Optional[str] = None,
                                 log_path: str = DEFAULT_RESULTS_LOG) -> Dict[str, Any]:
     """Ingest one gap-repair result. Returns the recorded row. Candidate/relation lifecycle only;
-    never commits, never fabricates."""
+    never commits, never fabricates. If `candidate_id` is supplied (the candidate was already
+    created upstream, e.g. by the live autorun via CandidateLifecycle), this logs the result without
+    re-creating a candidate or mutating the field."""
     result = result or {}
     status = result.get("epistemic_status")
     sources = result.get("sources_used") or []
@@ -41,9 +43,10 @@ def ingest_relation_task_result(*, gap: Dict[str, Any], result: Dict[str, Any],
                                                             or result.get("answer") or sources))
     contradiction = status == "DISPUTED"
     candidate_created = relation_updated = False
-    candidate_id = None
 
-    if contradiction and field is not None:
+    if candidate_id is not None:
+        candidate_created = bool(candidate_id)         # already created upstream; log only, no re-create
+    elif contradiction and field is not None:
         # DISPUTED challenger: a contradiction edge (never deletes the original, never commits)
         try:
             field.add_relation(subject, "contradicts", obj, is_contradiction=True,

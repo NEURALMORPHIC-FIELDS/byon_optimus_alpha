@@ -124,6 +124,29 @@ def create_app(config: Optional[GatewayConfig] = None,
                     pass
         except Exception:
             pass
+        # Cycle 15 (TRACK E): log RELATION gap-repair results to relation_task_results.jsonl, routed
+        # as candidates (never committed; the candidate was already created above via CandidateLifecycle).
+        if str(task.get("topic", "")).startswith("relgap:"):
+            try:
+                from gateway.relation_task_results import ingest_relation_task_result
+                rid = task["topic"].split("relgap:", 1)[1]
+                rel = {}
+                try:
+                    from gateway.relation_field import lifeloop_field
+                    rel = lifeloop_field(cfg.users_root)._rel.get(rid, {})
+                except Exception:
+                    rel = {}
+                ingest_relation_task_result(
+                    gap={"relation_id": rid, "subject": rel.get("subject", ""),
+                         "object": rel.get("object", ""),
+                         "predicate": rel.get("predicate", "depends_on"),
+                         "gap_type": "relation_gap", "topic": task["topic"]},
+                    result={"epistemic_status": status,
+                            "answer_summary": (out.get("answer") or "")[:200], "sources_used": sources,
+                            "source_class": out.get("source_class"), "task_id": task["task_id"]},
+                    candidate_id=candidate_id)
+            except Exception:
+                pass
         return {"epistemic_status": status, "answer_summary": (out.get("answer") or "")[:200],
                 "sources_used": sources, "confidence": out.get("confidence"),
                 "audit_trace_id": out.get("audit_trace_id"), "candidate_id": candidate_id,
