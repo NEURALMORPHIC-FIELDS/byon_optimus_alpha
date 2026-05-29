@@ -90,9 +90,16 @@ def _local_vault_hash() -> str:
 
 
 def _post(url: str, path: str, payload: Dict[str, Any], timeout: float = 90.0) -> Dict[str, Any]:
-    r = httpx.post(f"{url}{path}", json=payload, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+    # Resilient: a slow/failed gateway call (e.g. a heavy autorun tick) must NOT crash the whole
+    # harness with an unhandled exception - it records an honest ERROR result for that gate instead.
+    try:
+        r = httpx.post(f"{url}{path}", json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+    except Exception as exc:
+        return {"epistemic_status": "ERROR", "research_status": "error", "answer": "",
+                "error": f"request failed: {exc}", "sources_searched": [], "synthesis": {},
+                "clock": {}, "stress_percent": 0}
 
 
 def _get(url: str, path: str, timeout: float = 30.0) -> Dict[str, Any]:

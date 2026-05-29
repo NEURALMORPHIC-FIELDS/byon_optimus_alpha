@@ -66,15 +66,16 @@ class ProjectFilesAdapter:
         if not files:                                   # no git: fall back to docs + key sources
             files = [str(p.relative_to(root)) for p in root.rglob("*")
                      if p.is_file() and p.suffix in _TEXT_SUFFIXES][:400]
+        # Bound the scan so a single acquire() stays cheap on a large repo (autorun ticks must not
+        # stall): only text files, capped count + per-file size.
+        max_files = int(context.get("max_project_files", 120))
+        candidates = [rel for rel in files
+                      if rel.lower().endswith(_TEXT_SUFFIXES) and not _is_forbidden(rel)][:max_files]
         scored: List[Any] = []
-        for rel in files:
-            if _is_forbidden(rel):
-                continue
-            if not rel.lower().endswith(_TEXT_SUFFIXES):
-                continue
+        for rel in candidates:
             fpath = root / rel
             try:
-                text = fpath.read_text(encoding="utf-8", errors="ignore")
+                text = fpath.read_text(encoding="utf-8", errors="ignore")[:60000]
             except OSError:
                 continue
             for heading, chunk in md_heading_chunks(text, max_chars=900):

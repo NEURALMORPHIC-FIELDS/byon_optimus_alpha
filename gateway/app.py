@@ -95,6 +95,9 @@ def create_app(config: Optional[GatewayConfig] = None,
         ns = _namespace("lifeloop")
         # Cycle 15 (TRACK D): pass acquisition_context (repo_root from BYON_REPO_ROOT) so the 13.3
         # project_files / corpus / external-LLM adapters actually fire for gap-repair tasks.
+        # Cycle 16: the independent-source audit (require_independent_source) is set only on the
+        # EXPLICIT operator run-task path (lifeloop_run_task), NOT here: the bounded AUTONOMOUS
+        # autorun must stay cheap (a forced whole-repo project_files pass per task would stall ticks).
         from gateway.relation_maintenance import build_gap_acquisition_context
         out = b.research(user_id="lifeloop", session_id="lifeloop_auto", question=task["question"],
                          namespace_dir=ns.root, allow_web=False, allow_claude=True, action="start",
@@ -434,12 +437,16 @@ def create_app(config: Optional[GatewayConfig] = None,
                 # Cycle 15 (TRACK D): thread acquisition_context (repo_root) so find_internal_evidence
                 # / verify_with_project_source actually exercise the 13.3 project_files adapter.
                 from gateway.relation_maintenance import build_gap_acquisition_context
+                _acq = build_gap_acquisition_context()
+                _q = t.get("question", "")
+                if _q.startswith("find a verified/project source for") or _q.startswith("resolve dispute"):
+                    _acq["require_independent_source"] = True   # Cycle 16: audit past cached grounding
                 out = backend.research(user_id="lifeloop", session_id="lifeloop_task",
                                        question=t["question"], namespace_dir=ns.root,
                                        allow_web=("web" in t.get("allowed_sources", []) and
                                                   not t.get("requires_user_permission")),
                                        allow_claude=True, action="start",
-                                       acquisition_context=build_gap_acquisition_context())
+                                       acquisition_context=_acq)
                 res = {"epistemic_status": out.get("epistemic_status"),
                        "answer_head": (out.get("answer") or "")[:200],
                        "source_class": out.get("source_class")}

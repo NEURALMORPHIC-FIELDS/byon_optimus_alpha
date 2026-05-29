@@ -212,6 +212,10 @@ class EpistemicSearch:
         # Cycle 13.2 acquisition state (additive; folded into synthesis inputs after the web phase).
         acquired_packets: List[Any] = []
         acquisition_record: Dict[str, Any] = {"ran": False, "tiers_run": [], "budget_request": None}
+        # Cycle 16 (scoped audit): when set, do NOT short-circuit on existing memory grounding; run
+        # the project_files / external pass to seek a source independent of the cached (vault)
+        # grounding. Set only for verify_with_project_source / resolve_dispute gap-repair tasks.
+        require_independent = bool((acquisition_context or {}).get("require_independent_source"))
 
         if _HIGH_CERTAINTY.search(question):
             clk.add_pressure("high_certainty_demand", PRESSURE_HIGH_CERTAINTY)
@@ -349,7 +353,8 @@ class EpistemicSearch:
                                 sources_searched=sources_searched, memory_hits=memory_hits,
                                 web_results=[], claude_hypothesis=None, synthesis=syn)
 
-        if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY) and committed_pool:
+        if intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY) and committed_pool \
+                and not require_independent:
             memory_hits = pool
             answer, srcs = self._describe_from_facts(question, committed_pool)
             clk.set_phase("done")
@@ -393,7 +398,7 @@ class EpistemicSearch:
         # Source-class gate (Cycle 3): the committed fact must be an ALLOWED PRIMARY source for
         # this query class - e.g. a system/project fact may not answer a personal "my X" question
         # (that would be source bleed). Otherwise fall through to honest UNKNOWN/PROVISIONAL.
-        fast_ok = bool(committed) and intent != qr.USER_VAULT_QUERY
+        fast_ok = bool(committed) and intent != qr.USER_VAULT_QUERY and not require_independent
         if fast_ok:
             allowed = sp.ALLOWED_PRIMARY.get(qclass, set())
             if allowed and sp.source_class_of(committed[0]) not in allowed:
@@ -452,10 +457,13 @@ class EpistemicSearch:
         is_project_q = (intent in (qr.SELF_ARCHITECTURE_QUERY, qr.CONTRADICTION_QUERY,
                                    qr.RELATION_FIELD_QUERY) or any(t in qlow for t in qr.SELF_TERMS))
         qpersonal = (qclass in (sp.Q_USER_PERSONAL, sp.Q_USER_VAULT) or intent == qr.USER_VAULT_QUERY)
-        if not suff["sufficient"]:
+        if require_independent or not suff["sufficient"]:
             acquisition_record["ran"] = True
+            acquisition_record["require_independent_source"] = require_independent
             pre = []
-            if is_project_q and not qpersonal:
+            # Cycle 16 audit: an independent-source pass forces project_files (and external) even when
+            # the question is not a project question and even if memory already grounds it.
+            if (require_independent or (is_project_q and not qpersonal)) and not qpersonal:
                 pre.append("project_files")
             if not qpersonal:
                 pre.append("external_llm")
